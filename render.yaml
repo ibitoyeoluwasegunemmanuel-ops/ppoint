@@ -1,10 +1,18 @@
+databases:
+  - name: ppoint-db
+    databaseName: ppoint
+    user: ppoint
+    plan: starter
+
 services:
   - type: web
     name: ppoint-api
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
+    runtime: node
+    rootDir: ./backend
     plan: starter
     autoDeploy: true
+    buildCommand: npm ci
+    startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -18,16 +26,24 @@ services:
       - key: FRONTEND_URL
         value: https://ppoint.online
       - key: USE_IN_MEMORY_DB
+        value: false
+      - key: INIT_DB_ON_START
         value: true
       - key: ADMIN_TOKEN
         sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ppoint-db
+          property: connectionString
 
   - type: web
     name: ppoint-web
-    runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
+    runtime: static
+    rootDir: ./frontend
     plan: starter
     autoDeploy: true
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://ppoint-api.onrender.com/api
+        value: https://api.ppoint.online/api

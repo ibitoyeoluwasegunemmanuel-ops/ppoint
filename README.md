@@ -58,7 +58,7 @@ Default Render behavior in this repo:
 
 1. `ppoint-web` serves the website.
 2. `ppoint-api` serves the backend API.
-3. Render deployment defaults to `USE_IN_MEMORY_DB=true` so the app can run even without a managed PostGIS database.
+3. Render deployment provisions a managed PostgreSQL database and boots the schema automatically.
 
 Recommended Render domain mapping:
 
@@ -72,7 +72,7 @@ Recommended Render domain mapping:
 - Set up SSL certificates for production.
 - For the frontend, set `VITE_API_BASE_URL=/api` when deploying behind the same domain.
 - For production on `ppoint.online`, set `FRONTEND_URL=https://ppoint.online` in the backend environment.
-- For Render, the frontend auto-resolves `https://ppoint-api.onrender.com/api` unless you override `VITE_API_BASE_URL`.
+- For Render, set the frontend API URL to `https://api.ppoint.online/api` after the custom API domain is attached.
 
 Backend defaults are currently defined in `backend/.env` for local development.
 If PostgreSQL/PostGIS is not installed locally yet, the backend can run in a development fallback mode with `USE_IN_MEMORY_DB=true`.
@@ -104,10 +104,11 @@ https://github.com/ibitoyeoluwasegunemmanuel-ops/ppoint.git
 ### Render checklist
 
 1. Create a new Blueprint service on Render from this GitHub repository.
-2. Approve the two services from [render.yaml](render.yaml): `ppoint-web` and `ppoint-api`.
+2. Approve the three resources from [render.yaml](render.yaml): `ppoint-web`, `ppoint-api`, and `ppoint-db`.
 3. Set `ADMIN_TOKEN` in the `ppoint-api` service environment.
-4. Add custom domains: `ppoint.online` to `ppoint-web` and `api.ppoint.online` to `ppoint-api`.
+4. Add custom domains: `ppoint.online` and `www.ppoint.online` to `ppoint-web`, and `api.ppoint.online` to `ppoint-api`.
 5. Point your DNS records to the Render targets shown in the Render dashboard.
+6. Redeploy `ppoint-web` after the API custom domain is live so `VITE_API_BASE_URL` points at the final hostname.
 
 ## Scaling Notes
 

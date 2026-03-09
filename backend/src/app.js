@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 
 import addressRoutes from './routes/addressRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import { initDatabase } from './scripts/initDatabase.js';
 
 dotenv.config();
 
@@ -46,6 +47,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`PPOINT server running on port ${PORT}`);
+const startServer = async () => {
+  if (process.env.USE_IN_MEMORY_DB !== 'true' && process.env.INIT_DB_ON_START === 'true') {
+    await initDatabase();
+  }
+
+  app.listen(PORT, () => {
+    console.log(`PPOINT server running on port ${PORT}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error('Failed to start PPOINT server', error);
+  process.exit(1);
 });
