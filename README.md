@@ -49,6 +49,8 @@ This project is configured for a fully free deployment path using:
 2. Railway for the backend API
 3. Supabase PostgreSQL for the database
 
+For exact dashboard values, DNS records, and click-by-click setup, see [DEPLOY_FREE_STACK.md](DEPLOY_FREE_STACK.md).
+
 ## Environment Variables
 
 - Set `ADMIN_TOKEN` for admin dashboard access.
