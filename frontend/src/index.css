@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    font-family: 'Manrope', sans-serif;
+    background: #0c0a09;
+  }
+
+  body {
+    min-height: 100vh;
+    background: transparent;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+.leaflet-container {
+  font-family: inherit;
+}
