@@ -17,10 +17,6 @@ const resolveApiBaseUrl = () => {
     return 'https://api.ppoint.online/api';
   }
 
-  if (hostname.endsWith('.onrender.com')) {
-    return 'https://ppoint-api.onrender.com/api';
-  }
-
   return '/api';
 };
 

@@ -14,6 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  process.env.FRONTEND_PREVIEW_URL,
   'https://ppoint.online',
   'https://www.ppoint.online',
   'http://localhost:5173',
@@ -24,7 +25,11 @@ const allowedOrigins = [
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (
+      !origin
+      || allowedOrigins.includes(origin)
+      || origin.endsWith('.vercel.app')
+    ) {
       callback(null, true);
       return;
     }

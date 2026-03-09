@@ -6,9 +6,14 @@ PPOINT is a digital addressing platform with a Node.js backend, React frontend, 
 
 ```text
 ppoint/
+├── .env.example
 ├── backend/
+│   ├── railway.json
+│   └── .env.example
 ├── database/
 ├── frontend/
+│   ├── vercel.json
+│   └── .env.example
 └── docker-compose.yml
 ```
 
@@ -36,47 +41,23 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-## Production Deployment
+## Deployment Stack
 
-```powershell
-docker-compose up -d
-```
+This project is configured for a fully free deployment path using:
 
-### ppoint.online deployment
-
-```powershell
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
-```
-
-Use [deploy/nginx/ppoint.online.conf](deploy/nginx/ppoint.online.conf) on the host machine to terminate SSL and proxy traffic to the frontend container on `127.0.0.1:8080`.
-
-### Render deployment
-
-The repo includes a Render blueprint at [render.yaml](render.yaml).
-
-Default Render behavior in this repo:
-
-1. `ppoint-web` serves the website.
-2. `ppoint-api` serves the backend API.
-3. Render deployment provisions a managed PostgreSQL database and boots the schema automatically.
-
-Recommended Render domain mapping:
-
-1. `ppoint.online` and `www.ppoint.online` -> `ppoint-web`
-2. `api.ppoint.online` -> `ppoint-api`
+1. Vercel for the frontend
+2. Railway for the backend API
+3. Supabase PostgreSQL for the database
 
 ## Environment Variables
 
 - Set `ADMIN_TOKEN` for admin dashboard access.
-- Configure database credentials.
-- Set up SSL certificates for production.
-- For the frontend, set `VITE_API_BASE_URL=/api` when deploying behind the same domain.
+- Configure `DATABASE_URL` with your Supabase PostgreSQL connection string.
+- Set `API_BASE_URL=https://api.ppoint.online`.
+- For the frontend, set `VITE_API_BASE_URL=https://api.ppoint.online/api`.
 - For production on `ppoint.online`, set `FRONTEND_URL=https://ppoint.online` in the backend environment.
-- For Render, set the frontend API URL to `https://api.ppoint.online/api` after the custom API domain is attached.
 
-Backend defaults are currently defined in `backend/.env` for local development.
-If PostgreSQL/PostGIS is not installed locally yet, the backend can run in a development fallback mode with `USE_IN_MEMORY_DB=true`.
-For production, copy [.env.prod.example](.env.prod.example) to `.env.prod`, set strong secrets, and keep `USE_IN_MEMORY_DB=false`.
+Use [.env.example](.env.example) as the base reference. Backend-specific placeholders also exist in [backend/.env.example](backend/.env.example), and frontend-specific placeholders exist in [frontend/.env.example](frontend/.env.example).
 
 ## GitHub
 
@@ -86,29 +67,69 @@ Repository remote:
 https://github.com/ibitoyeoluwasegunemmanuel-ops/ppoint.git
 ```
 
-### GitHub Actions secrets for deploy
+## Frontend Deployment: Vercel
 
-- `DEPLOY_HOST`: production server hostname or IP
-- `DEPLOY_USER`: SSH user on the server
-- `DEPLOY_PATH`: absolute project path on the server
-- `DEPLOY_SSH_KEY`: private SSH key with access to the server
+The frontend already uses Vite and has the correct build script in [frontend/package.json](frontend/package.json):
 
-### Production checklist for ppoint.online
+1. Build command: `npm run build`
+2. Output directory: `dist`
 
-1. Install Docker and Docker Compose on the server.
-2. Copy `.env.prod.example` to `.env.prod` on the server and set real secrets.
-3. Put the SSL certificate files in the paths referenced by `deploy/nginx/ppoint.online.conf`.
-4. Enable the Nginx host config and reload Nginx.
-5. Run `docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build`.
+Vercel config is defined in [frontend/vercel.json](frontend/vercel.json).
 
-### Render checklist
+### Vercel steps
 
-1. Create a new Blueprint service on Render from this GitHub repository.
-2. Approve the three resources from [render.yaml](render.yaml): `ppoint-web`, `ppoint-api`, and `ppoint-db`.
-3. Set `ADMIN_TOKEN` in the `ppoint-api` service environment.
-4. Add custom domains: `ppoint.online` and `www.ppoint.online` to `ppoint-web`, and `api.ppoint.online` to `ppoint-api`.
-5. Point your DNS records to the Render targets shown in the Render dashboard.
-6. Redeploy `ppoint-web` after the API custom domain is live so `VITE_API_BASE_URL` points at the final hostname.
+1. Import the GitHub repository into Vercel.
+2. Set the project root directory to `frontend`.
+3. Confirm build command is `npm run build`.
+4. Confirm output directory is `dist`.
+5. Set environment variable `VITE_API_BASE_URL=https://api.ppoint.online/api`.
+6. Add custom domains `ppoint.online` and `www.ppoint.online`.
+
+## Backend Deployment: Railway
+
+The backend is configured to start with `npm start` in [backend/package.json](backend/package.json), and Railway config is defined in [backend/railway.json](backend/railway.json).
+
+The server listens on `process.env.PORT` in [backend/src/app.js](backend/src/app.js).
+
+### Railway steps
+
+1. Create a new Railway project from the GitHub repository.
+2. Set the service root directory to `backend`.
+3. Confirm start command is `npm start`.
+4. Add these Railway environment variables:
+	1. `DATABASE_URL`
+	2. `ADMIN_TOKEN`
+	3. `API_BASE_URL=https://api.ppoint.online`
+	4. `FRONTEND_URL=https://ppoint.online`
+	5. `NODE_ENV=production`
+5. Add the custom domain `api.ppoint.online`.
+
+## Database Deployment: Supabase
+
+The backend reads the database connection from `process.env.DATABASE_URL` in [backend/src/config/database.js](backend/src/config/database.js).
+
+Supabase connection string format:
+
+```text
+postgresql://postgres.PROJECT_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+### Supabase steps
+
+1. Create a free Supabase project.
+2. Enable the `postgis` extension in Supabase.
+3. Open the SQL Editor and run [database/schema.sql](database/schema.sql).
+4. Copy the Supabase connection string into `DATABASE_URL` on Railway.
+
+## Domain Configuration
+
+Configure these production domains:
+
+1. Frontend: `ppoint.online`
+2. Frontend: `www.ppoint.online`
+3. Backend API: `api.ppoint.online`
+
+Point the frontend domains to Vercel and the API domain to Railway using the DNS values shown in each platform dashboard.
 
 ## Scaling Notes
 
