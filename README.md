@@ -70,6 +70,21 @@ Repository remote:
 https://github.com/ibitoyeoluwasegunemmanuel-ops/ppoint.git
 ```
 
+### GitHub Actions secrets for deploy
+
+- `DEPLOY_HOST`: production server hostname or IP
+- `DEPLOY_USER`: SSH user on the server
+- `DEPLOY_PATH`: absolute project path on the server
+- `DEPLOY_SSH_KEY`: private SSH key with access to the server
+
+### Production checklist for ppoint.online
+
+1. Install Docker and Docker Compose on the server.
+2. Copy `.env.prod.example` to `.env.prod` on the server and set real secrets.
+3. Put the SSL certificate files in the paths referenced by `deploy/nginx/ppoint.online.conf`.
+4. Enable the Nginx host config and reload Nginx.
+5. Run `docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build`.
+
 ## Scaling Notes
 
 - Use Redis for session management.

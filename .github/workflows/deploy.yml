@@ -1,0 +1,42 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync repository to server
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'backend/node_modules' \
+            --exclude 'frontend/node_modules' \
+            ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/
+
+      - name: Deploy stack on server
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            cd ${{ secrets.DEPLOY_PATH }} && \
+            cp .env.prod.example .env.prod 2>/dev/null || true && \
+            docker compose --env-file .env.prod -f docker-compose.prod.yml pull && \
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+          '
