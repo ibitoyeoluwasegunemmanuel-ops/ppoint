@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: ppoint-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: GRID_SIZE
+        value: 20
+      - key: PROXIMITY_RADIUS
+        value: 15
+      - key: FRONTEND_URL
+        value: https://ppoint.online
+      - key: USE_IN_MEMORY_DB
+        value: true
+      - key: ADMIN_TOKEN
+        sync: false
+
+  - type: web
+    name: ppoint-web
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://ppoint-api.onrender.com/api

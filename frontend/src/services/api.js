@@ -1,7 +1,31 @@
 import axios from 'axios';
 
+const resolveApiBaseUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  if (typeof window === 'undefined') {
+    return '/api';
+  }
+
+  const { hostname } = window.location;
+
+  if (hostname === 'ppoint.online' || hostname === 'www.ppoint.online') {
+    return 'https://api.ppoint.online/api';
+  }
+
+  if (hostname.endsWith('.onrender.com')) {
+    return 'https://ppoint-api.onrender.com/api';
+  }
+
+  return '/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api'
+  baseURL: resolveApiBaseUrl()
 });
 
 export default api;
