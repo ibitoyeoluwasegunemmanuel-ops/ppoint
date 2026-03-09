@@ -8,12 +8,12 @@ PPOINT is a digital addressing platform with a Node.js backend, React frontend, 
 ppoint/
 ├── .env.example
 ├── backend/
-│   ├── railway.json
 │   └── .env.example
 ├── database/
 ├── frontend/
 │   ├── vercel.json
 │   └── .env.example
+├── render.yaml
 └── docker-compose.yml
 ```
 
@@ -46,7 +46,7 @@ npm.cmd run dev
 This project is configured for a fully free deployment path using:
 
 1. Vercel for the frontend
-2. Railway for the backend API
+2. Render for the backend API
 3. Supabase PostgreSQL for the database
 
 For exact dashboard values, DNS records, and click-by-click setup, see [DEPLOY_FREE_STACK.md](DEPLOY_FREE_STACK.md).
@@ -87,24 +87,29 @@ Vercel config is defined in [frontend/vercel.json](frontend/vercel.json).
 5. Set environment variable `VITE_API_BASE_URL=https://api.ppoint.online/api`.
 6. Add custom domains `ppoint.online` and `www.ppoint.online`.
 
-## Backend Deployment: Railway
+## Backend Deployment: Render
 
-The backend is configured to start with `npm start` in [backend/package.json](backend/package.json), and Railway config is defined in [backend/railway.json](backend/railway.json).
+The backend is configured to start with `npm start` in [backend/package.json](backend/package.json), and Render config is defined in [render.yaml](render.yaml).
 
 The server listens on `process.env.PORT` in [backend/src/app.js](backend/src/app.js).
 
-### Railway steps
+### Render steps
 
-1. Create a new Railway project from the GitHub repository.
-2. Set the service root directory to `backend`.
-3. Confirm start command is `npm start`.
-4. Add these Railway environment variables:
+1. Create a new Web Service or Blueprint in Render from the GitHub repository.
+2. If using a Web Service, set the root directory to `backend`.
+3. Build command: `npm ci`.
+4. Start command: `npm start`.
+5. Add these Render environment variables:
 	1. `DATABASE_URL`
 	2. `ADMIN_TOKEN`
 	3. `API_BASE_URL=https://api.ppoint.online`
 	4. `FRONTEND_URL=https://ppoint.online`
 	5. `NODE_ENV=production`
-5. Add the custom domain `api.ppoint.online`.
+	6. `USE_IN_MEMORY_DB=false`
+	7. `INIT_DB_ON_START=false`
+	8. `GRID_SIZE=20`
+	9. `PROXIMITY_RADIUS=15`
+6. Add the custom domain `api.ppoint.online`.
 
 ## Database Deployment: Supabase
 
@@ -121,7 +126,7 @@ postgresql://postgres.PROJECT_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com
 1. Create a free Supabase project.
 2. Enable the `postgis` extension in Supabase.
 3. Open the SQL Editor and run [database/schema.sql](database/schema.sql).
-4. Copy the Supabase connection string into `DATABASE_URL` on Railway.
+4. Copy the Supabase connection string into `DATABASE_URL` on Render.
 
 ## Domain Configuration
 
@@ -131,7 +136,7 @@ Configure these production domains:
 2. Frontend: `www.ppoint.online`
 3. Backend API: `api.ppoint.online`
 
-Point the frontend domains to Vercel and the API domain to Railway using the DNS values shown in each platform dashboard.
+Point the frontend domains to Vercel and the API domain to Render using the DNS values shown in each platform dashboard.
 
 ## Scaling Notes
 
