@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 
 import addressRoutes from './routes/addressRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -69,7 +70,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const startServer = async () => {
+export const startServer = async () => {
   if (process.env.USE_IN_MEMORY_DB !== 'true' && process.env.INIT_DB_ON_START === 'true') {
     await initDatabase();
   }
@@ -79,7 +80,13 @@ const startServer = async () => {
   });
 };
 
-startServer().catch((error) => {
-  console.error('Failed to start PPOINT server', error);
-  process.exit(1);
-});
+const isDirectExecution = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+
+if (isDirectExecution) {
+  startServer().catch((error) => {
+    console.error('Failed to start PPOINT server', error);
+    process.exit(1);
+  });
+}
+
+export default app;
