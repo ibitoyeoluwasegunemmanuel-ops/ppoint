@@ -225,6 +225,10 @@ export default function HomePage() {
     setNotice('');
 
     const payload = {
+      code: draftAddress.code,
+      ppoint_code: draftAddress.ppoint_code || draftAddress.code,
+      latitude: draftAddress.latitude,
+      longitude: draftAddress.longitude,
       buildingName: addressForm.buildingName,
       houseNumber: addressForm.houseNumber,
       landmark: addressForm.landmark,

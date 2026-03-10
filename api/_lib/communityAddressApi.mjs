@@ -62,6 +62,55 @@ const configureRuntime = () => {
   process.env.USE_IN_MEMORY_DB = process.env.DATABASE_URL ? 'false' : 'true';
 };
 
+const createAddressFromDraft = async (body) => {
+  const latitude = Number(body.latitude);
+  const longitude = Number(body.longitude);
+  const code = String(body.code || body.ppoint_code || '').trim();
+
+  if (Number.isNaN(latitude) || Number.isNaN(longitude) || !code) {
+    return null;
+  }
+
+  const [{ default: Address }, { default: City }] = await Promise.all([
+    import('../../backend/src/models/Address.js'),
+    import('../../backend/src/models/City.js'),
+  ]);
+
+  const existingAddress = await Address.findByCode(code).catch(() => null);
+  if (existingAddress) {
+    return existingAddress;
+  }
+
+  const city = await City.findByCoordinates(latitude, longitude);
+  if (!city) {
+    const error = new Error('Location is outside the current African geographic dataset');
+    error.status = 400;
+    throw error;
+  }
+
+  return Address.create({
+    ppointCode: code,
+    uniqueIdentifier: code.split('-').at(-1),
+    cityCode: city.city_code,
+    lat: latitude,
+    lng: longitude,
+    country: city.country,
+    state: city.state,
+    city: city.city_name,
+    district: body.district || null,
+    landmark: body.landmark || null,
+    description: body.description || body.streetDescription || body.street_description || null,
+    streetDescription: body.streetDescription || body.street_description || body.description || null,
+    buildingName: body.buildingName || body.building_name || null,
+    houseNumber: body.houseNumber || body.house_number || null,
+    phoneNumber: body.phoneNumber || body.phone_number || null,
+    addressType: body.addressType || body.address_type || 'community',
+    createdBy: body.createdBy || body.created_by || 'Community',
+    createdSource: body.createdSource || body.created_source || 'community',
+    moderationStatus: body.moderationStatus || body.moderation_status || 'active',
+  });
+};
+
 export const handleCommunityGenerate = async (req, res) => {
   if (req.method !== 'POST') {
     json(res, 405, { success: false, message: 'Method not allowed' });
@@ -111,7 +160,7 @@ export const handleCommunityDetailsUpdate = async (req, res, id) => {
     configureRuntime();
     const body = await parseBody(req);
     const { default: Address } = await import('../../backend/src/models/Address.js');
-    const address = await Address.updateDetails(id, {
+    let address = await Address.updateDetails(id, {
       building_name: body.buildingName || body.building_name || null,
       house_number: body.houseNumber || body.house_number || null,
       landmark: body.landmark || null,
@@ -125,6 +174,26 @@ export const handleCommunityDetailsUpdate = async (req, res, id) => {
       created_source: body.createdSource || body.created_source || 'community',
       is_active: body.isActive === undefined ? true : Boolean(body.isActive),
     });
+
+    if (!address) {
+      const createdAddress = await createAddressFromDraft(body);
+      if (createdAddress?.id) {
+        address = await Address.updateDetails(createdAddress.id, {
+          building_name: body.buildingName || body.building_name || null,
+          house_number: body.houseNumber || body.house_number || null,
+          landmark: body.landmark || null,
+          street_description: body.streetDescription || body.street_description || body.description || null,
+          description: body.description || body.streetDescription || body.street_description || null,
+          district: body.district || null,
+          phone_number: body.phoneNumber || body.phone_number || null,
+          address_type: body.addressType || body.address_type || 'community',
+          moderation_status: body.moderationStatus || body.moderation_status || 'active',
+          created_by: body.createdBy || body.created_by || 'Community',
+          created_source: body.createdSource || body.created_source || 'community',
+          is_active: body.isActive === undefined ? true : Boolean(body.isActive),
+        });
+      }
+    }
 
     if (!address) {
       json(res, 404, { success: false, message: 'Address not found' });
