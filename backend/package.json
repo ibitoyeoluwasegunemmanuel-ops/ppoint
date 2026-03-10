@@ -6,11 +6,14 @@
   "main": "src/app.js",
   "scripts": {
     "db:init": "node src/scripts/initDatabase.js",
+    "db:seed-africa": "node -e \"import('./src/scripts/seedAfricaGeography.js').then((m) => m.seedAfricaGeography()).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); })\"",
     "start": "node src/app.js",
     "dev": "nodemon src/app.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "country-state-city": "^3.2.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",

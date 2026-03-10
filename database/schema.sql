@@ -10,25 +10,57 @@ CREATE TABLE IF NOT EXISTS countries (
     id SERIAL PRIMARY KEY,
     continent_id INTEGER REFERENCES continents(id),
     country_name VARCHAR(100) NOT NULL,
-    country_code VARCHAR(3) NOT NULL,
+    country_code VARCHAR(8) NOT NULL,
+    name VARCHAR(100),
+    code VARCHAR(8),
     is_active BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(country_code)
 );
+
+ALTER TABLE countries
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE countries
+ADD COLUMN IF NOT EXISTS name VARCHAR(100);
+
+ALTER TABLE countries
+ADD COLUMN IF NOT EXISTS code VARCHAR(3);
+
+ALTER TABLE countries
+ALTER COLUMN country_code TYPE VARCHAR(8);
+
+ALTER TABLE countries
+ALTER COLUMN code TYPE VARCHAR(8);
+
+UPDATE countries
+SET name = country_name
+WHERE name IS NULL;
+
+UPDATE countries
+SET code = country_code
+WHERE code IS NULL;
 
 CREATE TABLE IF NOT EXISTS states (
     id SERIAL PRIMARY KEY,
     country_id INTEGER REFERENCES countries(id),
     state_name VARCHAR(100) NOT NULL,
-    state_code VARCHAR(5) NOT NULL,
+    state_code VARCHAR(24) NOT NULL,
     UNIQUE(country_id, state_code)
 );
+
+ALTER TABLE states
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
+
+ALTER TABLE states
+ALTER COLUMN state_code TYPE VARCHAR(24);
 
 CREATE TABLE IF NOT EXISTS cities (
     id SERIAL PRIMARY KEY,
     state_id INTEGER REFERENCES states(id),
     country_id INTEGER REFERENCES countries(id),
     city_name VARCHAR(100) NOT NULL,
-    city_code VARCHAR(3) NOT NULL UNIQUE,
+    city_code VARCHAR(64) NOT NULL UNIQUE,
     min_latitude DECIMAL(10, 8) NOT NULL,
     max_latitude DECIMAL(10, 8) NOT NULL,
     min_longitude DECIMAL(11, 8) NOT NULL,
@@ -38,61 +70,262 @@ CREATE TABLE IF NOT EXISTS cities (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE cities
+ALTER COLUMN city_code TYPE VARCHAR(64);
+
+CREATE TABLE IF NOT EXISTS areas (
+    id SERIAL PRIMARY KEY,
+    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    area_name VARCHAR(120) NOT NULL,
+    area_code VARCHAR(8) NOT NULL UNIQUE,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS addresses (
     id SERIAL PRIMARY KEY,
-    code VARCHAR(10) NOT NULL UNIQUE,
-    city_code VARCHAR(3) REFERENCES cities(city_code),
+    code VARCHAR(32) NOT NULL UNIQUE,
+    ppoint_code VARCHAR(32) UNIQUE,
+    city_code VARCHAR(64) REFERENCES cities(city_code),
+    area_id INTEGER REFERENCES areas(id),
     latitude DECIMAL(10, 8) NOT NULL,
     longitude DECIMAL(11, 8) NOT NULL,
     location GEOMETRY(POINT, 4326),
     country VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,
+    city VARCHAR(100),
+    district VARCHAR(120),
+    building_name VARCHAR(180),
+    house_number VARCHAR(40),
+    landmark VARCHAR(255),
+    street_description TEXT,
+    description TEXT,
+    phone_number VARCHAR(40),
+    address_type VARCHAR(40) DEFAULT 'community',
+    created_by VARCHAR(120) DEFAULT 'Community',
+    created_source VARCHAR(40) DEFAULT 'community',
+    moderation_status VARCHAR(40) DEFAULT 'active',
+    reviewed_by VARCHAR(120),
+    reviewed_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS ppoint_code VARCHAR(32);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS area_id INTEGER REFERENCES areas(id);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS city VARCHAR(100);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS district VARCHAR(120);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS landmark VARCHAR(255);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS building_name VARCHAR(180);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS house_number VARCHAR(40);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS description TEXT;
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS street_description TEXT;
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS phone_number VARCHAR(40);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS address_type VARCHAR(40) DEFAULT 'community';
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS created_by VARCHAR(120) DEFAULT 'Community';
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS created_source VARCHAR(40) DEFAULT 'community';
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS moderation_status VARCHAR(40) DEFAULT 'pending';
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(120);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP;
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE addresses
+ALTER COLUMN city_code TYPE VARCHAR(64);
+
+ALTER TABLE addresses
+ALTER COLUMN code TYPE VARCHAR(32);
+
+UPDATE addresses
+SET ppoint_code = code
+WHERE ppoint_code IS NULL;
+
+ALTER TABLE addresses
+ALTER COLUMN ppoint_code SET NOT NULL;
+
+UPDATE addresses
+SET moderation_status = 'active'
+WHERE moderation_status IS NULL OR moderation_status = 'pending';
+
+UPDATE addresses
+SET street_description = description
+WHERE street_description IS NULL AND description IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_addresses_ppoint_code ON addresses(ppoint_code);
+
+CREATE INDEX IF NOT EXISTS idx_addresses_moderation_status ON addresses(moderation_status);
+
+CREATE INDEX IF NOT EXISTS idx_addresses_address_type ON addresses(address_type);
+
+CREATE TABLE IF NOT EXISTS businesses (
+    id SERIAL PRIMARY KEY,
+    business_name VARCHAR(180) NOT NULL,
+    business_category VARCHAR(120) NOT NULL,
+    contact_phone VARCHAR(40) NOT NULL,
+    email VARCHAR(180) NOT NULL,
+    ppoint_code VARCHAR(32) NOT NULL REFERENCES addresses(ppoint_code),
+    website VARCHAR(255),
+    business_description TEXT NOT NULL,
+    opening_hours VARCHAR(160) NOT NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS field_agents (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(180) NOT NULL,
+    phone_number VARCHAR(40) NOT NULL,
+    email VARCHAR(180),
+    country VARCHAR(120) NOT NULL,
+    state VARCHAR(120) NOT NULL,
+    city VARCHAR(120) NOT NULL,
+    territory VARCHAR(180) NOT NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(120) NOT NULL,
+    email VARCHAR(180) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS subscription_plans (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(80) NOT NULL,
+    slug VARCHAR(40) NOT NULL UNIQUE,
+    description TEXT,
+    price_ngn DECIMAL(12, 2) DEFAULT 0,
+    price_usd DECIMAL(12, 2) DEFAULT 0,
+    request_limit INTEGER NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS developers (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(160) NOT NULL,
+    website VARCHAR(255),
+    email VARCHAR(180) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    api_key VARCHAR(80) UNIQUE,
+    plan VARCHAR(40) NOT NULL DEFAULT 'free',
+    status VARCHAR(40) NOT NULL DEFAULT 'pending_payment',
+    billing_country VARCHAR(8) DEFAULT 'NG',
+    billing_currency VARCHAR(8) DEFAULT 'NGN',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS api_usage (
+    id SERIAL PRIMARY KEY,
+    developer_id INTEGER REFERENCES developers(id) ON DELETE CASCADE,
+    request_count INTEGER DEFAULT 0,
+    month VARCHAR(7) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(developer_id, month)
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    developer_id INTEGER REFERENCES developers(id) ON DELETE CASCADE,
+    plan_slug VARCHAR(40) NOT NULL,
+    payment_method VARCHAR(40) NOT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    currency VARCHAR(8) NOT NULL,
+    proof_name VARCHAR(255),
+    proof_data TEXT,
+    proof_reference VARCHAR(255),
+    status VARCHAR(40) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS platform_settings (
+    id SERIAL PRIMARY KEY,
+    platform_name VARCHAR(160) NOT NULL DEFAULT 'PPOINT Africa',
+    domain VARCHAR(255) NOT NULL DEFAULT 'ppoint.africa',
+    api_base_url VARCHAR(255) DEFAULT 'https://api.ppoint.africa/api',
+    api_rate_limit INTEGER NOT NULL DEFAULT 100,
+    qr_enabled BOOLEAN DEFAULT true,
+    payment_methods JSONB DEFAULT '{}'::jsonb,
+    bank_transfer_details JSONB DEFAULT '{}'::jsonb,
+    support_contacts JSONB DEFAULT '{}'::jsonb,
+    map_api_keys JSONB DEFAULT '{}'::jsonb,
+    currency_settings JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS national_addresses (
+    id SERIAL PRIMARY KEY,
+    ppoint_code VARCHAR(32) NOT NULL UNIQUE,
+    country VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    district VARCHAR(120),
+    street_or_landmark TEXT,
+    latitude DECIMAL(10, 8) NOT NULL,
+    longitude DECIMAL(11, 8) NOT NULL,
+    building_name VARCHAR(180),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    verified_status VARCHAR(40) DEFAULT 'active'
+);
+
+CREATE INDEX IF NOT EXISTS idx_national_addresses_ppoint_code ON national_addresses(ppoint_code);
+CREATE INDEX IF NOT EXISTS idx_national_addresses_verified_status ON national_addresses(verified_status);
+
+CREATE TABLE IF NOT EXISTS staff_accounts (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(120) NOT NULL,
+    email VARCHAR(180) NOT NULL UNIQUE,
+    role VARCHAR(40) NOT NULL CHECK (role IN ('Super Admin', 'Regional Manager', 'City Admin', 'Field Officer')),
+    region_level VARCHAR(20) NOT NULL CHECK (region_level IN ('continent', 'country', 'state', 'city', 'area')),
+    region_id INTEGER,
+    is_enabled BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_addresses_location ON addresses USING GIST(location);
 CREATE INDEX IF NOT EXISTS idx_addresses_code ON addresses(code);
 CREATE INDEX IF NOT EXISTS idx_cities_boundary ON cities USING GIST(boundary);
+CREATE INDEX IF NOT EXISTS idx_areas_city_id ON areas(city_id);
+CREATE INDEX IF NOT EXISTS idx_staff_accounts_region ON staff_accounts(region_level, region_id);
 
-INSERT INTO continents (name, code)
-VALUES ('Africa', 'AFR')
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO countries (continent_id, country_name, country_code, is_active)
-VALUES (1, 'Nigeria', 'NGA', true)
-ON CONFLICT (country_code) DO NOTHING;
-
-INSERT INTO states (country_id, state_name, state_code) VALUES
-(1, 'Lagos State', 'LA'),
-(1, 'Federal Capital Territory', 'FC'),
-(1, 'Oyo State', 'OY'),
-(1, 'Rivers State', 'RI'),
-(1, 'Kano State', 'KN')
-ON CONFLICT (country_id, state_code) DO NOTHING;
-
-INSERT INTO cities (state_id, country_id, city_name, city_code, min_latitude, max_latitude, min_longitude, max_longitude, boundary, is_active)
-VALUES (
-    1, 1, 'Lagos', 'LAG',
-    6.4000, 6.7000, 3.2000, 3.6000,
-    ST_SetSRID(ST_MakePolygon(ST_GeomFromText('LINESTRING(3.2 6.4, 3.6 6.4, 3.6 6.7, 3.2 6.7, 3.2 6.4)')), 4326),
-    true
-)
-ON CONFLICT (city_code) DO NOTHING;
-
-INSERT INTO cities (state_id, country_id, city_name, city_code, min_latitude, max_latitude, min_longitude, max_longitude, boundary, is_active)
-VALUES (
-    2, 1, 'Abuja', 'ABJ',
-    8.9000, 9.2000, 7.1000, 7.5000,
-    ST_SetSRID(ST_MakePolygon(ST_GeomFromText('LINESTRING(7.1 8.9, 7.5 8.9, 7.5 9.2, 7.1 9.2, 7.1 8.9)')), 4326),
-    false
-)
-ON CONFLICT (city_code) DO NOTHING;
-
-INSERT INTO cities (state_id, country_id, city_name, city_code, min_latitude, max_latitude, min_longitude, max_longitude, boundary, is_active)
-VALUES (
-    3, 1, 'Ibadan', 'IBD',
-    7.3000, 7.5000, 3.8000, 4.0000,
-    ST_SetSRID(ST_MakePolygon(ST_GeomFromText('LINESTRING(3.8 7.3, 4.0 7.3, 4.0 7.5, 3.8 7.5, 3.8 7.3)')), 4326),
-    false
-)
-ON CONFLICT (city_code) DO NOTHING;

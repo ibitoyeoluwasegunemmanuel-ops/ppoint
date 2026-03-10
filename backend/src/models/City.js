@@ -11,12 +11,20 @@ class City {
       SELECT
         c.*,
         s.state_name AS state,
-        co.country_name AS country
+        s.state_code,
+        co.country_name AS country,
+        co.country_code
       FROM cities c
       JOIN states s ON c.state_id = s.id
       JOIN countries co ON c.country_id = co.id
-      WHERE ST_Contains(boundary, ST_SetSRID(ST_MakePoint($1, $2), 4326))
-      AND c.is_active = true
+      WHERE c.is_active = true
+      ORDER BY
+        CASE
+          WHEN c.boundary IS NOT NULL AND ST_Contains(c.boundary, ST_SetSRID(ST_MakePoint($1, $2), 4326)) THEN 0
+          WHEN $2 BETWEEN c.min_latitude AND c.max_latitude AND $1 BETWEEN c.min_longitude AND c.max_longitude THEN 1
+          ELSE 2
+        END,
+        POWER(((c.min_latitude + c.max_latitude) / 2) - $2, 2) + POWER(((c.min_longitude + c.max_longitude) / 2) - $1, 2)
       LIMIT 1
     `;
     const result = await pool.query(query, [lng, lat]);
@@ -32,7 +40,9 @@ class City {
       SELECT
         c.*,
         s.state_name AS state,
-        co.country_name AS country
+        s.state_code,
+        co.country_name AS country,
+        co.country_code
       FROM cities c
       JOIN states s ON c.state_id = s.id
       JOIN countries co ON c.country_id = co.id
