@@ -23,6 +23,11 @@ Environment variables:
 
 - `VITE_API_BASE_URL` = `https://api.ppoint.online/api`
 
+Important:
+
+- PPOINNT code generation will fail from production if `api.ppoint.online` does not resolve to the live backend.
+- The frontend can deploy successfully on Vercel even while generation fails, because the API is hosted separately.
+
 Domains to add in Vercel:
 
 - `ppoint.online`
@@ -82,6 +87,12 @@ Relevant project files:
 - [render.yaml](render.yaml)
 - [backend/src/app.js](backend/src/app.js)
 - [backend/src/config/database.js](backend/src/config/database.js)
+
+Production health checks to verify after backend deploy:
+
+- `https://api.ppoint.online/health`
+- `https://api.ppoint.online/api/platform/system/public-config`
+- `POST https://api.ppoint.online/api/platform/community/addresses/generate`
 
 ## 3. Supabase
 

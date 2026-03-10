@@ -53,11 +53,10 @@ For exact dashboard values, DNS records, and click-by-click setup, see [DEPLOY_F
 
 ## Environment Variables
 
-- Set `ADMIN_TOKEN` for admin dashboard access.
-- Configure `DATABASE_URL` with your Supabase PostgreSQL connection string.
-- Set `API_BASE_URL=https://api.ppoint.online`.
-- For the frontend, set `VITE_API_BASE_URL=https://api.ppoint.online/api`.
-- For production on `ppoint.online`, set `FRONTEND_URL=https://ppoint.online` in the backend environment.
+- Backend deployment requires `DATABASE_URL` and `ADMIN_TOKEN` or your custom admin auth values.
+- Backend deployment should set `API_BASE_URL=https://api.ppoint.online` and `FRONTEND_URL=https://ppoint.online`.
+- Frontend deployment on Vercel should set `VITE_API_BASE_URL=https://api.ppoint.online/api`.
+- `MAP_API_KEY` and `JWT_SECRET` are not currently consumed by this repository's deployed frontend flow.
 
 Use [.env.example](.env.example) as the base reference. Backend-specific placeholders also exist in [backend/.env.example](backend/.env.example), and frontend-specific placeholders exist in [frontend/.env.example](frontend/.env.example).
 
@@ -91,7 +90,8 @@ That config already contains:
 3. Confirm build command is `npm run build`.
 4. Confirm output directory is `dist`.
 5. Set environment variable `VITE_API_BASE_URL=https://api.ppoint.online/api`.
-6. Add custom domains `ppoint.online` and `www.ppoint.online`.
+6. Ensure the backend hostname in that variable actually resolves publicly before testing PPOINNT code generation.
+7. Add custom domains `ppoint.online` and `www.ppoint.online`.
 
 ## Backend Deployment: Render
 

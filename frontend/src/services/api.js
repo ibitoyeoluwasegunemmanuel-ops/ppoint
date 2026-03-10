@@ -1,5 +1,11 @@
 import axios from 'axios';
 
+const PRODUCTION_API_FALLBACKS = [
+  'https://api.ppoint.online/api',
+  'https://api.ppoint.africa/api',
+  'https://ppoint-api.onrender.com/api'
+];
+
 const resolveApiBaseUrl = () => {
   const configuredUrl = import.meta.env.VITE_API_BASE_URL;
 
@@ -25,7 +31,7 @@ const resolveApiBaseUrl = () => {
     return 'https://api.ppoint.online/api';
   }
 
-  return 'http://127.0.0.1:3000/api';
+  return PRODUCTION_API_FALLBACKS[0];
 };
 
 const api = axios.create({
