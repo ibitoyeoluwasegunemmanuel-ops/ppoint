@@ -37,6 +37,12 @@ Relevant project file:
 
 - [frontend/vercel.json](frontend/vercel.json)
 
+Expected behavior from that file:
+
+- Frontend build command runs `npm run build`
+- Vite output is read from `dist`
+- SPA routes fall back to `index.html` through a Vercel rewrite
+
 ## 2. Render
 
 Create a new Render backend service from this GitHub repository.

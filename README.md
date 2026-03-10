@@ -78,6 +78,12 @@ The frontend already uses Vite and has the correct build script in [frontend/pac
 
 Vercel config is defined in [frontend/vercel.json](frontend/vercel.json).
 
+That config already contains:
+
+1. `buildCommand: npm run build`
+2. `outputDirectory: dist`
+3. An SPA rewrite that falls back all routes to `index.html`
+
 ### Vercel steps
 
 1. Import the GitHub repository into Vercel.

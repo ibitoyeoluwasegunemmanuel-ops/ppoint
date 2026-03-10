@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import { ArrowRight, Building2, Copy, LocateFixed, MapPinned, MessageSquareShare, Search, Smartphone, Truck } from 'lucide-react';
+import { ArrowRight, Building2, Copy, LocateFixed, MapPinned, Search, Share2, Smartphone, Truck } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
@@ -391,7 +391,7 @@ export default function HomePage() {
 
               <div className="mt-6 rounded-2xl bg-stone-50 p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-stone-700">
-                  <MessageSquareShare size={16} />
+                  <Share2 size={16} />
                   Send to Driver
                 </div>
                 <p className="mt-3 whitespace-pre-line text-sm leading-6 text-stone-600">{deliveryMessage}</p>
