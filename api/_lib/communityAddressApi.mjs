@@ -6,10 +6,38 @@ const json = (res, statusCode, payload) => {
   res.end(JSON.stringify(payload));
 };
 
+const parseLooseBodyValue = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return {};
+  }
+
+  if (typeof value === 'object' && !Buffer.isBuffer(value)) {
+    return value;
+  }
+
+  const rawValue = Buffer.isBuffer(value) ? value.toString('utf8') : String(value);
+
+  try {
+    return JSON.parse(rawValue);
+  } catch {
+    const params = new URLSearchParams(rawValue);
+    if ([...params.keys()].length) {
+      return Object.fromEntries(params.entries());
+    }
+
+    throw new Error('Invalid JSON');
+  }
+};
+
 const parseBody = (req) => new Promise((resolve, reject) => {
-  if (req.body && typeof req.body === 'object') {
-    resolve(req.body);
-    return;
+  try {
+    const parsedBody = parseLooseBodyValue(req.body);
+    if (Object.keys(parsedBody).length || req.body === '' || req.body === null || req.body === undefined) {
+      resolve(parsedBody);
+      return;
+    }
+  } catch {
+    // Fall through to stream parsing below.
   }
 
   let rawBody = '';
@@ -18,13 +46,8 @@ const parseBody = (req) => new Promise((resolve, reject) => {
   });
 
   req.on('end', () => {
-    if (!rawBody) {
-      resolve({});
-      return;
-    }
-
     try {
-      resolve(JSON.parse(rawBody));
+      resolve(parseLooseBodyValue(rawBody));
     } catch (error) {
       reject(error);
     }
