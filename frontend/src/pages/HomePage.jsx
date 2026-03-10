@@ -42,6 +42,19 @@ const getAddressSettings = (publicConfig) => ({
   quickCreateTargetSeconds: Number(publicConfig?.address_settings?.quick_create_target_seconds || 5),
 });
 
+const resolveCommunityApiUrl = (path) => {
+  if (typeof window === 'undefined') {
+    return path;
+  }
+
+  const { hostname, origin } = window.location;
+  if (hostname === 'ppoint.online' || hostname === 'www.ppoint.online' || hostname.endsWith('.vercel.app')) {
+    return `${origin}/api${path}`;
+  }
+
+  return path;
+};
+
 function MapViewportController({ position }) {
   const map = useMap();
 
@@ -180,7 +193,17 @@ export default function HomePage() {
       setSearchResult(null);
       setNotice('PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Failed to generate PPOINNT code.');
+      try {
+        const fallbackResponse = await api.post(resolveCommunityApiUrl('/platform/community/addresses/generate'), {
+          latitude: selectedPosition[0],
+          longitude: selectedPosition[1],
+        });
+        setDraftAddress(fallbackResponse.data.data);
+        setSearchResult(null);
+        setNotice('PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
+      } catch (fallbackError) {
+        setError(fallbackError.response?.data?.message || requestError.response?.data?.message || 'Failed to generate PPOINNT code.');
+      }
     } finally {
       setLoading(false);
     }
@@ -201,17 +224,19 @@ export default function HomePage() {
     setError('');
     setNotice('');
 
+    const payload = {
+      buildingName: addressForm.buildingName,
+      houseNumber: addressForm.houseNumber,
+      landmark: addressForm.landmark,
+      district: addressForm.district,
+      streetDescription: addressForm.streetDescription,
+      phoneNumber: addressForm.phoneNumber,
+      createdBy: 'Community',
+      createdSource: 'community',
+    };
+
     try {
-      const response = await api.patch(`/platform/community/addresses/${draftAddress.id}/details`, {
-        buildingName: addressForm.buildingName,
-        houseNumber: addressForm.houseNumber,
-        landmark: addressForm.landmark,
-        district: addressForm.district,
-        streetDescription: addressForm.streetDescription,
-        phoneNumber: addressForm.phoneNumber,
-        createdBy: 'Community',
-        createdSource: 'community',
-      });
+      const response = await api.patch(`/platform/community/addresses/${draftAddress.id}/details`, payload);
       const nextAddress = response.data.data;
       setDraftAddress(nextAddress);
       const nextSaved = [
@@ -223,7 +248,21 @@ export default function HomePage() {
       localStorage.setItem(storageKey, JSON.stringify(nextSaved));
       setNotice('Community address saved and activated. It is ready for delivery, navigation, and sharing.');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Failed to save community address.');
+      try {
+        const fallbackResponse = await api.patch(resolveCommunityApiUrl(`/platform/community/addresses/${draftAddress.id}/details`), payload);
+        const nextAddress = fallbackResponse.data.data;
+        const nextSaved = [
+          { label: nextAddress.building_name || nextAddress.code, ...nextAddress },
+          ...savedAddresses.filter((item) => item.code !== nextAddress.code),
+        ];
+        setDraftAddress(nextAddress);
+        setSavedAddresses(nextSaved);
+        setShowMoreDetails(false);
+        localStorage.setItem(storageKey, JSON.stringify(nextSaved));
+        setNotice('Community address saved and activated. It is ready for delivery, navigation, and sharing.');
+      } catch (fallbackError) {
+        setError(fallbackError.response?.data?.message || requestError.response?.data?.message || 'Failed to save community address.');
+      }
     } finally {
       setSaving(false);
     }
