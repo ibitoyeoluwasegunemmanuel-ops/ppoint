@@ -71,12 +71,12 @@ https://github.com/ibitoyeoluwasegunemmanuel-ops/ppoint.git
 
 ## Frontend Deployment: Vercel
 
-The frontend already uses Vite and has the correct build script in [frontend/package.json](frontend/package.json):
+The repository root is now Vercel-ready and can build the frontend without changing the project root directory. The root build script in [package.json](package.json) delegates to the Vite app in [frontend/package.json](frontend/package.json), then copies the final static site into the root [dist](dist) directory.
 
 1. Build command: `npm run build`
 2. Output directory: `dist`
 
-Vercel config is defined in [frontend/vercel.json](frontend/vercel.json).
+Vercel config is defined in [vercel.json](vercel.json).
 
 That config already contains:
 
@@ -87,7 +87,7 @@ That config already contains:
 ### Vercel steps
 
 1. Import the GitHub repository into Vercel.
-2. Set the project root directory to `frontend`.
+2. Keep the project root directory at the repository root, or set it to `frontend` if you prefer the older frontend-only setup.
 3. Confirm build command is `npm run build`.
 4. Confirm output directory is `dist`.
 5. Set environment variable `VITE_API_BASE_URL=https://api.ppoint.online/api`.

@@ -1,0 +1,7 @@
+{
+  "name": "ppoint",
+  "private": true,
+  "scripts": {
+    "build": "npm install --prefix frontend && npm run build --prefix frontend && node scripts/prepare-vercel-dist.mjs"
+  }
+}

@@ -13,7 +13,7 @@ Create a new Vercel project from this GitHub repository.
 Use these values:
 
 - Framework Preset: `Vite`
-- Root Directory: `frontend`
+- Root Directory: repository root
 - Build Command: `npm run build`
 - Output Directory: `dist`
 - Install Command: `npm install`
@@ -35,12 +35,12 @@ DNS expectation:
 
 Relevant project file:
 
-- [frontend/vercel.json](frontend/vercel.json)
+- [vercel.json](vercel.json)
 
 Expected behavior from that file:
 
 - Frontend build command runs `npm run build`
-- Vite output is read from `dist`
+- Vite output is copied into the repository root `dist`
 - SPA routes fall back to `index.html` through a Vercel rewrite
 
 ## 2. Render
