@@ -51,8 +51,8 @@ const regionTabCopy = {
 };
 
 const initialLogin = {
-  email: 'admin@ppoint.africa',
-  password: 'Admin@123',
+  email: 'ibitoyeoluwasegunemmanuel@gmail.com',
+  password: 'Clause01!',
 };
 
 const initialStaffForm = {
@@ -91,7 +91,7 @@ export default function AdminDashboard() {
   const [token, setToken] = useState(localStorage.getItem('ppoint_admin_session') || '');
   const [adminProfile, setAdminProfile] = useState(readStoredAdmin);
   const [loginForm, setLoginForm] = useState(initialLogin);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('admin@ppoint.africa');
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('ibitoyeoluwasegunemmanuel@gmail.com');
   const [resetToken, setResetToken] = useState('');
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);

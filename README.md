@@ -53,9 +53,10 @@ For exact dashboard values, DNS records, and click-by-click setup, see [DEPLOY_F
 
 ## Environment Variables
 
-- Backend deployment requires `DATABASE_URL` and `ADMIN_TOKEN` or your custom admin auth values.
+- Backend deployment requires `DATABASE_URL`, `ADMIN_TOKEN`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`.
+- The current default admin login is `ibitoyeoluwasegunemmanuel@gmail.com`; override it with `ADMIN_EMAIL` and `ADMIN_PASSWORD` in production if you rotate credentials later.
 - Backend deployment should set `API_BASE_URL=https://api.ppoint.online` and `FRONTEND_URL=https://ppoint.online`.
-- Frontend deployment on Vercel should set `VITE_API_BASE_URL=https://api.ppoint.online/api`.
+- Hosted frontend builds can use same-origin `/api`; `VITE_API_BASE_URL` is optional unless you want to force a non-default API host.
 - `MAP_API_KEY` and `JWT_SECRET` are not currently consumed by this repository's deployed frontend flow.
 
 Use [.env.example](.env.example) as the base reference. Backend-specific placeholders also exist in [backend/.env.example](backend/.env.example), and frontend-specific placeholders exist in [frontend/.env.example](frontend/.env.example).
@@ -89,9 +90,10 @@ That config already contains:
 2. Keep the project root directory at the repository root, or set it to `frontend` if you prefer the older frontend-only setup.
 3. Confirm build command is `npm run build`.
 4. Confirm output directory is `dist`.
-5. Set environment variable `VITE_API_BASE_URL=https://api.ppoint.online/api`.
-6. Ensure the backend hostname in that variable actually resolves publicly before testing PPOINNT code generation.
-7. Add custom domains `ppoint.online` and `www.ppoint.online`.
+5. Set environment variables `ADMIN_EMAIL=ibitoyeoluwasegunemmanuel@gmail.com` and `ADMIN_PASSWORD=Clause01!`.
+6. Set `DATABASE_URL` if you want durable persistence across serverless invocations.
+7. `VITE_API_BASE_URL` can be omitted for same-origin `/api`, or set to `/api` explicitly.
+8. Add custom domains `ppoint.online` and `www.ppoint.online`.
 
 ## Backend Deployment: Render
 
@@ -108,13 +110,15 @@ The server listens on `process.env.PORT` in [backend/src/app.js](backend/src/app
 5. Add these Render environment variables:
 	1. `DATABASE_URL`
 	2. `ADMIN_TOKEN`
-	3. `API_BASE_URL=https://api.ppoint.online`
-	4. `FRONTEND_URL=https://ppoint.online`
-	5. `NODE_ENV=production`
-	6. `USE_IN_MEMORY_DB=false`
-	7. `INIT_DB_ON_START=false`
-	8. `GRID_SIZE=20`
-	9. `PROXIMITY_RADIUS=15`
+	3. `ADMIN_EMAIL=ibitoyeoluwasegunemmanuel@gmail.com`
+	4. `ADMIN_PASSWORD=Clause01!`
+	5. `API_BASE_URL=https://api.ppoint.online`
+	6. `FRONTEND_URL=https://ppoint.online`
+	7. `NODE_ENV=production`
+	8. `USE_IN_MEMORY_DB=false`
+	9. `INIT_DB_ON_START=false`
+	10. `GRID_SIZE=20`
+	11. `PROXIMITY_RADIUS=15`
 6. Add the custom domain `api.ppoint.online`.
 
 ## Database Deployment: Supabase

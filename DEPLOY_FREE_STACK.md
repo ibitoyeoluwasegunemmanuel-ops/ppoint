@@ -21,12 +21,15 @@ Use these values:
 
 Environment variables:
 
-- `VITE_API_BASE_URL` = `https://api.ppoint.online/api`
+- `ADMIN_EMAIL` = `ibitoyeoluwasegunemmanuel@gmail.com`
+- `ADMIN_PASSWORD` = `Clause01!`
+- `DATABASE_URL` = your PostgreSQL connection string if you want persistent PPOINNT records
+- `VITE_API_BASE_URL` = `/api` if you want to force the default same-origin route
 
 Important:
 
-- PPOINNT code generation will fail from production if `api.ppoint.online` does not resolve to the live backend.
-- The frontend can deploy successfully on Vercel even while generation fails, because the API is hosted separately.
+- The hosted frontend now defaults to same-origin `/api`, so a root Vercel deployment can serve both the UI and backend routes.
+- Without `DATABASE_URL`, serverless instances fall back to in-memory storage and addresses will not persist reliably across invocations.
 
 Domains to add in Vercel:
 
@@ -65,6 +68,8 @@ Environment variables to add in Render:
 
 - `DATABASE_URL` = your Supabase PostgreSQL connection string
 - `ADMIN_TOKEN` = your secret admin token
+- `ADMIN_EMAIL` = `ibitoyeoluwasegunemmanuel@gmail.com`
+- `ADMIN_PASSWORD` = `Clause01!`
 - `API_BASE_URL` = `https://api.ppoint.online`
 - `FRONTEND_URL` = `https://ppoint.online`
 - `NODE_ENV` = `production`

@@ -64,10 +64,10 @@ const settings = {
 const adminUsers = [
   {
     id: 1,
-    email: process.env.ADMIN_EMAIL || 'admin@ppoint.africa',
+    email: process.env.ADMIN_EMAIL || 'ibitoyeoluwasegunemmanuel@gmail.com',
     full_name: 'Platform Owner',
     role: 'Super Admin',
-    password_hash: hashPassword(process.env.ADMIN_PASSWORD || 'Admin@123'),
+    password_hash: hashPassword(process.env.ADMIN_PASSWORD || 'Clause01!'),
     created_at: now(),
   }
 ];
@@ -150,10 +150,10 @@ export const platformStore = {
     if (!adminUsers.length) {
       adminUsers.push({
         id: 1,
-        email: process.env.ADMIN_EMAIL || 'admin@ppoint.africa',
+        email: process.env.ADMIN_EMAIL || 'ibitoyeoluwasegunemmanuel@gmail.com',
         full_name: 'Platform Owner',
         role: 'Super Admin',
-        password_hash: hashPassword(process.env.ADMIN_PASSWORD || 'Admin@123'),
+        password_hash: hashPassword(process.env.ADMIN_PASSWORD || 'Clause01!'),
         created_at: now(),
       });
     }
@@ -470,9 +470,9 @@ export const platformStore = {
       payment_settings: this.getSettings(),
       support_contacts: { ...settings.support_contacts },
       documentation: {
-        search_endpoint: '/api/address/search?code=PPT-NG-LAG-IKD-0021',
+        search_endpoint: '/api/address/search?code=PPT-NG-LAG-IKD-X4D9T',
         response_example: {
-          code: 'PPT-NG-LAG-IKD-0021',
+          code: 'PPT-NG-LAG-IKD-X4D9T',
           country: 'Nigeria',
           state: 'Lagos',
           city: 'Ikorodu',

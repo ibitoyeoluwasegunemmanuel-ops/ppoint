@@ -365,7 +365,7 @@ export default function HomePage() {
           <form onSubmit={handleSearch} className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-stone-400">Search PPOINNT Code</p>
             <div className="mt-4 flex flex-col gap-3 md:flex-row">
-              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search: PPT-NG-LAG-APA-X4D9T2" className={inputClassName} />
+              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search: PPT-NG-LAG-IKD-X4D9T" className={inputClassName} />
               <button disabled={searching} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-stone-950 disabled:opacity-50">
                 <Search size={18} />
                 {searching ? 'Searching...' : 'Search'}

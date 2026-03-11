@@ -22,7 +22,7 @@ const staffAccounts = [
   {
     id: 1,
     full_name: 'Primary Admin',
-    email: 'admin@ppoint.africa',
+    email: 'ibitoyeoluwasegunemmanuel@gmail.com',
     role: 'Super Admin',
     region_level: 'country',
     region_id: 1,

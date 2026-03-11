@@ -4,13 +4,13 @@ import crypto from 'crypto';
 
 const GRID_SIZE = parseInt(process.env.GRID_SIZE, 10) || 20;
 const PROXIMITY_RADIUS = parseInt(process.env.PROXIMITY_RADIUS, 10) || 15;
-const UNIQUE_IDENTIFIER_LENGTH = 6;
+const UNIQUE_IDENTIFIER_LENGTH = 5;
 const UNIQUE_IDENTIFIER_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CODE_GENERATION_MAX_RETRIES = 24;
 const normalizeSegment = (value) => String(value || '')
   .toUpperCase()
   .replace(/[^A-Z0-9\s]/g, ' ')
-  .replace(/\b(STATE|CITY|REGION|PROVINCE|MUNICIPALITY|COUNTY|TERRITORY)\b/g, ' ')
+  .replace(/\b(STATE|CITY|REGION|PROVINCE|MUNICIPALITY|COUNTY|TERRITORY|DISTRICT|SUBURB|NEIGHBORHOOD|AREA|WARD|STREET|ROAD|AVENUE|CLOSE|ESTATE|PHASE|QUARTER|VILLAGE|TOWN)\b/g, ' ')
   .replace(/\s+/g, ' ')
   .trim();
 
@@ -37,6 +37,19 @@ const resolveRegionSegment = (code, label, fallback = 'UNK') => {
   return createCodeSegment(label, fallback);
 };
 
+const buildPpointPrefix = (city) => {
+  const countryCode = String(city.country_code || 'AF').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2).padEnd(2, 'X');
+  const stateCode = resolveRegionSegment(city.state_code, city.state, 'UNK');
+  const cityCode = resolveRegionSegment(city.city_code, city.city_name, 'UNK');
+
+  return {
+    countryCode,
+    stateCode,
+    cityCode,
+    prefix: `PPT-${countryCode}-${stateCode}-${cityCode}`,
+  };
+};
+
 const createRandomIdentifier = () => {
   let identifier = '';
 
@@ -56,9 +69,7 @@ class AddressService {
     }
 
     const existingAddress = await Address.findNearby(lat, lng, PROXIMITY_RADIUS);
-    const countryCode = String(city.country_code || 'AF').toUpperCase();
-    const stateCode = resolveRegionSegment(city.state_code, city.state, 'UNK');
-    const cityCode = resolveRegionSegment(city.city_code, city.city_name, 'UNK');
+    const { countryCode, stateCode, cityCode, prefix } = buildPpointPrefix(city);
     const addressType = options.addressType || 'community';
     const moderationStatus = options.moderationStatus
       || (addressType === 'verified_business' ? 'pending_business_verification' : addressType === 'reported' ? 'reported' : 'active');
@@ -103,7 +114,6 @@ class AddressService {
       };
     }
 
-    const prefix = `PPT-${countryCode}-${stateCode}-${cityCode}`;
     this.calculateGridCoordinates(lat, lng, city);
 
     let newAddress = null;
