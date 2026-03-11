@@ -77,6 +77,7 @@ const syncNationalAddress = (address) => {
     city: address.city,
     district: address.district || null,
     street_or_landmark: streetOrLandmark,
+    place_type: address.custom_place_type || address.place_type || null,
     latitude: Number(address.latitude),
     longitude: Number(address.longitude),
     building_name: address.building_name || null,
@@ -112,9 +113,14 @@ const sanitizeAddress = (address) => {
     moderation_status: resolveAddressStatus(address),
     district: address.district || null,
     house_number: address.house_number || null,
+    street_name: address.street_name || null,
     street_description: address.street_description || address.description || null,
     created_by: address.created_by || 'Community',
     created_source: address.created_source || 'community',
+    place_type: address.place_type || null,
+    custom_place_type: address.custom_place_type || null,
+    display_place_type: address.custom_place_type || address.place_type || null,
+    address_metadata: address.address_metadata || {},
   };
 };
 
@@ -400,10 +406,14 @@ export const inMemoryStore = {
       district: payload.district || null,
       building_name: payload.buildingName || null,
       house_number: payload.houseNumber || null,
+      street_name: payload.streetName || null,
       landmark: payload.landmark || null,
       street_description: payload.streetDescription || payload.description || null,
       description: payload.description || null,
       phone_number: payload.phoneNumber || null,
+      place_type: payload.placeType || null,
+      custom_place_type: payload.customPlaceType || null,
+      address_metadata: payload.addressMetadata || {},
       address_type: addressType,
       created_by: payload.createdBy || 'Community',
       created_source: payload.createdSource || 'community',
@@ -596,6 +606,9 @@ export const inMemoryStore = {
         address.street_description,
         address.building_name,
         address.house_number,
+        address.street_name,
+        address.place_type,
+        address.custom_place_type,
         address.city,
         address.state,
         address.country,
@@ -633,11 +646,23 @@ export const inMemoryStore = {
     if (Object.prototype.hasOwnProperty.call(payload, 'house_number') && payload.house_number !== undefined) {
       address.house_number = payload.house_number || null;
     }
+    if (Object.prototype.hasOwnProperty.call(payload, 'street_name') && payload.street_name !== undefined) {
+      address.street_name = payload.street_name || null;
+    }
     if (Object.prototype.hasOwnProperty.call(payload, 'district') && payload.district !== undefined) {
       address.district = payload.district || null;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'phone_number') && payload.phone_number !== undefined) {
       address.phone_number = payload.phone_number || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'place_type') && payload.place_type !== undefined) {
+      address.place_type = payload.place_type || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'custom_place_type') && payload.custom_place_type !== undefined) {
+      address.custom_place_type = payload.custom_place_type || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'address_metadata') && payload.address_metadata !== undefined) {
+      address.address_metadata = payload.address_metadata || {};
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'address_type') && payload.address_type !== undefined) {
       address.address_type = payload.address_type || 'community';

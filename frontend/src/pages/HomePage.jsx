@@ -5,6 +5,7 @@ import { ArrowRight, Building2, Copy, LocateFixed, MapPinned, Search, Share2, Sm
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
+import { PLACE_TYPES } from '../constants/placeTypes';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -15,6 +16,8 @@ L.Icon.Default.mergeOptions({
 
 const storageKey = 'ppoint_saved_addresses';
 const initialAddressForm = {
+  placeType: '',
+  customPlaceType: '',
   buildingName: '',
   houseNumber: '',
   landmark: '',
@@ -128,7 +131,9 @@ export default function HomePage() {
     'Delivery destination',
     '',
     `PPOINNT Code: ${activeAddress.code}`,
+    activeAddress.display_place_type ? `Place Type: ${activeAddress.display_place_type}` : null,
     `Place: ${activeAddress.building_name || activeAddress.landmark || 'Saved location'}`,
+    activeAddress.structured_address_line || null,
     `City: ${activeAddress.city}, ${activeAddress.state}`,
     shareUrl ? `Share Link: ${shareUrl}` : null,
   ].filter(Boolean).join('\n') : '';
@@ -138,6 +143,7 @@ export default function HomePage() {
     activeAddress.code,
     '',
     [activeAddress.house_number, activeAddress.building_name || activeAddress.landmark || 'Community mapped address'].filter(Boolean).join(' '),
+    activeAddress.structured_address_line || null,
     `${activeAddress.city}, ${activeAddress.state}`,
     shareUrl,
   ].filter(Boolean).join('\n') : '';
@@ -180,6 +186,16 @@ export default function HomePage() {
       return;
     }
 
+    if (!addressForm.placeType) {
+      setError('Select a place type before generating a PPOINNT address.');
+      return;
+    }
+
+    if (addressForm.placeType === 'Other' && !addressForm.customPlaceType.trim()) {
+      setError('Enter the custom place type when selecting Other.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setNotice('');
@@ -188,19 +204,31 @@ export default function HomePage() {
       const response = await api.post('/platform/community/addresses/generate', {
         latitude: selectedPosition[0],
         longitude: selectedPosition[1],
+        placeType: addressForm.placeType,
+        customPlaceType: addressForm.customPlaceType,
       });
       setDraftAddress(response.data.data);
+      setAddressForm((current) => ({
+        ...current,
+        houseNumber: response.data.data.house_number || current.houseNumber,
+      }));
       setSearchResult(null);
-      setNotice('PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
+      setNotice(response.data.data.isExisting ? 'An existing PPOINNT address was found within 5 meters. Review the details and save any updates.' : 'PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
     } catch (requestError) {
       try {
         const fallbackResponse = await api.post(resolveCommunityApiUrl('/platform/community/addresses/generate'), {
           latitude: selectedPosition[0],
           longitude: selectedPosition[1],
+          placeType: addressForm.placeType,
+          customPlaceType: addressForm.customPlaceType,
         });
         setDraftAddress(fallbackResponse.data.data);
+        setAddressForm((current) => ({
+          ...current,
+          houseNumber: fallbackResponse.data.data.house_number || current.houseNumber,
+        }));
         setSearchResult(null);
-        setNotice('PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
+        setNotice(fallbackResponse.data.data.isExisting ? 'An existing PPOINNT address was found within 5 meters. Review the details and save any updates.' : 'PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
       } catch (fallbackError) {
         setError(fallbackError.response?.data?.message || requestError.response?.data?.message || 'Failed to generate PPOINNT code.');
       }
@@ -220,6 +248,16 @@ export default function HomePage() {
       return;
     }
 
+    if (!addressForm.placeType) {
+      setError('Select a place type before saving the PPOINNT address.');
+      return;
+    }
+
+    if (addressForm.placeType === 'Other' && !addressForm.customPlaceType.trim()) {
+      setError('Enter the custom place type when selecting Other.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     setNotice('');
@@ -229,12 +267,16 @@ export default function HomePage() {
       ppoint_code: draftAddress.ppoint_code || draftAddress.code,
       latitude: draftAddress.latitude,
       longitude: draftAddress.longitude,
+      placeType: addressForm.placeType,
+      customPlaceType: addressForm.customPlaceType,
       buildingName: addressForm.buildingName,
-      houseNumber: addressForm.houseNumber,
+      houseNumber: addressForm.houseNumber || draftAddress.house_number || '',
+      streetName: draftAddress.street_name || '',
       landmark: addressForm.landmark,
       district: addressForm.district,
       streetDescription: addressForm.streetDescription,
       phoneNumber: addressForm.phoneNumber,
+      addressMetadata: draftAddress.address_metadata || {},
       createdBy: 'Community',
       createdSource: 'community',
     };
@@ -346,6 +388,11 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName}>
+              <option value="">Select place type</option>
+              {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
+            </select>
+            {addressForm.placeType === 'Other' ? <input value={addressForm.customPlaceType} onChange={(event) => setAddressForm({ ...addressForm, customPlaceType: event.target.value })} className={inputClassName} placeholder="Custom place type" /> : <div className="hidden sm:block" />}
             <button onClick={detectLocation} disabled={loading} className="flex items-center justify-center gap-3 rounded-2xl bg-stone-950 px-6 py-4 font-semibold text-white disabled:opacity-50">
               <LocateFixed size={22} />
               Detect My Location
@@ -380,6 +427,8 @@ export default function HomePage() {
             <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/20 p-6">
               <p className="text-sm uppercase tracking-[0.35em] text-stone-400">Generated PPOINNT Code</p>
               <h2 className="mt-3 text-4xl font-black text-white">{draftAddress.code}</h2>
+              {draftAddress.display_place_type && <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">{draftAddress.display_place_type}</p>}
+              {draftAddress.structured_address_line && <p className="mt-2 text-lg text-stone-200">{draftAddress.structured_address_line}</p>}
               <p className="mt-2 text-stone-300">{draftAddress.city}, {draftAddress.state}, {draftAddress.country}</p>
               <p className="mt-3 text-xs font-mono text-stone-400">{Number(draftAddress.latitude).toFixed(6)}, {Number(draftAddress.longitude).toFixed(6)}</p>
 
@@ -388,6 +437,11 @@ export default function HomePage() {
               </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName}>
+                  <option value="">Select place type</option>
+                  {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
+                </select>
+                {addressForm.placeType === 'Other' && <input value={addressForm.customPlaceType} onChange={(event) => setAddressForm({ ...addressForm, customPlaceType: event.target.value })} className={inputClassName} placeholder="Custom place type" />}
                 <input value={addressForm.buildingName} onChange={(event) => setAddressForm({ ...addressForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name" />
                 {addressSettings.showLandmark && <input value={addressForm.landmark} onChange={(event) => setAddressForm({ ...addressForm, landmark: event.target.value })} className={inputClassName} placeholder="Nearest Landmark (optional)" />}
                 {addressSettings.showStreetDescription && <textarea value={addressForm.streetDescription} onChange={(event) => setAddressForm({ ...addressForm, streetDescription: event.target.value })} className={`${inputClassName} min-h-24 md:col-span-2`} placeholder="Street Description (optional)" />}
@@ -428,7 +482,9 @@ export default function HomePage() {
             <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/10">
               <p className="text-sm uppercase tracking-[0.35em] text-stone-500">My PPOINNT Address</p>
               <h2 className="mt-3 text-4xl font-black text-stone-950">{activeAddress.code}</h2>
+              {activeAddress.display_place_type && <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-stone-500">{activeAddress.display_place_type}</p>}
               <p className="mt-2 text-stone-600">{[activeAddress.house_number, activeAddress.building_name || activeAddress.landmark || activeAddress.description || 'Community mapped address'].filter(Boolean).join(' ')}</p>
+              {activeAddress.structured_address_line && <p className="mt-1 text-stone-600">{activeAddress.structured_address_line}</p>}
               <p className="mt-1 text-stone-600">{activeAddress.city}, {activeAddress.state}</p>
               <p className="mt-2 text-xs font-medium uppercase tracking-[0.25em] text-stone-500">Status: {activeAddress.moderation_status || 'active'}</p>
 

@@ -1,0 +1,18 @@
+export const PLACE_TYPES = [
+  'House',
+  'Shop',
+  'Office',
+  'Hospital',
+  'School',
+  'Church',
+  'Mosque',
+  'Restaurant',
+  'Hotel',
+  'Police Station',
+  'Barracks',
+  'Warehouse',
+  'Market',
+  'Estate Gate',
+  'Public Building',
+  'Other',
+];

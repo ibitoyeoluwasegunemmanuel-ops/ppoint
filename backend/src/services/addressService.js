@@ -1,10 +1,12 @@
 import City from '../models/City.js';
 import Address from '../models/Address.js';
 import crypto from 'crypto';
+import { enrichLocationWithOsmData } from './osmAddressingService.js';
+import { normalizePlaceType } from '../utils/placeType.js';
 
 const GRID_SIZE = parseInt(process.env.GRID_SIZE, 10) || 20;
-const PROXIMITY_RADIUS = parseInt(process.env.PROXIMITY_RADIUS, 10) || 15;
-const UNIQUE_IDENTIFIER_LENGTH = 5;
+const PROXIMITY_RADIUS = parseInt(process.env.PROXIMITY_RADIUS, 10) || 5;
+const UNIQUE_IDENTIFIER_LENGTH = 6;
 const UNIQUE_IDENTIFIER_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CODE_GENERATION_MAX_RETRIES = 24;
 const ADMINISTRATIVE_CITY_OVERRIDES = [
@@ -79,6 +81,43 @@ const createRandomIdentifier = () => {
   return identifier;
 };
 
+const structuredAddressLine = (houseNumber, streetName) => [houseNumber, streetName].filter(Boolean).join(' ').trim() || null;
+
+const toAddressResponse = (address, cityContext, countryCode, stateCode, cityCode) => ({
+  id: address.id,
+  code: address.ppoint_code || address.code,
+  ppoint_code: address.ppoint_code || address.code,
+  city: address.city || cityContext.city_name || cityCode,
+  state: address.state || cityContext.state,
+  country: address.country || cityContext.country,
+  country_code: countryCode,
+  state_code: stateCode,
+  city_code: cityCode,
+  latitude: Number(address.latitude),
+  longitude: Number(address.longitude),
+  coordinates: `${Number(address.latitude)},${Number(address.longitude)}`,
+  district: address.district || null,
+  building_name: address.building_name || null,
+  house_number: address.house_number || null,
+  street_name: address.street_name || null,
+  landmark: address.landmark || null,
+  street_description: address.street_description || address.description || null,
+  description: address.description || null,
+  phone_number: address.phone_number || null,
+  place_type: address.place_type || null,
+  custom_place_type: address.custom_place_type || null,
+  display_place_type: address.custom_place_type || address.place_type || null,
+  address_metadata: address.address_metadata || {},
+  structured_address_line: structuredAddressLine(address.house_number, address.street_name),
+  locality_line: [address.city || cityContext.city_name || cityCode, address.state || cityContext.state, address.country || cityContext.country].filter(Boolean).join(', '),
+  address_type: address.address_type || 'community',
+  status: address.address_status || address.moderation_status || 'active',
+  created_by: address.created_by || 'Community',
+  moderation_status: address.moderation_status || 'active',
+  created_at: address.created_at,
+  shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/${address.ppoint_code || address.code}`,
+});
+
 class AddressService {
   static async generateAddress(lat, lng, options = {}) {
     const city = await City.findByCoordinates(lat, lng);
@@ -89,47 +128,45 @@ class AddressService {
 
     const existingAddress = await Address.findNearby(lat, lng, PROXIMITY_RADIUS);
     const { countryCode, stateCode, cityCode, cityLabel, localityLabel, prefix } = buildPpointPrefix(city);
+    const placeTypeInfo = normalizePlaceType(options.placeType, options.customPlaceType);
+    const osmEnrichment = await enrichLocationWithOsmData(lat, lng);
+    const resolvedHouseNumber = options.houseNumber || osmEnrichment?.buildingNumber || null;
+    const resolvedStreetName = options.streetName || osmEnrichment?.streetName || null;
+    const resolvedMetadata = {
+      ...(osmEnrichment?.metadata || {}),
+      minimum_distance_meters: PROXIMITY_RADIUS,
+      fallback_mode: !osmEnrichment,
+    };
     const addressType = options.addressType || 'community';
     const moderationStatus = options.moderationStatus
       || (addressType === 'verified_business' ? 'pending_business_verification' : addressType === 'reported' ? 'reported' : 'active');
 
     if (existingAddress) {
-      const persistedAddress = (options.landmark && !existingAddress.landmark) || options.buildingName || options.houseNumber || options.streetDescription
+      const persistedAddress = (options.landmark && !existingAddress.landmark)
+        || options.buildingName
+        || options.houseNumber
+        || options.streetDescription
+        || placeTypeInfo.placeType
+        || resolvedStreetName
         ? await Address.updateDetails(existingAddress.id, {
           landmark: options.landmark,
           building_name: options.buildingName,
-          house_number: options.houseNumber,
+          house_number: resolvedHouseNumber,
+          street_name: resolvedStreetName,
           street_description: options.streetDescription,
+          description: options.description || existingAddress.description || localityLabel || null,
+          place_type: placeTypeInfo.placeType,
+          custom_place_type: placeTypeInfo.customPlaceType,
+          address_metadata: {
+            ...(existingAddress.address_metadata || {}),
+            ...resolvedMetadata,
+          },
         })
         : existingAddress;
 
       return {
-        id: persistedAddress.id,
-        code: persistedAddress.ppoint_code || persistedAddress.code,
-        ppoint_code: persistedAddress.ppoint_code || persistedAddress.code,
-        city: cityLabel,
-        state: city.state,
-        country: city.country,
-        country_code: countryCode,
-        state_code: stateCode,
-        city_code: cityCode,
-        latitude: persistedAddress.latitude,
-        longitude: persistedAddress.longitude,
-        coordinates: `${Number(persistedAddress.latitude)},${Number(persistedAddress.longitude)}`,
-        district: persistedAddress.district || null,
-        building_name: persistedAddress.building_name || null,
-        house_number: persistedAddress.house_number || null,
-        landmark: persistedAddress.landmark || options.landmark || null,
-        street_description: persistedAddress.street_description || persistedAddress.description || null,
-        description: persistedAddress.description || localityLabel || null,
-        phone_number: persistedAddress.phone_number || null,
-        address_type: persistedAddress.address_type || 'community',
-        status: persistedAddress.address_status || persistedAddress.moderation_status || 'active',
-        created_by: persistedAddress.created_by || 'Community',
-        moderation_status: persistedAddress.moderation_status || 'active',
-        created_at: persistedAddress.created_at,
+        ...toAddressResponse(persistedAddress, { ...city, city_name: cityLabel }, countryCode, stateCode, cityCode),
         isExisting: true,
-        shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/${persistedAddress.ppoint_code || persistedAddress.code}`
       };
     }
 
@@ -156,8 +193,12 @@ class AddressService {
           description: options.description || localityLabel || null,
           streetDescription: options.streetDescription,
           buildingName: options.buildingName,
-          houseNumber: options.houseNumber,
+          houseNumber: resolvedHouseNumber,
+          streetName: resolvedStreetName,
           phoneNumber: options.phoneNumber,
+          placeType: placeTypeInfo.placeType,
+          customPlaceType: placeTypeInfo.customPlaceType,
+          addressMetadata: resolvedMetadata,
           addressType,
           createdBy: options.createdBy,
           createdSource: options.createdSource,
@@ -181,32 +222,8 @@ class AddressService {
     }
 
     return {
-      id: newAddress.id,
-      code: newAddress.ppoint_code || newAddress.code,
-      ppoint_code: newAddress.ppoint_code || newAddress.code,
-      city: cityLabel,
-      state: city.state,
-      country: city.country,
-      country_code: countryCode,
-      state_code: stateCode,
-      city_code: cityCode,
-      latitude: newAddress.latitude,
-      longitude: newAddress.longitude,
-      coordinates: `${Number(newAddress.latitude)},${Number(newAddress.longitude)}`,
-      district: newAddress.district || null,
-      building_name: newAddress.building_name || null,
-      house_number: newAddress.house_number || null,
-      landmark: newAddress.landmark || options.landmark || null,
-      street_description: newAddress.street_description || newAddress.description || null,
-      description: newAddress.description || localityLabel || null,
-      phone_number: newAddress.phone_number || null,
-      address_type: newAddress.address_type || addressType,
-      status: newAddress.address_status || newAddress.moderation_status || 'active',
-      created_by: newAddress.created_by || 'Community',
-      moderation_status: newAddress.moderation_status || moderationStatus,
-      created_at: newAddress.created_at,
+      ...toAddressResponse(newAddress, { ...city, city_name: cityLabel }, countryCode, stateCode, cityCode),
       isExisting: false,
-      shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/${newAddress.ppoint_code || newAddress.code}`
     };
   }
 
@@ -228,29 +245,9 @@ class AddressService {
     const city = await City.findByCode(address.city_code);
 
     return {
-      id: address.id,
-      code: address.ppoint_code || address.code,
-      ppoint_code: address.ppoint_code || address.code,
-      city: address.city || city?.city_name || address.city_code,
-      state: address.state,
-      country: address.country,
-      latitude: Number(address.latitude),
-      longitude: Number(address.longitude),
-      coordinates: `${Number(address.latitude)},${Number(address.longitude)}`,
-      district: address.district || null,
-      building_name: address.building_name || null,
-      house_number: address.house_number || null,
-      landmark: address.landmark || null,
-      street_description: address.street_description || address.description || null,
-      description: address.description || null,
-      phone_number: address.phone_number || null,
-      address_type: address.address_type || 'community',
-      status: address.address_status || address.moderation_status || 'active',
-      created_by: address.created_by || 'Community',
-      moderation_status: address.moderation_status || 'active',
+      ...toAddressResponse(address, city || {}, city?.country_code || null, city?.state_code || null, address.city_code),
       createdAt: address.created_at,
       mapLink: `https://maps.google.com/?q=${address.latitude},${address.longitude}`,
-      shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/${address.ppoint_code || address.code}`
     };
   }
 
@@ -272,10 +269,16 @@ class AddressService {
       district: item.district || null,
       building_name: item.building_name || null,
       house_number: item.house_number || null,
+      street_name: item.street_name || null,
       landmark: item.landmark || null,
       street_description: item.street_description || item.description || null,
       description: item.description || null,
       phone_number: item.phone_number || null,
+      place_type: item.place_type || null,
+      custom_place_type: item.custom_place_type || null,
+      display_place_type: item.custom_place_type || item.place_type || null,
+      address_metadata: item.address_metadata || {},
+      structured_address_line: structuredAddressLine(item.house_number, item.street_name),
       address_type: item.address_type || 'community',
       status: item.address_status || item.moderation_status || 'active',
       created_by: item.created_by || 'Community',

@@ -62,7 +62,11 @@ class Address {
     streetDescription,
     buildingName,
     houseNumber,
+    streetName,
     phoneNumber,
+    placeType,
+    customPlaceType,
+    addressMetadata,
     addressType,
     createdBy,
     createdSource,
@@ -85,7 +89,11 @@ class Address {
         streetDescription,
         buildingName,
         houseNumber,
+        streetName,
         phoneNumber,
+        placeType,
+        customPlaceType,
+        addressMetadata,
         addressType,
         createdBy,
         createdSource,
@@ -112,7 +120,11 @@ class Address {
         description,
         building_name,
         house_number,
+        street_name,
         phone_number,
+        place_type,
+        custom_place_type,
+        address_metadata,
         address_type,
         created_by,
         created_source,
@@ -120,7 +132,7 @@ class Address {
         is_active,
         location
       )
-      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, ST_SetSRID(ST_MakePoint($4, $3), 4326))
+      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19, $20, $21, $22, ST_SetSRID(ST_MakePoint($4, $3), 4326))
       RETURNING *
     `;
     try {
@@ -138,7 +150,11 @@ class Address {
         description || null,
         buildingName || null,
         houseNumber || null,
+        streetName || null,
         phoneNumber || null,
+        placeType || null,
+        customPlaceType || null,
+        JSON.stringify(addressMetadata || {}),
         addressType || 'community',
         createdBy || 'Community',
         createdSource || 'community',
@@ -211,9 +227,9 @@ class Address {
     const updates = [];
     const values = [Number(id)];
 
-    const pushUpdate = (column, value) => {
+    const pushUpdate = (column, value, expression) => {
       values.push(value);
-      updates.push(`${column} = $${values.length}`);
+      updates.push(`${column} = ${expression || `$${values.length}`}`);
     };
 
     if (Object.prototype.hasOwnProperty.call(payload, 'landmark') && payload.landmark !== undefined) {
@@ -231,11 +247,23 @@ class Address {
     if (Object.prototype.hasOwnProperty.call(payload, 'house_number') && payload.house_number !== undefined) {
       pushUpdate('house_number', payload.house_number || null);
     }
+    if (Object.prototype.hasOwnProperty.call(payload, 'street_name') && payload.street_name !== undefined) {
+      pushUpdate('street_name', payload.street_name || null);
+    }
     if (Object.prototype.hasOwnProperty.call(payload, 'district') && payload.district !== undefined) {
       pushUpdate('district', payload.district || null);
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'phone_number') && payload.phone_number !== undefined) {
       pushUpdate('phone_number', payload.phone_number || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'place_type') && payload.place_type !== undefined) {
+      pushUpdate('place_type', payload.place_type || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'custom_place_type') && payload.custom_place_type !== undefined) {
+      pushUpdate('custom_place_type', payload.custom_place_type || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'address_metadata') && payload.address_metadata !== undefined) {
+      pushUpdate('address_metadata', JSON.stringify(payload.address_metadata || {}), `$${values.length + 1}::jsonb`);
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'address_type') && payload.address_type !== undefined) {
       pushUpdate('address_type', payload.address_type || 'community');

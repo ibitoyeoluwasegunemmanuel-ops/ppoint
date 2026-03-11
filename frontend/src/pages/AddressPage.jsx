@@ -58,10 +58,12 @@ export default function AddressPage() {
     'Delivery destination',
     '',
     `PPOINNT Code: ${address.code}`,
+    address.display_place_type ? `Place type: ${address.display_place_type}` : null,
     `Place: ${[address.house_number, address.building_name || address.landmark || address.description || 'Saved address'].filter(Boolean).join(' ')}`,
+    address.structured_address_line ? `Address line: ${address.structured_address_line}` : null,
     `City: ${address.city}, ${address.state}, ${address.country}`,
     `Share Link: ${shareUrl}`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const sendToDriver = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(deliveryMessage)}`, '_blank', 'noopener,noreferrer');
@@ -86,7 +88,9 @@ export default function AddressPage() {
         <p className="text-sm uppercase tracking-[0.35em] text-stone-500">PPOINT Address</p>
         <h1 className="mt-3 text-4xl font-black text-stone-950">{address.code}</h1>
         <p className="mt-3 text-lg text-stone-600">{address.city}, {address.state}, {address.country}</p>
+        {address.display_place_type && <p className="mt-2 text-sm font-semibold uppercase tracking-[0.2em] text-stone-500">{address.display_place_type}</p>}
         {(address.house_number || address.building_name) && <p className="mt-2 text-sm font-semibold text-stone-800">{[address.house_number, address.building_name].filter(Boolean).join(' ')}</p>}
+        {address.structured_address_line && <p className="mt-2 text-sm font-medium text-stone-800">{address.structured_address_line}</p>}
         {address.landmark && <p className="mt-2 text-sm font-medium text-stone-700">Nearby landmark: {address.landmark}</p>}
         {address.district && <p className="mt-2 text-sm font-medium text-stone-700">District: {address.district}</p>}
         {address.street_description && <p className="mt-2 text-sm text-stone-600">{address.street_description}</p>}

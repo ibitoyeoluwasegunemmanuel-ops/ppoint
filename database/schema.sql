@@ -97,10 +97,14 @@ CREATE TABLE IF NOT EXISTS addresses (
     district VARCHAR(120),
     building_name VARCHAR(180),
     house_number VARCHAR(40),
+    street_name VARCHAR(180),
     landmark VARCHAR(255),
     street_description TEXT,
     description TEXT,
     phone_number VARCHAR(40),
+    place_type VARCHAR(64),
+    custom_place_type VARCHAR(120),
+    address_metadata JSONB DEFAULT '{}'::jsonb,
     address_type VARCHAR(40) DEFAULT 'community',
     created_by VARCHAR(120) DEFAULT 'Community',
     created_source VARCHAR(40) DEFAULT 'community',
@@ -137,6 +141,9 @@ ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS house_number VARCHAR(40);
 
 ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS street_name VARCHAR(180);
+
+ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS description TEXT;
 
 ALTER TABLE addresses
@@ -144,6 +151,15 @@ ADD COLUMN IF NOT EXISTS street_description TEXT;
 
 ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS phone_number VARCHAR(40);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS place_type VARCHAR(64);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS custom_place_type VARCHAR(120);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS address_metadata JSONB DEFAULT '{}'::jsonb;
 
 ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS address_type VARCHAR(40) DEFAULT 'community';

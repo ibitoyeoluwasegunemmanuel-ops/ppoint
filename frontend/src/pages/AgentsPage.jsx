@@ -4,6 +4,7 @@ import { ArrowRight, LocateFixed, MapPinned, Users } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
+import { PLACE_TYPES } from '../constants/placeTypes';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -23,6 +24,8 @@ const initialAgentForm = {
 };
 
 const initialAddressForm = {
+  placeType: '',
+  customPlaceType: '',
   buildingName: '',
   houseNumber: '',
   landmark: '',
@@ -171,6 +174,16 @@ export default function AgentsPage() {
       return;
     }
 
+    if (!mappingForm.placeType) {
+      setError('Select a place type before creating the PPOINNT address.');
+      return;
+    }
+
+    if (mappingForm.placeType === 'Other' && !mappingForm.customPlaceType.trim()) {
+      setError('Enter the custom place type when selecting Other.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setNotice('');
@@ -179,6 +192,8 @@ export default function AgentsPage() {
       await api.post(`/platform/agents/${agentId}/addresses`, {
         latitude: selectedPosition[0],
         longitude: selectedPosition[1],
+        placeType: mappingForm.placeType,
+        customPlaceType: mappingForm.customPlaceType,
         buildingName: mappingForm.buildingName,
         houseNumber: mappingForm.houseNumber,
         landmark: mappingForm.landmark,
@@ -262,6 +277,11 @@ export default function AgentsPage() {
               Start with the building name and optional landmark. Extra details stay hidden unless the agent needs them.
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <select value={mappingForm.placeType} onChange={(event) => setMappingForm({ ...mappingForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? mappingForm.customPlaceType : '' })} className={inputClassName}>
+                <option value="">Select place type</option>
+                {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
+              </select>
+              {mappingForm.placeType === 'Other' && <input value={mappingForm.customPlaceType} onChange={(event) => setMappingForm({ ...mappingForm, customPlaceType: event.target.value })} className={inputClassName} placeholder="Custom place type" />}
               <input value={mappingForm.buildingName} onChange={(event) => setMappingForm({ ...mappingForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name" />
               {addressSettings.showLandmark && <input value={mappingForm.landmark} onChange={(event) => setMappingForm({ ...mappingForm, landmark: event.target.value })} className={inputClassName} placeholder="Nearest Landmark (optional)" />}
               {addressSettings.showStreetDescription && <textarea value={mappingForm.streetDescription} onChange={(event) => setMappingForm({ ...mappingForm, streetDescription: event.target.value })} className={`${inputClassName} min-h-28 md:col-span-2`} placeholder="Street Description (optional)" />}
@@ -307,6 +327,7 @@ export default function AgentsPage() {
                   <div key={address.id} className="rounded-2xl border border-stone-200 p-4">
                     <p className="font-semibold text-stone-950">{address.code}</p>
                     <p className="mt-1 text-sm text-stone-600">{[address.house_number, address.building_name || address.landmark || 'Mapped address'].filter(Boolean).join(' ')} • {address.city}, {address.state}</p>
+                    {address.structured_address_line && <p className="mt-1 text-sm text-stone-500">{address.structured_address_line}</p>}
                     <p className="mt-1 text-xs uppercase tracking-[0.25em] text-stone-500">{address.moderation_status}</p>
                   </div>
                 )) : <p className="text-sm text-stone-500">No mapped addresses yet for this agent.</p>}
