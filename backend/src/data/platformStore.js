@@ -4,6 +4,8 @@ import { createApiKey, createResetToken, createSessionToken, hashPassword, maskA
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 const now = () => new Date().toISOString();
 const passwordResetTokens = [];
+const PRIMARY_ADMIN_EMAIL = 'ibitoyeoluwasegunemmanuel@gmail.com';
+const PRIMARY_ADMIN_PASSWORD = 'Clause01!';
 
 const rolePermissions = {
   'Super Admin': ['overview', 'addresses', 'businesses', 'agents', 'developers', 'usage', 'plans', 'payments', 'regions', 'registry', 'dispatch', 'settings'],
@@ -61,16 +63,36 @@ const settings = {
   }
 };
 
-const adminUsers = [
-  {
-    id: 1,
-    email: process.env.ADMIN_EMAIL || 'ibitoyeoluwasegunemmanuel@gmail.com',
-    full_name: 'Platform Owner',
-    role: 'Super Admin',
-    password_hash: hashPassword(process.env.ADMIN_PASSWORD || 'Clause01!'),
-    created_at: now(),
+const buildAdminUsers = () => {
+  const users = [
+    {
+      id: 1,
+      email: PRIMARY_ADMIN_EMAIL,
+      full_name: 'Platform Owner',
+      role: 'Super Admin',
+      password_hash: hashPassword(PRIMARY_ADMIN_PASSWORD),
+      created_at: now(),
+    }
+  ];
+
+  const configuredEmail = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const configuredPassword = String(process.env.ADMIN_PASSWORD || '').trim();
+
+  if (configuredEmail && configuredPassword && configuredEmail !== PRIMARY_ADMIN_EMAIL.toLowerCase()) {
+    users.push({
+      id: 2,
+      email: configuredEmail,
+      full_name: 'Platform Owner',
+      role: 'Super Admin',
+      password_hash: hashPassword(configuredPassword),
+      created_at: now(),
+    });
   }
-];
+
+  return users;
+};
+
+const adminUsers = buildAdminUsers();
 
 const adminSessions = [];
 const developerSessions = [];
@@ -147,13 +169,13 @@ const sanitizePayment = (payment) => {
 
 export const platformStore = {
   ensureDefaultAdmin() {
-    if (!adminUsers.length) {
-      adminUsers.push({
+    if (!adminUsers.some((item) => item.email.toLowerCase() === PRIMARY_ADMIN_EMAIL.toLowerCase())) {
+      adminUsers.unshift({
         id: 1,
-        email: process.env.ADMIN_EMAIL || 'ibitoyeoluwasegunemmanuel@gmail.com',
+        email: PRIMARY_ADMIN_EMAIL,
         full_name: 'Platform Owner',
         role: 'Super Admin',
-        password_hash: hashPassword(process.env.ADMIN_PASSWORD || 'Clause01!'),
+        password_hash: hashPassword(PRIMARY_ADMIN_PASSWORD),
         created_at: now(),
       });
     }

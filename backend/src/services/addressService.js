@@ -7,6 +7,16 @@ const PROXIMITY_RADIUS = parseInt(process.env.PROXIMITY_RADIUS, 10) || 15;
 const UNIQUE_IDENTIFIER_LENGTH = 5;
 const UNIQUE_IDENTIFIER_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CODE_GENERATION_MAX_RETRIES = 24;
+const ADMINISTRATIVE_CITY_OVERRIDES = [
+  {
+    countryCode: 'NG',
+    stateCode: 'LAG',
+    match: /\b(?:EBUTE\s+IKORODU|AGBEDE(?:\s+IKORODU)?|IKORODU)\b/i,
+    city: 'Ikorodu',
+    cityCode: 'IKD',
+  },
+];
+
 const normalizeSegment = (value) => String(value || '')
   .toUpperCase()
   .replace(/[^A-Z0-9\s]/g, ' ')
@@ -40,12 +50,21 @@ const resolveRegionSegment = (code, label, fallback = 'UNK') => {
 const buildPpointPrefix = (city) => {
   const countryCode = String(city.country_code || 'AF').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2).padEnd(2, 'X');
   const stateCode = resolveRegionSegment(city.state_code, city.state, 'UNK');
-  const cityCode = resolveRegionSegment(city.city_code, city.city_name, 'UNK');
+  const normalizedCityName = normalizeSegment(city.city_name);
+  const administrativeCity = ADMINISTRATIVE_CITY_OVERRIDES.find((item) => (
+    item.countryCode === countryCode
+    && item.stateCode === stateCode
+    && item.match.test(normalizedCityName)
+  ));
+  const cityLabel = administrativeCity?.city || city.city_name;
+  const cityCode = administrativeCity?.cityCode || resolveRegionSegment(city.city_code, cityLabel, 'UNK');
 
   return {
     countryCode,
     stateCode,
     cityCode,
+    cityLabel,
+    localityLabel: administrativeCity && city.city_name !== administrativeCity.city ? city.city_name : null,
     prefix: `PPT-${countryCode}-${stateCode}-${cityCode}`,
   };
 };
@@ -69,7 +88,7 @@ class AddressService {
     }
 
     const existingAddress = await Address.findNearby(lat, lng, PROXIMITY_RADIUS);
-    const { countryCode, stateCode, cityCode, prefix } = buildPpointPrefix(city);
+    const { countryCode, stateCode, cityCode, cityLabel, localityLabel, prefix } = buildPpointPrefix(city);
     const addressType = options.addressType || 'community';
     const moderationStatus = options.moderationStatus
       || (addressType === 'verified_business' ? 'pending_business_verification' : addressType === 'reported' ? 'reported' : 'active');
@@ -88,7 +107,7 @@ class AddressService {
         id: persistedAddress.id,
         code: persistedAddress.ppoint_code || persistedAddress.code,
         ppoint_code: persistedAddress.ppoint_code || persistedAddress.code,
-        city: city.city_name,
+        city: cityLabel,
         state: city.state,
         country: city.country,
         country_code: countryCode,
@@ -102,7 +121,7 @@ class AddressService {
         house_number: persistedAddress.house_number || null,
         landmark: persistedAddress.landmark || options.landmark || null,
         street_description: persistedAddress.street_description || persistedAddress.description || null,
-        description: persistedAddress.description || null,
+        description: persistedAddress.description || localityLabel || null,
         phone_number: persistedAddress.phone_number || null,
         address_type: persistedAddress.address_type || 'community',
         status: persistedAddress.address_status || persistedAddress.moderation_status || 'active',
@@ -131,10 +150,10 @@ class AddressService {
           lng,
           country: city.country,
           state: city.state,
-          city: city.city_name,
+          city: cityLabel,
           district: options.district,
           landmark: options.landmark,
-          description: options.description,
+          description: options.description || localityLabel || null,
           streetDescription: options.streetDescription,
           buildingName: options.buildingName,
           houseNumber: options.houseNumber,
@@ -165,7 +184,7 @@ class AddressService {
       id: newAddress.id,
       code: newAddress.ppoint_code || newAddress.code,
       ppoint_code: newAddress.ppoint_code || newAddress.code,
-      city: city.city_name,
+      city: cityLabel,
       state: city.state,
       country: city.country,
       country_code: countryCode,
@@ -179,7 +198,7 @@ class AddressService {
       house_number: newAddress.house_number || null,
       landmark: newAddress.landmark || options.landmark || null,
       street_description: newAddress.street_description || newAddress.description || null,
-      description: newAddress.description || null,
+      description: newAddress.description || localityLabel || null,
       phone_number: newAddress.phone_number || null,
       address_type: newAddress.address_type || addressType,
       status: newAddress.address_status || newAddress.moderation_status || 'active',
