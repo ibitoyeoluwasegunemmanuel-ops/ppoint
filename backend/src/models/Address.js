@@ -56,6 +56,7 @@ class Address {
     country,
     state,
     city,
+    communityName,
     district,
     landmark,
     description,
@@ -63,7 +64,12 @@ class Address {
     buildingName,
     houseNumber,
     streetName,
+    buildingPolygonId,
     phoneNumber,
+    entranceLabel,
+    entranceLatitude,
+    entranceLongitude,
+    confidenceScore,
     placeType,
     customPlaceType,
     addressMetadata,
@@ -83,6 +89,7 @@ class Address {
         country,
         state,
         city,
+        communityName,
         district,
         landmark,
         description,
@@ -90,7 +97,12 @@ class Address {
         buildingName,
         houseNumber,
         streetName,
+        buildingPolygonId,
         phoneNumber,
+        entranceLabel,
+        entranceLatitude,
+        entranceLongitude,
+        confidenceScore,
         placeType,
         customPlaceType,
         addressMetadata,
@@ -114,6 +126,7 @@ class Address {
         country,
         state,
         city,
+        community_name,
         district,
         landmark,
         street_description,
@@ -121,7 +134,12 @@ class Address {
         building_name,
         house_number,
         street_name,
+        building_polygon_id,
         phone_number,
+        entrance_label,
+        entrance_latitude,
+        entrance_longitude,
+        confidence_score,
         place_type,
         custom_place_type,
         address_metadata,
@@ -132,7 +150,7 @@ class Address {
         is_active,
         location
       )
-      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19, $20, $21, $22, ST_SetSRID(ST_MakePoint($4, $3), 4326))
+      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24::jsonb, $25, $26, $27, $28, $29, ST_SetSRID(ST_MakePoint($4, $3), 4326))
       RETURNING *
     `;
     try {
@@ -144,6 +162,7 @@ class Address {
         country,
         state,
         city,
+        communityName || null,
         district || null,
         landmark || null,
         streetDescription || description || null,
@@ -151,7 +170,12 @@ class Address {
         buildingName || null,
         houseNumber || null,
         streetName || null,
+        buildingPolygonId || null,
         phoneNumber || null,
+        entranceLabel || null,
+        entranceLatitude === undefined || entranceLatitude === null ? null : Number(entranceLatitude),
+        entranceLongitude === undefined || entranceLongitude === null ? null : Number(entranceLongitude),
+        Number(confidenceScore || 0),
         placeType || null,
         customPlaceType || null,
         JSON.stringify(addressMetadata || {}),
@@ -250,11 +274,29 @@ class Address {
     if (Object.prototype.hasOwnProperty.call(payload, 'street_name') && payload.street_name !== undefined) {
       pushUpdate('street_name', payload.street_name || null);
     }
+    if (Object.prototype.hasOwnProperty.call(payload, 'community_name') && payload.community_name !== undefined) {
+      pushUpdate('community_name', payload.community_name || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'building_polygon_id') && payload.building_polygon_id !== undefined) {
+      pushUpdate('building_polygon_id', payload.building_polygon_id || null);
+    }
     if (Object.prototype.hasOwnProperty.call(payload, 'district') && payload.district !== undefined) {
       pushUpdate('district', payload.district || null);
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'phone_number') && payload.phone_number !== undefined) {
       pushUpdate('phone_number', payload.phone_number || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'entrance_label') && payload.entrance_label !== undefined) {
+      pushUpdate('entrance_label', payload.entrance_label || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'entrance_latitude') && payload.entrance_latitude !== undefined) {
+      pushUpdate('entrance_latitude', payload.entrance_latitude === null ? null : Number(payload.entrance_latitude));
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'entrance_longitude') && payload.entrance_longitude !== undefined) {
+      pushUpdate('entrance_longitude', payload.entrance_longitude === null ? null : Number(payload.entrance_longitude));
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'confidence_score') && payload.confidence_score !== undefined) {
+      pushUpdate('confidence_score', Number(payload.confidence_score || 0));
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'place_type') && payload.place_type !== undefined) {
       pushUpdate('place_type', payload.place_type || null);

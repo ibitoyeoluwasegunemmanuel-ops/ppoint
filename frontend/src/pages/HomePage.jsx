@@ -27,6 +27,12 @@ const initialAddressForm = {
 };
 const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500';
 
+const confidenceTone = {
+  high: 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100',
+  medium: 'border-amber-300/30 bg-amber-500/10 text-amber-100',
+  low: 'border-red-300/30 bg-red-500/10 text-red-100',
+};
+
 const readSavedAddresses = () => {
   try {
     return JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -120,8 +126,15 @@ export default function HomePage() {
   const [saving, setSaving] = useState(false);
   const [publicConfig, setPublicConfig] = useState(null);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [selectedNavigationKey, setSelectedNavigationKey] = useState('');
 
   const activeAddress = draftAddress || searchResult;
+  const navigationPoints = Array.isArray(draftAddress?.navigation_points) ? draftAddress.navigation_points : [];
+  const selectedNavigationPoint = navigationPoints.find((point) => point.key === selectedNavigationKey)
+    || navigationPoints.find((point) => point.key === draftAddress?.selected_navigation_point)
+    || navigationPoints[0]
+    || null;
   const activePosition = searchResult
     ? [Number(searchResult.latitude), Number(searchResult.longitude)]
     : (selectedPosition || position);
@@ -134,6 +147,8 @@ export default function HomePage() {
     activeAddress.display_place_type ? `Place Type: ${activeAddress.display_place_type}` : null,
     `Place: ${activeAddress.building_name || activeAddress.landmark || 'Saved location'}`,
     activeAddress.structured_address_line || null,
+    activeAddress.community_name ? `Community: ${activeAddress.community_name}` : null,
+    activeAddress.entrance_label ? `Access Point: ${activeAddress.entrance_label}` : null,
     `City: ${activeAddress.city}, ${activeAddress.state}`,
     shareUrl ? `Share Link: ${shareUrl}` : null,
   ].filter(Boolean).join('\n') : '';
@@ -144,6 +159,7 @@ export default function HomePage() {
     '',
     [activeAddress.house_number, activeAddress.building_name || activeAddress.landmark || 'Community mapped address'].filter(Boolean).join(' '),
     activeAddress.structured_address_line || null,
+    activeAddress.entrance_label ? `Access Point: ${activeAddress.entrance_label}` : null,
     `${activeAddress.city}, ${activeAddress.state}`,
     shareUrl,
   ].filter(Boolean).join('\n') : '';
@@ -153,6 +169,15 @@ export default function HomePage() {
       .then((response) => setPublicConfig(response.data.data || null))
       .catch(() => setPublicConfig(null));
   }, []);
+
+  useEffect(() => {
+    if (!draftAddress) {
+      setSelectedNavigationKey('');
+      return;
+    }
+
+    setSelectedNavigationKey(draftAddress.selected_navigation_point || draftAddress.navigation_points?.[0]?.key || '');
+  }, [draftAddress]);
 
   const setCopied = (value) => {
     setCopyState(value);
@@ -170,8 +195,9 @@ export default function HomePage() {
         const nextPosition = [coords.latitude, coords.longitude];
         setSelectedPosition(nextPosition);
         setPosition(nextPosition);
+        setGpsAccuracy(coords.accuracy ?? null);
         setError('');
-        setNotice('Location detected. Drag the marker if you need to adjust the exact entrance.');
+        setNotice(`Location detected${coords.accuracy ? ` with about ${Math.round(coords.accuracy)}m GPS accuracy` : ''}. Drag the marker if you need to adjust the exact entrance.`);
       },
       () => {
         setError('Location permission was denied. Select the map point manually.');
@@ -206,8 +232,10 @@ export default function HomePage() {
         longitude: selectedPosition[1],
         placeType: addressForm.placeType,
         customPlaceType: addressForm.customPlaceType,
+        gpsAccuracy,
       });
       setDraftAddress(response.data.data);
+      setSelectedNavigationKey(response.data.data.selected_navigation_point || response.data.data.navigation_points?.[0]?.key || '');
       setAddressForm((current) => ({
         ...current,
         houseNumber: response.data.data.house_number || current.houseNumber,
@@ -221,8 +249,10 @@ export default function HomePage() {
           longitude: selectedPosition[1],
           placeType: addressForm.placeType,
           customPlaceType: addressForm.customPlaceType,
+          gpsAccuracy,
         });
         setDraftAddress(fallbackResponse.data.data);
+        setSelectedNavigationKey(fallbackResponse.data.data.selected_navigation_point || fallbackResponse.data.data.navigation_points?.[0]?.key || '');
         setAddressForm((current) => ({
           ...current,
           houseNumber: fallbackResponse.data.data.house_number || current.houseNumber,
@@ -272,11 +302,21 @@ export default function HomePage() {
       buildingName: addressForm.buildingName,
       houseNumber: addressForm.houseNumber || draftAddress.house_number || '',
       streetName: draftAddress.street_name || '',
+      communityName: draftAddress.community_name || '',
       landmark: addressForm.landmark,
       district: addressForm.district,
+      buildingPolygonId: draftAddress.building_polygon_id || draftAddress.address_metadata?.building_id || '',
       streetDescription: addressForm.streetDescription,
       phoneNumber: addressForm.phoneNumber,
-      addressMetadata: draftAddress.address_metadata || {},
+      entranceLabel: selectedNavigationPoint?.label || draftAddress.entrance_label || null,
+      entranceLatitude: selectedNavigationPoint?.latitude ?? draftAddress.entrance_latitude ?? null,
+      entranceLongitude: selectedNavigationPoint?.longitude ?? draftAddress.entrance_longitude ?? null,
+      confidenceScore: draftAddress.confidence_score || 0,
+      addressMetadata: {
+        ...(draftAddress.address_metadata || {}),
+        selected_navigation_point: selectedNavigationPoint?.key || draftAddress.selected_navigation_point || null,
+        navigation_points: draftAddress.navigation_points || draftAddress.address_metadata?.navigation_points || [],
+      },
       createdBy: 'Community',
       createdSource: 'community',
     };
@@ -330,6 +370,7 @@ export default function HomePage() {
       const nextResult = response.data.data;
       setSearchResult(nextResult);
       setDraftAddress(null);
+      setSelectedNavigationKey(nextResult.selected_navigation_point || nextResult.navigation_points?.[0]?.key || '');
       setSelectedPosition([Number(nextResult.latitude), Number(nextResult.longitude)]);
       setPosition([Number(nextResult.latitude), Number(nextResult.longitude)]);
       setNotice('PPOINNT address found.');
@@ -432,9 +473,43 @@ export default function HomePage() {
               <p className="mt-2 text-stone-300">{draftAddress.city}, {draftAddress.state}, {draftAddress.country}</p>
               <p className="mt-3 text-xs font-mono text-stone-400">{Number(draftAddress.latitude).toFixed(6)}, {Number(draftAddress.longitude).toFixed(6)}</p>
 
+              {(draftAddress.confidence_score || draftAddress.confidence_guidance) && (
+                <div className={`mt-4 rounded-2xl border p-4 text-sm ${confidenceTone[draftAddress.confidence_level] || confidenceTone.medium}`}>
+                  <p className="font-semibold uppercase tracking-[0.2em]">Confidence {draftAddress.confidence_score || 0}/100</p>
+                  <p className="mt-2">{draftAddress.confidence_guidance || 'Review the detected entrance and street details before saving.'}</p>
+                </div>
+              )}
+
+              {(draftAddress.community_name || draftAddress.street_name) && (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-stone-200">
+                  {draftAddress.community_name && <p>Detected community: <span className="font-semibold text-white">{draftAddress.community_name}</span></p>}
+                  {draftAddress.street_name && <p className="mt-2">Detected street: <span className="font-semibold text-white">{draftAddress.street_name}</span></p>}
+                </div>
+              )}
+
               <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
                 Only Building / Place Name is required. You can save the PPOINNT address in about {addressSettings.quickCreateTargetSeconds} seconds and add the rest later.
               </div>
+
+              {navigationPoints.length > 0 && (
+                <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-[0.25em] text-stone-300">Suggested access point</p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {navigationPoints.map((point) => (
+                      <button
+                        key={point.key}
+                        type="button"
+                        onClick={() => setSelectedNavigationKey(point.key)}
+                        className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${selectedNavigationPoint?.key === point.key ? 'border-white bg-white text-stone-950' : 'border-white/10 bg-black/20 text-stone-200'}`}
+                      >
+                        <p className="font-semibold">{point.label}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.2em] opacity-70">{point.is_road_access ? 'Road access point' : 'Entrance point'}</p>
+                        <p className="mt-2 font-mono text-xs">{Number(point.latitude).toFixed(6)}, {Number(point.longitude).toFixed(6)}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName}>
@@ -485,8 +560,17 @@ export default function HomePage() {
               {activeAddress.display_place_type && <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-stone-500">{activeAddress.display_place_type}</p>}
               <p className="mt-2 text-stone-600">{[activeAddress.house_number, activeAddress.building_name || activeAddress.landmark || activeAddress.description || 'Community mapped address'].filter(Boolean).join(' ')}</p>
               {activeAddress.structured_address_line && <p className="mt-1 text-stone-600">{activeAddress.structured_address_line}</p>}
+              {activeAddress.community_name && <p className="mt-1 text-stone-600">Community: {activeAddress.community_name}</p>}
+              {activeAddress.entrance_label && <p className="mt-1 text-stone-600">Access point: {activeAddress.entrance_label}</p>}
               <p className="mt-1 text-stone-600">{activeAddress.city}, {activeAddress.state}</p>
               <p className="mt-2 text-xs font-medium uppercase tracking-[0.25em] text-stone-500">Status: {activeAddress.moderation_status || 'active'}</p>
+
+              {(activeAddress.confidence_score || activeAddress.confidence_guidance) && (
+                <div className={`mt-4 rounded-2xl border p-4 text-sm ${confidenceTone[activeAddress.confidence_level] || confidenceTone.medium}`}>
+                  <p className="font-semibold uppercase tracking-[0.2em]">Confidence {activeAddress.confidence_score || 0}/100</p>
+                  {activeAddress.confidence_guidance && <p className="mt-2">{activeAddress.confidence_guidance}</p>}
+                </div>
+              )}
 
               <div className="mt-6 rounded-2xl bg-stone-50 p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-stone-700">

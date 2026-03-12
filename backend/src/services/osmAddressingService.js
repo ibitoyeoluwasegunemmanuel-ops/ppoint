@@ -2,6 +2,7 @@ const OVERPASS_API_URL = process.env.OSM_OVERPASS_API_URL || 'https://overpass-a
 const BUILDING_SEARCH_RADIUS_METERS = Number(process.env.OSM_BUILDING_SEARCH_RADIUS_METERS || 120);
 const STREET_MATCH_RADIUS_METERS = Number(process.env.OSM_STREET_MATCH_RADIUS_METERS || 40);
 const REQUEST_TIMEOUT_MS = Number(process.env.OSM_REQUEST_TIMEOUT_MS || 4500);
+const DRIVER_STOP_OFFSET_METERS = Number(process.env.OSM_DRIVER_STOP_OFFSET_METERS || 8);
 
 const toRadians = (value) => (value * Math.PI) / 180;
 
@@ -57,6 +58,13 @@ const centroidOfPolygon = (coordinates) => {
   };
 };
 
+const parseHouseNumberBase = (value) => {
+  const match = String(value || '').trim().match(/^(\d+)/);
+  return match ? Number(match[1]) : null;
+};
+
+const suffixFromIndex = (index) => String.fromCharCode(65 + Math.max(0, Math.min(index, 25)));
+
 const projectPointToSegment = (point, start, end) => {
   const latitudeScale = 111320;
   const longitudeScale = 111320 * Math.max(Math.cos(toRadians(point.lat)), 0.2);
@@ -89,6 +97,8 @@ const projectPointToSegment = (point, start, end) => {
     segmentLength: Math.sqrt(segmentLengthSquared),
     t,
     cross,
+    start,
+    end,
   };
 };
 
@@ -108,6 +118,8 @@ const analyzePointOnLine = (point, coordinates) => {
         alongDistance,
         projection: projection.projection,
         side: projection.cross >= 0 ? 'left' : 'right',
+        start: projection.start,
+        end: projection.end,
       };
     }
 
@@ -115,6 +127,36 @@ const analyzePointOnLine = (point, coordinates) => {
   }
 
   return best;
+};
+
+const closestPointOnPolyline = (point, coordinates) => {
+  let best = null;
+
+  for (let index = 0; index < coordinates.length - 1; index += 1) {
+    const projection = projectPointToSegment(point, coordinates[index], coordinates[index + 1]);
+    if (!best || projection.distance < best.distance) {
+      best = projection;
+    }
+  }
+
+  return best;
+};
+
+const offsetPointAlongSegment = (analysis, meters) => {
+  if (!analysis?.start || !analysis?.end) {
+    return analysis?.projection || null;
+  }
+
+  const latitudeScale = 111320;
+  const longitudeScale = 111320 * Math.max(Math.cos(toRadians(analysis.projection.lat)), 0.2);
+  const deltaX = (analysis.end.lng - analysis.start.lng) * longitudeScale;
+  const deltaY = (analysis.end.lat - analysis.start.lat) * latitudeScale;
+  const length = Math.sqrt((deltaX ** 2) + (deltaY ** 2)) || 1;
+
+  return {
+    lat: analysis.projection.lat + ((deltaY / length) * meters) / latitudeScale,
+    lng: analysis.projection.lng + ((deltaX / length) * meters) / longitudeScale,
+  };
 };
 
 const minimumDistanceToPolyline = (point, coordinates) => {
@@ -241,6 +283,28 @@ const chooseStreet = (point, streets, preferredStreetName = '') => {
   return best;
 };
 
+const buildInsertionNumber = (sideBuildings, selectedAlongDistance) => {
+  const ordered = sideBuildings
+    .map((building) => ({
+      ...building,
+      numericHouseNumber: parseHouseNumberBase(building.houseNumber),
+    }))
+    .sort((left, right) => left.alongDistance - right.alongDistance);
+  const insertionIndex = ordered.findIndex((building) => selectedAlongDistance < building.alongDistance);
+  const previous = insertionIndex <= 0 ? null : ordered[insertionIndex - 1];
+  const next = insertionIndex === -1 ? null : ordered[insertionIndex];
+
+  if (!previous?.numericHouseNumber) {
+    return null;
+  }
+
+  if (!next?.numericHouseNumber || next.numericHouseNumber - previous.numericHouseNumber <= 2) {
+    return `${previous.numericHouseNumber}${suffixFromIndex(0)}`;
+  }
+
+  return `${previous.numericHouseNumber}${suffixFromIndex(0)}`;
+};
+
 const buildSequentialNumber = (selectedBuilding, street, buildings) => {
   if (!selectedBuilding || !street) {
     return null;
@@ -268,6 +332,7 @@ const buildSequentialNumber = (selectedBuilding, street, buildings) => {
         id: building.id,
         side: analysis.side,
         alongDistance: analysis.alongDistance,
+        houseNumber: building.tags['addr:housenumber'] || null,
       };
     })
     .filter(Boolean);
@@ -277,15 +342,99 @@ const buildSequentialNumber = (selectedBuilding, street, buildings) => {
 
   const leftIndex = leftBuildings.findIndex((building) => building.id === selectedBuilding.id);
   if (leftIndex >= 0) {
-    return String(leftIndex * 2 + 1);
+    return buildInsertionNumber(leftBuildings.filter((building) => building.id !== selectedBuilding.id), leftBuildings[leftIndex].alongDistance)
+      || String(leftIndex * 2 + 1);
   }
 
   const rightIndex = rightBuildings.findIndex((building) => building.id === selectedBuilding.id);
   if (rightIndex >= 0) {
-    return String(rightIndex * 2 + 2);
+    return buildInsertionNumber(rightBuildings.filter((building) => building.id !== selectedBuilding.id), rightBuildings[rightIndex].alongDistance)
+      || String(rightIndex * 2 + 2);
   }
 
   return null;
+};
+
+const buildNavigationPoints = (point, building, street) => {
+  const manualPin = {
+    key: 'manual_pin',
+    label: 'Manual Pin',
+    latitude: point.lat,
+    longitude: point.lng,
+    is_road_access: false,
+  };
+
+  if (!building && !street) {
+    return {
+      points: [manualPin],
+      selectedKey: 'manual_pin',
+      snappedRoadPoint: null,
+      buildingEntrancePoint: null,
+    };
+  }
+
+  if (!street) {
+    const entrancePoint = closestPointOnPolyline(point, building?.polygon || [])?.projection || building?.centroid || point;
+    return {
+      points: [
+        {
+          key: 'main_entrance',
+          label: 'Main Entrance',
+          latitude: entrancePoint.lat,
+          longitude: entrancePoint.lng,
+          is_road_access: false,
+        },
+        manualPin,
+      ],
+      selectedKey: 'main_entrance',
+      snappedRoadPoint: null,
+      buildingEntrancePoint: entrancePoint,
+    };
+  }
+
+  const snappedRoadPoint = street.analysis.projection;
+  const buildingEntrancePoint = building
+    ? closestPointOnPolyline(snappedRoadPoint, building.polygon)?.projection || building.centroid
+    : point;
+  const parkingEntrance = offsetPointAlongSegment(street.analysis, DRIVER_STOP_OFFSET_METERS);
+  const driverDropOffPoint = offsetPointAlongSegment(street.analysis, -DRIVER_STOP_OFFSET_METERS);
+
+  return {
+    points: [
+      {
+        key: 'main_entrance',
+        label: 'Main Entrance',
+        latitude: buildingEntrancePoint.lat,
+        longitude: buildingEntrancePoint.lng,
+        is_road_access: false,
+      },
+      {
+        key: 'delivery_gate',
+        label: 'Delivery Gate',
+        latitude: snappedRoadPoint.lat,
+        longitude: snappedRoadPoint.lng,
+        is_road_access: true,
+      },
+      {
+        key: 'parking_entrance',
+        label: 'Parking Entrance',
+        latitude: parkingEntrance.lat,
+        longitude: parkingEntrance.lng,
+        is_road_access: true,
+      },
+      {
+        key: 'driver_drop_off_point',
+        label: 'Driver Stop Point',
+        latitude: driverDropOffPoint.lat,
+        longitude: driverDropOffPoint.lng,
+        is_road_access: true,
+      },
+      manualPin,
+    ],
+    selectedKey: 'delivery_gate',
+    snappedRoadPoint,
+    buildingEntrancePoint,
+  };
 };
 
 export const enrichLocationWithOsmData = async (latitude, longitude) => {
@@ -305,6 +454,7 @@ export const enrichLocationWithOsmData = async (latitude, longitude) => {
     const buildingNumber = selectedBuilding
       ? buildSequentialNumber(selectedBuilding, street, buildings) || selectedBuilding.tags['addr:housenumber'] || null
       : null;
+    const navigation = buildNavigationPoints(point, selectedBuilding, street);
 
     if (!selectedBuilding && !streetName) {
       return null;
@@ -313,14 +463,42 @@ export const enrichLocationWithOsmData = async (latitude, longitude) => {
     return {
       streetName: streetName ? String(streetName).trim() : null,
       buildingNumber: buildingNumber ? String(buildingNumber).trim() : null,
+      buildingPolygon: selectedBuilding?.polygon?.map((coordinate) => [coordinate.lat, coordinate.lng]) || null,
+      roadSegment: street?.coordinates?.map((coordinate) => [coordinate.lat, coordinate.lng]) || null,
+      navigationPoints: navigation.points,
+      selectedNavigationPoint: navigation.selectedKey,
+      snappedRoadPoint: navigation.snappedRoadPoint
+        ? { latitude: navigation.snappedRoadPoint.lat, longitude: navigation.snappedRoadPoint.lng }
+        : null,
+      buildingEntrancePoint: navigation.buildingEntrancePoint
+        ? { latitude: navigation.buildingEntrancePoint.lat, longitude: navigation.buildingEntrancePoint.lng }
+        : null,
       metadata: {
         source: 'openstreetmap',
         building_detected: Boolean(selectedBuilding),
+        building_id: selectedBuilding?.id || null,
         building_name: selectedBuilding?.tags?.name || null,
         building_type: selectedBuilding?.tags?.building || null,
+        building_polygon: selectedBuilding?.polygon?.map((coordinate) => ({ lat: coordinate.lat, lng: coordinate.lng })) || [],
         street_detected: Boolean(streetName),
+        street_id: street?.id || null,
         street_name: streetName ? String(streetName).trim() : null,
         street_side: street?.analysis?.side || null,
+        road_segment: street?.coordinates?.map((coordinate) => ({ lat: coordinate.lat, lng: coordinate.lng })) || [],
+        snapped_road_point: navigation.snappedRoadPoint
+          ? { lat: navigation.snappedRoadPoint.lat, lng: navigation.snappedRoadPoint.lng }
+          : null,
+        building_entrance_point: navigation.buildingEntrancePoint
+          ? { lat: navigation.buildingEntrancePoint.lat, lng: navigation.buildingEntrancePoint.lng }
+          : null,
+        navigation_points: navigation.points.map((entry) => ({
+          key: entry.key,
+          label: entry.label,
+          latitude: entry.latitude,
+          longitude: entry.longitude,
+          is_road_access: entry.is_road_access,
+        })),
+        selected_navigation_point: navigation.selectedKey,
       },
     };
   } catch {

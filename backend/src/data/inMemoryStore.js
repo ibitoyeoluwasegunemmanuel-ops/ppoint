@@ -75,6 +75,7 @@ const syncNationalAddress = (address) => {
     country: address.country,
     state: address.state,
     city: address.city,
+    community_name: address.community_name || null,
     district: address.district || null,
     street_or_landmark: streetOrLandmark,
     place_type: address.custom_place_type || address.place_type || null,
@@ -111,10 +112,16 @@ const sanitizeAddress = (address) => {
     address_type: resolveAddressType(address),
     address_status: resolveAddressStatus(address),
     moderation_status: resolveAddressStatus(address),
+    community_name: address.community_name || null,
     district: address.district || null,
     house_number: address.house_number || null,
     street_name: address.street_name || null,
+    building_polygon_id: address.building_polygon_id || null,
     street_description: address.street_description || address.description || null,
+    entrance_label: address.entrance_label || null,
+    entrance_latitude: address.entrance_latitude === null || address.entrance_latitude === undefined ? null : Number(address.entrance_latitude),
+    entrance_longitude: address.entrance_longitude === null || address.entrance_longitude === undefined ? null : Number(address.entrance_longitude),
+    confidence_score: Number(address.confidence_score || 0),
     created_by: address.created_by || 'Community',
     created_source: address.created_source || 'community',
     place_type: address.place_type || null,
@@ -403,14 +410,20 @@ export const inMemoryStore = {
       country: payload.country,
       state: payload.state,
       city: payload.city,
+      community_name: payload.communityName || null,
       district: payload.district || null,
       building_name: payload.buildingName || null,
       house_number: payload.houseNumber || null,
       street_name: payload.streetName || null,
+      building_polygon_id: payload.buildingPolygonId || null,
       landmark: payload.landmark || null,
       street_description: payload.streetDescription || payload.description || null,
       description: payload.description || null,
       phone_number: payload.phoneNumber || null,
+      entrance_label: payload.entranceLabel || null,
+      entrance_latitude: payload.entranceLatitude === undefined || payload.entranceLatitude === null ? null : Number(payload.entranceLatitude),
+      entrance_longitude: payload.entranceLongitude === undefined || payload.entranceLongitude === null ? null : Number(payload.entranceLongitude),
+      confidence_score: Number(payload.confidenceScore || 0),
       place_type: payload.placeType || null,
       custom_place_type: payload.customPlaceType || null,
       address_metadata: payload.addressMetadata || {},
@@ -646,14 +659,32 @@ export const inMemoryStore = {
     if (Object.prototype.hasOwnProperty.call(payload, 'house_number') && payload.house_number !== undefined) {
       address.house_number = payload.house_number || null;
     }
+    if (Object.prototype.hasOwnProperty.call(payload, 'community_name') && payload.community_name !== undefined) {
+      address.community_name = payload.community_name || null;
+    }
     if (Object.prototype.hasOwnProperty.call(payload, 'street_name') && payload.street_name !== undefined) {
       address.street_name = payload.street_name || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'building_polygon_id') && payload.building_polygon_id !== undefined) {
+      address.building_polygon_id = payload.building_polygon_id || null;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'district') && payload.district !== undefined) {
       address.district = payload.district || null;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'phone_number') && payload.phone_number !== undefined) {
       address.phone_number = payload.phone_number || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'entrance_label') && payload.entrance_label !== undefined) {
+      address.entrance_label = payload.entrance_label || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'entrance_latitude') && payload.entrance_latitude !== undefined) {
+      address.entrance_latitude = payload.entrance_latitude === null ? null : Number(payload.entrance_latitude);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'entrance_longitude') && payload.entrance_longitude !== undefined) {
+      address.entrance_longitude = payload.entrance_longitude === null ? null : Number(payload.entrance_longitude);
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'confidence_score') && payload.confidence_score !== undefined) {
+      address.confidence_score = Number(payload.confidence_score || 0);
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'place_type') && payload.place_type !== undefined) {
       address.place_type = payload.place_type || null;

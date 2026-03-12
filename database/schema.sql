@@ -95,13 +95,19 @@ CREATE TABLE IF NOT EXISTS addresses (
     state VARCHAR(100) NOT NULL,
     city VARCHAR(100),
     district VARCHAR(120),
+    community_name VARCHAR(160),
     building_name VARCHAR(180),
     house_number VARCHAR(40),
     street_name VARCHAR(180),
+    building_polygon_id VARCHAR(64),
     landmark VARCHAR(255),
     street_description TEXT,
     description TEXT,
     phone_number VARCHAR(40),
+    entrance_label VARCHAR(80),
+    entrance_latitude DECIMAL(10, 8),
+    entrance_longitude DECIMAL(11, 8),
+    confidence_score INTEGER DEFAULT 0,
     place_type VARCHAR(64),
     custom_place_type VARCHAR(120),
     address_metadata JSONB DEFAULT '{}'::jsonb,
@@ -129,6 +135,9 @@ ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS district VARCHAR(120);
 
 ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS community_name VARCHAR(160);
+
+ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 
 ALTER TABLE addresses
@@ -144,6 +153,9 @@ ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS street_name VARCHAR(180);
 
 ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS building_polygon_id VARCHAR(64);
+
+ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS description TEXT;
 
 ALTER TABLE addresses
@@ -151,6 +163,18 @@ ADD COLUMN IF NOT EXISTS street_description TEXT;
 
 ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS phone_number VARCHAR(40);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS entrance_label VARCHAR(80);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS entrance_latitude DECIMAL(10, 8);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS entrance_longitude DECIMAL(11, 8);
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS confidence_score INTEGER DEFAULT 0;
 
 ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS place_type VARCHAR(64);
