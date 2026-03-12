@@ -79,6 +79,7 @@ const inputClassName = 'w-full rounded-2xl border border-stone-200 bg-white px-4
 const selectClassName = 'w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-900 shadow-sm outline-none';
 const selectStyle = { colorScheme: 'light' };
 const formatLimitValue = (value) => (value === null || value === 'Unlimited' ? 'Unlimited' : Number(value || 0).toLocaleString());
+const defaultModeration = { reported_addresses: [], suspicious_activity: [], low_confidence_addresses: [], unverified_buildings: [], pending_business_verification: [] };
 const adminMapCategoryStyle = {
   verified: { color: '#15803d', fillColor: '#22c55e' },
   low_confidence: { color: '#b45309', fillColor: '#f59e0b' },
@@ -100,6 +101,16 @@ const readStoredAdmin = () => {
   }
 };
 
+const ensureArray = (value) => Array.isArray(value) ? value : [];
+
+const ensureObject = (value, fallback = {}) => (
+  value && typeof value === 'object' && !Array.isArray(value) ? value : fallback
+);
+
+const hasValidCoordinate = (item) => Number.isFinite(Number(item?.latitude)) && Number.isFinite(Number(item?.longitude));
+
+const getErrorMessage = (error, fallbackMessage) => error?.response?.data?.error || error?.response?.data?.message || fallbackMessage;
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [token, setToken] = useState(localStorage.getItem('ppoint_admin_session') || '');
@@ -120,7 +131,7 @@ export default function AdminDashboard() {
   const [plans, setPlans] = useState([]);
   const [payments, setPayments] = useState([]);
   const [settings, setSettings] = useState(null);
-  const [moderation, setModeration] = useState({ reported_addresses: [], suspicious_activity: [], low_confidence_addresses: [], unverified_buildings: [], pending_business_verification: [] });
+  const [moderation, setModeration] = useState(defaultModeration);
   const [registry, setRegistry] = useState([]);
   const [dispatch, setDispatch] = useState(null);
   const [countries, setCountries] = useState([]);
@@ -173,10 +184,11 @@ export default function AdminDashboard() {
   const allCurrentSelected = Boolean(currentRegionItems.length) && currentRegionItems.every((item) => currentSelectedIds.includes(item.id));
   const currentRegionMeta = regionTabCopy[activeRegionLevel];
   const hasCurrentSelection = currentSelectedIds.length > 0;
+  const sanitizedAdminMapData = useMemo(() => adminMapData.filter(hasValidCoordinate), [adminMapData]);
   const adminMapCenter = useMemo(() => {
-    const firstItem = adminMapData.find((item) => Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)));
+    const firstItem = sanitizedAdminMapData[0];
     return firstItem ? [Number(firstItem.latitude), Number(firstItem.longitude)] : defaultAdminMapCenter;
-  }, [adminMapData]);
+  }, [sanitizedAdminMapData]);
   const lowConfidenceCount = useMemo(() => addresses.filter((item) => Number(item.confidence_score || 0) < 60).length, [addresses]);
 
   const loadRegions = async () => {
@@ -189,38 +201,70 @@ export default function AdminDashboard() {
   };
 
   const loadAdminData = async (searchTerm = addressQuery) => {
-    const [overviewRes, addressesRes, mapRes, moderationRes, businessesRes, agentsRes, developersRes, usageRes, plansRes, paymentsRes, settingsRes, registryRes, dispatchRes, staffRes] = await Promise.all([
-      api.get('/admin/overview', { headers }),
-      api.get('/admin/addresses', { headers, params: { q: searchTerm } }),
-      api.get('/admin/map', { headers }),
-      api.get('/admin/moderation', { headers }),
-      api.get('/admin/businesses', { headers }),
-      api.get('/admin/agents', { headers }),
-      api.get('/admin/developers', { headers }),
-      api.get('/admin/api-usage', { headers }),
-      api.get('/admin/plans', { headers }),
-      api.get('/admin/payments', { headers }),
-      api.get('/admin/settings', { headers }),
-      api.get('/admin/registry', { headers, params: { q: registryQuery } }),
-      api.get('/admin/dispatch', { headers }),
-      api.get('/admin/staff', { headers }),
-    ]);
+    const requestEntries = [
+      ['overview', api.get('/admin/overview', { headers })],
+      ['addresses', api.get('/admin/addresses', { headers, params: { q: searchTerm } })],
+      ['map', api.get('/admin/map', { headers })],
+      ['moderation', api.get('/admin/moderation', { headers })],
+      ['businesses', api.get('/admin/businesses', { headers })],
+      ['agents', api.get('/admin/agents', { headers })],
+      ['developers', api.get('/admin/developers', { headers })],
+      ['usage', api.get('/admin/api-usage', { headers })],
+      ['plans', api.get('/admin/plans', { headers })],
+      ['payments', api.get('/admin/payments', { headers })],
+      ['settings', api.get('/admin/settings', { headers })],
+      ['registry', api.get('/admin/registry', { headers, params: { q: registryQuery } })],
+      ['dispatch', api.get('/admin/dispatch', { headers })],
+      ['staff', api.get('/admin/staff', { headers })],
+    ];
+    const settledResults = await Promise.allSettled(requestEntries.map(([, request]) => request));
+    const resultMap = Object.fromEntries(settledResults.map((result, index) => [requestEntries[index][0], result]));
+    const failures = settledResults.filter((result) => result.status === 'rejected');
 
-    setOverview(overviewRes.data.data);
-    setAddresses(addressesRes.data.data);
-    setAdminMapData(mapRes.data.data || []);
-    setModeration(moderationRes.data.data || { reported_addresses: [], suspicious_activity: [], low_confidence_addresses: [], unverified_buildings: [], pending_business_verification: [] });
-    setBusinesses(businessesRes.data.data || []);
-    setAgents(agentsRes.data.data || []);
-    setDevelopers(developersRes.data.data);
-    setUsage(usageRes.data.data);
-    setPlans(plansRes.data.data);
-    setPayments(paymentsRes.data.data);
-    setSettings(settingsRes.data.data);
-    setRegistry(registryRes.data.data || []);
-    setDispatch(dispatchRes.data.data || null);
-    setStaff(staffRes.data.data);
-    await loadRegions();
+    if (resultMap.overview?.status === 'fulfilled') {
+      setOverview(ensureObject(resultMap.overview.value.data?.data, null));
+    }
+
+    if (resultMap.addresses?.status === 'fulfilled') {
+      setAddresses(ensureArray(resultMap.addresses.value.data?.data));
+    } else {
+      setAddresses([]);
+    }
+
+    if (resultMap.map?.status === 'fulfilled') {
+      setAdminMapData(ensureArray(resultMap.map.value.data?.data));
+    } else {
+      setAdminMapData([]);
+    }
+
+    if (resultMap.moderation?.status === 'fulfilled') {
+      setModeration({ ...defaultModeration, ...ensureObject(resultMap.moderation.value.data?.data) });
+    } else {
+      setModeration(defaultModeration);
+    }
+
+    setBusinesses(resultMap.businesses?.status === 'fulfilled' ? ensureArray(resultMap.businesses.value.data?.data) : []);
+    setAgents(resultMap.agents?.status === 'fulfilled' ? ensureArray(resultMap.agents.value.data?.data) : []);
+    setDevelopers(resultMap.developers?.status === 'fulfilled' ? ensureArray(resultMap.developers.value.data?.data) : []);
+    setUsage(resultMap.usage?.status === 'fulfilled' ? ensureArray(resultMap.usage.value.data?.data) : []);
+    setPlans(resultMap.plans?.status === 'fulfilled' ? ensureArray(resultMap.plans.value.data?.data) : []);
+    setPayments(resultMap.payments?.status === 'fulfilled' ? ensureArray(resultMap.payments.value.data?.data) : []);
+    setSettings(resultMap.settings?.status === 'fulfilled' ? ensureObject(resultMap.settings.value.data?.data, null) : null);
+    setRegistry(resultMap.registry?.status === 'fulfilled' ? ensureArray(resultMap.registry.value.data?.data) : []);
+    setDispatch(resultMap.dispatch?.status === 'fulfilled' ? ensureObject(resultMap.dispatch.value.data?.data, null) : null);
+    setStaff(resultMap.staff?.status === 'fulfilled' ? ensureArray(resultMap.staff.value.data?.data) : []);
+
+    try {
+      await loadRegions();
+    } catch {
+      setCountries([]);
+      setStates([]);
+      setCities([]);
+    }
+
+    if (failures.length) {
+      throw failures[0].reason;
+    }
   };
 
   useEffect(() => {
@@ -230,11 +274,14 @@ export default function AdminDashboard() {
 
     setLoading(true);
     loadAdminData().catch((loadError) => {
-      setError(loadError.response?.data?.error || 'Failed to load admin dashboard.');
-      localStorage.removeItem('ppoint_admin_session');
-      localStorage.removeItem('ppoint_admin_profile');
-      setToken('');
-      setAdminProfile(null);
+      const status = loadError?.response?.status;
+      setError(getErrorMessage(loadError, 'Failed to load admin dashboard. Some admin modules may be unavailable.'));
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('ppoint_admin_session');
+        localStorage.removeItem('ppoint_admin_profile');
+        setToken('');
+        setAdminProfile(null);
+      }
     }).finally(() => setLoading(false));
   }, [token]);
 
@@ -642,6 +689,7 @@ export default function AdminDashboard() {
 
       {error && <div className="rounded-2xl border border-red-200/30 bg-red-500/10 p-4 text-sm text-red-100">{error}</div>}
       {notice && <div className="rounded-2xl border border-emerald-200/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">{notice}</div>}
+      {loading && <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-stone-200">Loading admin data...</div>}
 
       <div className="flex flex-wrap gap-3">
         {visibleTabs.map((tab) => (
@@ -733,7 +781,7 @@ export default function AdminDashboard() {
                   <button onClick={runBuildingDetection} className="w-full rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white">Run Detection</button>
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                     <p>Low-confidence addresses in view: {lowConfidenceCount}</p>
-                    <p className="mt-1">Unverified detections on map: {adminMapData.filter((item) => item.category === 'unverified_building').length}</p>
+                    <p className="mt-1">Unverified detections on map: {sanitizedAdminMapData.filter((item) => item.category === 'unverified_building').length}</p>
                   </div>
                 </div>
               </div>
@@ -755,14 +803,16 @@ export default function AdminDashboard() {
             <div className="mt-6 h-[420px] overflow-hidden rounded-2xl border border-stone-200">
               <MapContainer center={adminMapCenter} zoom={12} style={{ height: '100%', width: '100%' }}>
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                {adminMapData.map((item) => {
+                {sanitizedAdminMapData.map((item) => {
                   const categoryStyle = adminMapCategoryStyle[item.category] || adminMapCategoryStyle.verified;
-                  const polygonPoints = Array.isArray(item.building_polygon) ? item.building_polygon : [];
+                  const polygonPoints = ensureArray(item.building_polygon)
+                    .map((point) => [Number(point.latitude ?? point.lat), Number(point.longitude ?? point.lng)])
+                    .filter(([latitude, longitude]) => Number.isFinite(latitude) && Number.isFinite(longitude));
 
                   return (
                     <Fragment key={`map-${item.id}`}>
                       {polygonPoints.length > 2 && (
-                        <Polygon positions={polygonPoints.map((point) => [Number(point.latitude ?? point.lat), Number(point.longitude ?? point.lng)])} pathOptions={{ color: categoryStyle.color, fillColor: categoryStyle.fillColor, fillOpacity: 0.22, weight: 1.5 }} />
+                        <Polygon positions={polygonPoints} pathOptions={{ color: categoryStyle.color, fillColor: categoryStyle.fillColor, fillOpacity: 0.22, weight: 1.5 }} />
                       )}
                       <CircleMarker center={[Number(item.latitude), Number(item.longitude)]} radius={6} pathOptions={{ color: categoryStyle.color, fillColor: categoryStyle.fillColor, fillOpacity: 0.85 }}>
                         <Popup>

@@ -26,7 +26,25 @@ const initialAddressForm = {
   phoneNumber: '',
 };
 const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500';
-const selectStyle = { colorScheme: 'dark' };
+
+const placeTypeDescriptions = {
+  House: 'Homes, apartments, and family compounds',
+  Shop: 'Retail spaces, kiosks, and stalls',
+  Office: 'Offices, studios, and workspaces',
+  School: 'Schools, campuses, and training centers',
+  Hospital: 'Hospitals, clinics, and care centers',
+  'Estate Gate': 'Residential estates and secured compounds',
+  Warehouse: 'Storage, logistics, and industrial spaces',
+  Hotel: 'Hotels, lodges, and guest houses',
+  'Police Station': 'Police posts and security formations',
+  Church: 'Church buildings and worship centers',
+  Mosque: 'Mosques and prayer grounds',
+  Barracks: 'Military and paramilitary compounds',
+  'Public Building': 'Public service and civic buildings',
+  'Government Office': 'Government ministries and agencies',
+  Market: 'Open markets and commercial hubs',
+  Other: 'Something else not listed here',
+};
 
 const confidenceTone = {
   high: 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100',
@@ -111,6 +129,75 @@ function MapClickHandler({ onSelect }) {
   return null;
 }
 
+function PlaceTypePicker({ value, customValue, onChange, onCustomChange, tone = 'dark' }) {
+  const theme = tone === 'light'
+    ? {
+        wrapper: 'rounded-[1.5rem] border border-stone-200 bg-stone-50 p-4',
+        label: 'text-stone-700',
+        helper: 'text-stone-500',
+        clear: 'text-stone-600 hover:text-stone-900',
+        option: 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-100',
+        activeOption: 'border-stone-950 bg-stone-950 text-white shadow-lg shadow-stone-950/10',
+        customInput: 'border-stone-200 bg-white text-stone-900 placeholder:text-stone-400',
+      }
+    : {
+        wrapper: 'rounded-[1.5rem] border border-white/10 bg-black/20 p-4',
+        label: 'text-stone-200',
+        helper: 'text-stone-400',
+        clear: 'text-stone-300 hover:text-white',
+        option: 'border-white/10 bg-white/5 text-stone-200 hover:border-white/25 hover:bg-white/10',
+        activeOption: 'border-amber-300/40 bg-amber-300/10 text-white shadow-lg shadow-amber-300/10',
+        customInput: 'border-white/10 bg-white/5 text-white placeholder:text-stone-500',
+      };
+
+  return (
+    <div className={`${theme.wrapper} space-y-4`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-semibold uppercase tracking-[0.25em] ${theme.label}`}>Place Type</p>
+          <p className={`mt-1 text-sm ${theme.helper}`}>Choose the location that best matches the pin you are saving.</p>
+        </div>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className={`text-xs font-semibold uppercase tracking-[0.2em] transition ${theme.clear}`}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {PLACE_TYPES.map((placeType) => {
+          const isActive = value === placeType;
+
+          return (
+            <button
+              key={placeType}
+              type="button"
+              onClick={() => onChange(placeType)}
+              className={`rounded-2xl border px-4 py-4 text-left transition ${isActive ? theme.activeOption : theme.option}`}
+            >
+              <p className="font-semibold">{placeType}</p>
+              <p className={`mt-2 text-sm ${isActive ? 'text-white/80' : theme.helper}`}>{placeTypeDescriptions[placeType] || 'Save this location under the selected place type.'}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {value === 'Other' && (
+        <input
+          value={customValue}
+          onChange={(event) => onCustomChange(event.target.value)}
+          className={`w-full rounded-2xl border px-4 py-3 outline-none ${theme.customInput}`}
+          placeholder="Enter custom place type"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [position, setPosition] = useState([6.5244, 3.3792]);
   const [selectedPosition, setSelectedPosition] = useState(null);
@@ -183,6 +270,14 @@ export default function HomePage() {
   const setCopied = (value) => {
     setCopyState(value);
     setTimeout(() => setCopyState(''), 1800);
+  };
+
+  const updatePlaceType = (nextPlaceType) => {
+    setAddressForm((current) => ({
+      ...current,
+      placeType: nextPlaceType,
+      customPlaceType: nextPlaceType === 'Other' ? current.customPlaceType : '',
+    }));
   };
 
   const detectLocation = () => {
@@ -429,12 +524,15 @@ export default function HomePage() {
             Community addresses become active as soon as you save them. Admin review is reserved for reported, suspicious, or business-verification cases.
           </div>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName} style={selectStyle}>
-              <option value="">Select place type</option>
-              {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
-            </select>
-            {addressForm.placeType === 'Other' ? <input value={addressForm.customPlaceType} onChange={(event) => setAddressForm({ ...addressForm, customPlaceType: event.target.value })} className={inputClassName} placeholder="Custom place type" /> : <div className="hidden sm:block" />}
+          <div className="mt-8 space-y-4">
+            <PlaceTypePicker
+              value={addressForm.placeType}
+              customValue={addressForm.customPlaceType}
+              onChange={updatePlaceType}
+              onCustomChange={(nextValue) => setAddressForm((current) => ({ ...current, customPlaceType: nextValue }))}
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
             <button onClick={detectLocation} disabled={loading} className="flex items-center justify-center gap-3 rounded-2xl bg-stone-950 px-6 py-4 font-semibold text-white disabled:opacity-50">
               <LocateFixed size={22} />
               Detect My Location
@@ -443,6 +541,7 @@ export default function HomePage() {
               <ArrowRight size={20} />
               {loading ? 'Generating...' : 'Generate PPOINNT Code'}
             </button>
+            </div>
           </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-stone-300">
@@ -513,16 +612,21 @@ export default function HomePage() {
                 </div>
               )}
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName} style={selectStyle}>
-                  <option value="">Select place type</option>
-                  {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
-                </select>
-                {addressForm.placeType === 'Other' && <input value={addressForm.customPlaceType} onChange={(event) => setAddressForm({ ...addressForm, customPlaceType: event.target.value })} className={inputClassName} placeholder="Custom place type" />}
+              <div className="mt-6 space-y-4">
+                <PlaceTypePicker
+                  value={addressForm.placeType}
+                  customValue={addressForm.customPlaceType}
+                  onChange={updatePlaceType}
+                  onCustomChange={(nextValue) => setAddressForm((current) => ({ ...current, customPlaceType: nextValue }))}
+                  tone="light"
+                />
+
+                <div className="grid gap-4 md:grid-cols-2">
                 <input value={addressForm.buildingName} onChange={(event) => setAddressForm({ ...addressForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name" />
                 {addressSettings.showLandmark && <input value={addressForm.landmark} onChange={(event) => setAddressForm({ ...addressForm, landmark: event.target.value })} className={inputClassName} placeholder="Nearest Landmark (optional)" />}
                 {addressSettings.showStreetDescription && <textarea value={addressForm.streetDescription} onChange={(event) => setAddressForm({ ...addressForm, streetDescription: event.target.value })} className={`${inputClassName} min-h-24 md:col-span-2`} placeholder="Street Description (optional)" />}
                 {addressSettings.showPhoneNumber && <input value={addressForm.phoneNumber} onChange={(event) => setAddressForm({ ...addressForm, phoneNumber: event.target.value })} className={`${inputClassName} md:col-span-2`} placeholder="Phone Number (optional)" />}
+                </div>
               </div>
 
               <button
