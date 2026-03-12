@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { CircleMarker, MapContainer, Polygon, Popup, TileLayer } from 'react-leaflet';
 import { BarChart3, Building2, CreditCard, Globe, KeyRound, MapPinned, Settings2, ShieldAlert, ShieldCheck, Truck, Users } from 'lucide-react';
+import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
 
 const tabs = [
@@ -77,6 +79,18 @@ const inputClassName = 'w-full rounded-2xl border border-stone-200 bg-white px-4
 const selectClassName = 'w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-900 shadow-sm outline-none';
 const selectStyle = { colorScheme: 'light' };
 const formatLimitValue = (value) => (value === null || value === 'Unlimited' ? 'Unlimited' : Number(value || 0).toLocaleString());
+const adminMapCategoryStyle = {
+  verified: { color: '#15803d', fillColor: '#22c55e' },
+  low_confidence: { color: '#b45309', fillColor: '#f59e0b' },
+  unverified_building: { color: '#6b7280', fillColor: '#9ca3af' },
+};
+const defaultAdminMapCenter = [6.5244, 3.3792];
+
+const initialBuildingDetectionForm = {
+  cityCode: '',
+  limit: 20,
+  radiusMeters: 1200,
+};
 
 const readStoredAdmin = () => {
   try {
@@ -98,6 +112,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [overview, setOverview] = useState(null);
   const [addresses, setAddresses] = useState([]);
+  const [adminMapData, setAdminMapData] = useState([]);
   const [businesses, setBusinesses] = useState([]);
   const [agents, setAgents] = useState([]);
   const [developers, setDevelopers] = useState([]);
@@ -105,7 +120,7 @@ export default function AdminDashboard() {
   const [plans, setPlans] = useState([]);
   const [payments, setPayments] = useState([]);
   const [settings, setSettings] = useState(null);
-  const [moderation, setModeration] = useState({ reported_addresses: [], suspicious_activity: [], pending_business_verification: [] });
+  const [moderation, setModeration] = useState({ reported_addresses: [], suspicious_activity: [], low_confidence_addresses: [], unverified_buildings: [], pending_business_verification: [] });
   const [registry, setRegistry] = useState([]);
   const [dispatch, setDispatch] = useState(null);
   const [countries, setCountries] = useState([]);
@@ -118,6 +133,7 @@ export default function AdminDashboard() {
   const [selectedRegionIds, setSelectedRegionIds] = useState({ country: [], state: [], city: [] });
   const [staffForm, setStaffForm] = useState(initialStaffForm);
   const [planForm, setPlanForm] = useState(initialPlanForm);
+  const [buildingDetectionForm, setBuildingDetectionForm] = useState(initialBuildingDetectionForm);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -157,6 +173,11 @@ export default function AdminDashboard() {
   const allCurrentSelected = Boolean(currentRegionItems.length) && currentRegionItems.every((item) => currentSelectedIds.includes(item.id));
   const currentRegionMeta = regionTabCopy[activeRegionLevel];
   const hasCurrentSelection = currentSelectedIds.length > 0;
+  const adminMapCenter = useMemo(() => {
+    const firstItem = adminMapData.find((item) => Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)));
+    return firstItem ? [Number(firstItem.latitude), Number(firstItem.longitude)] : defaultAdminMapCenter;
+  }, [adminMapData]);
+  const lowConfidenceCount = useMemo(() => addresses.filter((item) => Number(item.confidence_score || 0) < 60).length, [addresses]);
 
   const loadRegions = async () => {
     const response = await api.get('/regions', { headers });
@@ -168,9 +189,10 @@ export default function AdminDashboard() {
   };
 
   const loadAdminData = async (searchTerm = addressQuery) => {
-    const [overviewRes, addressesRes, moderationRes, businessesRes, agentsRes, developersRes, usageRes, plansRes, paymentsRes, settingsRes, registryRes, dispatchRes, staffRes] = await Promise.all([
+    const [overviewRes, addressesRes, mapRes, moderationRes, businessesRes, agentsRes, developersRes, usageRes, plansRes, paymentsRes, settingsRes, registryRes, dispatchRes, staffRes] = await Promise.all([
       api.get('/admin/overview', { headers }),
       api.get('/admin/addresses', { headers, params: { q: searchTerm } }),
+      api.get('/admin/map', { headers }),
       api.get('/admin/moderation', { headers }),
       api.get('/admin/businesses', { headers }),
       api.get('/admin/agents', { headers }),
@@ -186,7 +208,8 @@ export default function AdminDashboard() {
 
     setOverview(overviewRes.data.data);
     setAddresses(addressesRes.data.data);
-    setModeration(moderationRes.data.data || { reported_addresses: [], suspicious_activity: [], pending_business_verification: [] });
+    setAdminMapData(mapRes.data.data || []);
+    setModeration(moderationRes.data.data || { reported_addresses: [], suspicious_activity: [], low_confidence_addresses: [], unverified_buildings: [], pending_business_verification: [] });
     setBusinesses(businessesRes.data.data || []);
     setAgents(agentsRes.data.data || []);
     setDevelopers(developersRes.data.data);
@@ -346,11 +369,22 @@ export default function AdminDashboard() {
       await api.patch(`/admin/addresses/${address.id}`, {
         buildingName: overrides.building_name ?? address.building_name,
         houseNumber: overrides.house_number ?? address.house_number,
+        streetName: overrides.street_name ?? address.street_name,
+        communityName: overrides.community_name ?? address.community_name,
         landmark: overrides.landmark ?? address.landmark,
         streetDescription: overrides.street_description ?? address.street_description ?? address.description,
         description: overrides.description ?? address.description,
         district: overrides.district ?? address.district,
+        buildingPolygonId: overrides.building_polygon_id ?? address.building_polygon_id,
         phoneNumber: overrides.phone_number ?? address.phone_number,
+        entranceLabel: overrides.entrance_label ?? address.entrance_label,
+        entranceLatitude: overrides.entrance_latitude ?? address.entrance_latitude,
+        entranceLongitude: overrides.entrance_longitude ?? address.entrance_longitude,
+        confidenceScore: overrides.confidence_score ?? address.confidence_score,
+        autoGeneratedFlag: overrides.auto_generated_flag ?? address.auto_generated_flag,
+        placeType: overrides.place_type ?? address.place_type,
+        customPlaceType: overrides.custom_place_type ?? address.custom_place_type,
+        addressMetadata: overrides.address_metadata ?? address.address_metadata,
         addressType: overrides.address_type ?? address.address_type,
         moderationStatus: overrides.moderation_status ?? address.moderation_status,
         isActive: overrides.is_active ?? address.is_active !== false,
@@ -359,6 +393,26 @@ export default function AdminDashboard() {
       setNotice('Address updated successfully.');
     } catch (requestError) {
       setError(requestError.response?.data?.error || 'Failed to update address.');
+    }
+  };
+
+  const deleteAddressRecord = async (addressId) => {
+    try {
+      await api.delete(`/admin/addresses/${addressId}`, { headers });
+      await loadAdminData();
+      setNotice('Address deleted successfully.');
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || 'Failed to delete address.');
+    }
+  };
+
+  const runBuildingDetection = async () => {
+    try {
+      await api.post('/admin/building-detections/run', buildingDetectionForm, { headers });
+      await loadAdminData();
+      setNotice('Auto building detection completed and synced to Admin.');
+    } catch (requestError) {
+      setError(requestError.response?.data?.error || 'Failed to run building detection.');
     }
   };
 
@@ -602,6 +656,8 @@ export default function AdminDashboard() {
         <div className="grid gap-5 md:grid-cols-4">
           {[
             ['Total Addresses', overview.total_addresses],
+            ['Low Confidence', overview.low_confidence_addresses],
+            ['Unverified Buildings', overview.unverified_buildings],
             ['Active Developers', overview.active_developers],
             ['Pending Payments', overview.pending_payments],
             ['Monthly API Requests', overview.monthly_api_requests],
@@ -619,45 +675,149 @@ export default function AdminDashboard() {
       )}
 
       {activeTab === 'addresses' && (
-        <div className="rounded-[2rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/20">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <h2 className="text-2xl font-black text-stone-950">Generated Addresses</h2>
-            <div className="flex gap-3">
-              <input value={addressQuery} onChange={(event) => setAddressQuery(event.target.value)} className={inputClassName} placeholder="Search addresses" />
-              <button onClick={() => loadAdminData(addressQuery)} className="rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white">Search</button>
+        <div className="space-y-6">
+          <div className="rounded-[2rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/20">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-stone-950">Generated Addresses</h2>
+                <p className="mt-2 text-sm text-stone-600">Code, confidence, community, and building-detection status are synchronized here for admin review.</p>
+              </div>
+              <div className="flex flex-col gap-3 lg:flex-row">
+                <input value={addressQuery} onChange={(event) => setAddressQuery(event.target.value)} className={inputClassName} placeholder="Search addresses, communities, or codes" />
+                <button onClick={() => loadAdminData(addressQuery)} className="rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white">Search</button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <div className="overflow-hidden rounded-2xl border border-stone-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-stone-50 text-left text-stone-500">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Code</th>
+                        <th className="px-4 py-3 font-semibold">Place Type</th>
+                        <th className="px-4 py-3 font-semibold">Community</th>
+                        <th className="px-4 py-3 font-semibold">City</th>
+                        <th className="px-4 py-3 font-semibold">Confidence</th>
+                        <th className="px-4 py-3 font-semibold">Status</th>
+                        <th className="px-4 py-3 font-semibold">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {addresses.map((address) => (
+                        <tr key={`table-${address.id}`} className="border-t border-stone-100">
+                          <td className="px-4 py-3 font-semibold text-stone-950">{address.ppoint_code || address.code}</td>
+                          <td className="px-4 py-3">{address.display_place_type || address.place_type || 'House'}</td>
+                          <td className="px-4 py-3">{address.community_name || 'Unknown'}</td>
+                          <td className="px-4 py-3">{address.city || address.city_name}</td>
+                          <td className="px-4 py-3">{Number(address.confidence_score || 0)}/100</td>
+                          <td className="px-4 py-3">{address.moderation_status || 'active'}</td>
+                          <td className="px-4 py-3">{address.created_at ? new Date(address.created_at).toLocaleDateString() : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                <h3 className="text-lg font-bold text-stone-950">AI Building Detection Engine</h3>
+                <p className="mt-2 text-sm text-stone-600">Run OSM building footprint detection for a city zone and sync new unverified records into Admin instantly.</p>
+                <div className="mt-4 space-y-3">
+                  <select value={buildingDetectionForm.cityCode} onChange={(event) => setBuildingDetectionForm((current) => ({ ...current, cityCode: event.target.value }))} className={selectClassName} style={selectStyle}>
+                    <option value="">Select city</option>
+                    {cities.map((city) => <option key={city.id} value={city.code}>{city.name}</option>)}
+                  </select>
+                  <input value={buildingDetectionForm.limit} onChange={(event) => setBuildingDetectionForm((current) => ({ ...current, limit: Number(event.target.value) || 1 }))} className={inputClassName} placeholder="Max buildings" />
+                  <input value={buildingDetectionForm.radiusMeters} onChange={(event) => setBuildingDetectionForm((current) => ({ ...current, radiusMeters: Number(event.target.value) || 300 }))} className={inputClassName} placeholder="Radius meters" />
+                  <button onClick={runBuildingDetection} className="w-full rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white">Run Detection</button>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <p>Low-confidence addresses in view: {lowConfidenceCount}</p>
+                    <p className="mt-1">Unverified detections on map: {adminMapData.filter((item) => item.category === 'unverified_building').length}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-6 space-y-4">
+
+          <div className="rounded-[2rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-2xl font-black text-stone-950">Admin Map Layer</h3>
+                <p className="mt-2 text-sm text-stone-600">Green is verified, amber is low confidence, and grey is unverified building detection.</p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                <span className="rounded-full bg-emerald-100 px-3 py-2 text-emerald-700">Verified</span>
+                <span className="rounded-full bg-amber-100 px-3 py-2 text-amber-700">Low Confidence</span>
+                <span className="rounded-full bg-stone-200 px-3 py-2 text-stone-700">Unverified Building</span>
+              </div>
+            </div>
+            <div className="mt-6 h-[420px] overflow-hidden rounded-2xl border border-stone-200">
+              <MapContainer center={adminMapCenter} zoom={12} style={{ height: '100%', width: '100%' }}>
+                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {adminMapData.map((item) => {
+                  const categoryStyle = adminMapCategoryStyle[item.category] || adminMapCategoryStyle.verified;
+                  const polygonPoints = Array.isArray(item.building_polygon) ? item.building_polygon : [];
+
+                  return (
+                    <Fragment key={`map-${item.id}`}>
+                      {polygonPoints.length > 2 && (
+                        <Polygon positions={polygonPoints.map((point) => [Number(point.latitude ?? point.lat), Number(point.longitude ?? point.lng)])} pathOptions={{ color: categoryStyle.color, fillColor: categoryStyle.fillColor, fillOpacity: 0.22, weight: 1.5 }} />
+                      )}
+                      <CircleMarker center={[Number(item.latitude), Number(item.longitude)]} radius={6} pathOptions={{ color: categoryStyle.color, fillColor: categoryStyle.fillColor, fillOpacity: 0.85 }}>
+                        <Popup>
+                          <strong>{item.ppoint_code || item.code}</strong><br />
+                          {item.community_name || item.city}<br />
+                          Confidence: {Number(item.confidence_score || 0)}/100<br />
+                          Status: {item.moderation_status || 'active'}
+                        </Popup>
+                      </CircleMarker>
+                    </Fragment>
+                  );
+                })}
+              </MapContainer>
+            </div>
+          </div>
+
+          <div className="space-y-4">
             {addresses.map((address) => (
-              <div key={address.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+              <div key={address.id} className="rounded-[2rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/20">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="font-semibold text-stone-950">{address.ppoint_code || address.code}</p>
-                    <p className="mt-1 text-sm text-stone-600">{address.city || address.city_name}, {address.state}, {address.country}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.25em] text-stone-500">{address.moderation_status || 'active'} • {address.address_type || 'community'} • {address.created_by || 'Community'}</p>
+                    <p className="mt-1 text-sm text-stone-600">{address.street_name || address.street_description || 'No detected street'} • {address.community_name || 'Unknown community'} • {address.city || address.city_name}, {address.state}, {address.country}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.25em] text-stone-500">{address.moderation_status || 'active'} • {address.address_type || 'community'} • Confidence {Number(address.confidence_score || 0)}/100</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Link to={`/${address.ppoint_code || address.code}`} className="rounded-full bg-stone-100 px-3 py-2 text-xs font-semibold text-stone-900">View Map</Link>
                     <a href={`https://maps.google.com/?q=${address.latitude},${address.longitude}`} target="_blank" rel="noreferrer" className="rounded-full bg-stone-100 px-3 py-2 text-xs font-semibold text-stone-900">Navigate</a>
-                    <button onClick={() => saveAddressRecord(address, { moderation_status: 'active', is_active: true })} className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-700">Activate</button>
+                    <button onClick={() => saveAddressRecord(address, { moderation_status: 'active', is_active: true })} className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-700">Approve</button>
                     <button onClick={() => saveAddressRecord(address, { moderation_status: 'flagged', is_active: true })} className="rounded-full bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700">Flag</button>
-                    <button onClick={() => saveAddressRecord(address, { moderation_status: 'disabled', is_active: false })} className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700">Disable</button>
+                    <button onClick={() => deleteAddressRecord(address.id)} className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700">Delete</button>
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <input value={address.building_name || ''} onChange={(event) => updateAddressField(address.id, 'building_name', event.target.value)} className={inputClassName} placeholder="Building / House Name" />
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <input value={address.building_name || ''} onChange={(event) => updateAddressField(address.id, 'building_name', event.target.value)} className={inputClassName} placeholder="Building / Place Name" />
+                  <input value={address.community_name || ''} onChange={(event) => updateAddressField(address.id, 'community_name', event.target.value)} className={inputClassName} placeholder="Community" />
+                  <input value={address.street_name || ''} onChange={(event) => updateAddressField(address.id, 'street_name', event.target.value)} className={inputClassName} placeholder="Street name" />
                   <input value={address.house_number || ''} onChange={(event) => updateAddressField(address.id, 'house_number', event.target.value)} className={inputClassName} placeholder="House Number" />
+                  <input value={address.entrance_label || ''} onChange={(event) => updateAddressField(address.id, 'entrance_label', event.target.value)} className={inputClassName} placeholder="Entrance label" />
+                  <input value={address.confidence_score || 0} onChange={(event) => updateAddressField(address.id, 'confidence_score', Number(event.target.value) || 0)} className={inputClassName} placeholder="Confidence score" />
                   <input value={address.landmark || ''} onChange={(event) => updateAddressField(address.id, 'landmark', event.target.value)} className={inputClassName} placeholder="Landmark" />
                   <input value={address.district || ''} onChange={(event) => updateAddressField(address.id, 'district', event.target.value)} className={inputClassName} placeholder="District" />
                   <input value={address.phone_number || ''} onChange={(event) => updateAddressField(address.id, 'phone_number', event.target.value)} className={inputClassName} placeholder="Phone Number" />
                   <input value={address.address_type || 'community'} onChange={(event) => updateAddressField(address.id, 'address_type', event.target.value)} className={inputClassName} placeholder="Address Type" />
-                  <textarea value={address.street_description || address.description || ''} onChange={(event) => updateAddressField(address.id, 'street_description', event.target.value)} className={`${inputClassName} min-h-24 md:col-span-2`} placeholder="Street description" />
+                  <input value={address.place_type || ''} onChange={(event) => updateAddressField(address.id, 'place_type', event.target.value)} className={inputClassName} placeholder="Place Type" />
+                  <input value={address.auto_generated_flag ? 'Yes' : 'No'} readOnly className={inputClassName} placeholder="Auto Generated" />
+                  <textarea value={address.street_description || address.description || ''} onChange={(event) => updateAddressField(address.id, 'street_description', event.target.value)} className={`${inputClassName} min-h-24 md:col-span-2 xl:col-span-3`} placeholder="Street description" />
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button onClick={() => saveAddressRecord(address)} className="rounded-2xl bg-stone-950 px-4 py-3 text-sm font-semibold text-white">Save Changes</button>
                   <button onClick={() => toggleAddressStatus(address)} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-900">{address.is_active === false ? 'Enable Address' : 'Toggle Active Status'}</button>
+                  {Number(address.confidence_score || 0) < 60 && <button onClick={() => saveAddressRecord(address, { moderation_status: 'flagged', is_active: true })} className="rounded-2xl bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-700">Mark for Review</button>}
+                  {address.auto_generated_flag && <button onClick={() => saveAddressRecord(address, { moderation_status: 'active', is_active: true, auto_generated_flag: true })} className="rounded-2xl bg-sky-100 px-4 py-3 text-sm font-semibold text-sky-700">Verify Building</button>}
                 </div>
               </div>
             ))}
@@ -670,6 +830,8 @@ export default function AdminDashboard() {
           {[
             ['Reported Addresses', moderation.reported_addresses || [], 'reported'],
             ['Suspicious Activity', moderation.suspicious_activity || [], 'suspicious'],
+            ['Low Confidence', moderation.low_confidence_addresses || [], 'low-confidence'],
+            ['Unverified Buildings', moderation.unverified_buildings || [], 'unverified-buildings'],
             ['Business Verification Queue', moderation.pending_business_verification || [], 'business'],
           ].map(([title, items, queueType]) => (
             <div key={title} className="rounded-[2rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/20">
@@ -686,6 +848,7 @@ export default function AdminDashboard() {
                     <div className="mt-4 flex flex-wrap gap-2">
                       {queueType !== 'business' && <button onClick={() => saveAddressRecord(item, { moderation_status: 'active', is_active: true })} className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-700">Mark Active</button>}
                       {queueType !== 'business' && <button onClick={() => saveAddressRecord(item, { moderation_status: 'disabled', is_active: false })} className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700">Disable</button>}
+                      {queueType === 'unverified-buildings' && <button onClick={() => saveAddressRecord(item, { moderation_status: 'active', is_active: true, auto_generated_flag: true })} className="rounded-full bg-sky-100 px-3 py-2 text-xs font-semibold text-sky-700">Verify Building</button>}
                       {queueType === 'business' && <button onClick={() => reviewBusiness(item.id, 'approved')} className="rounded-full bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-700">Verify Business</button>}
                       {queueType === 'business' && <button onClick={() => reviewBusiness(item.id, 'rejected')} className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-700">Reject</button>}
                     </div>

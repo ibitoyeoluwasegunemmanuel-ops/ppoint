@@ -7,6 +7,7 @@
   "scripts": {
     "db:init": "node src/scripts/initDatabase.js",
     "db:seed-africa": "node -e \"import('./src/scripts/seedAfricaGeography.js').then((m) => m.seedAfricaGeography()).then(() => process.exit(0)).catch((error) => { console.error(error); process.exit(1); })\"",
+    "buildings:seed": "node src/scripts/seedAutoDetectedBuildings.js",
     "start": "node src/app.js",
     "dev": "nodemon src/app.js"
   },

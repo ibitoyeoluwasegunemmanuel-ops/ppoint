@@ -35,6 +35,7 @@ const initialAddressForm = {
 };
 
 const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500';
+const selectStyle = { colorScheme: 'dark' };
 
 const getAddressSettings = (publicConfig) => ({
   requireBuildingName: publicConfig?.address_settings?.require_building_name !== false,
@@ -277,7 +278,7 @@ export default function AgentsPage() {
               Start with the building name and optional landmark. Extra details stay hidden unless the agent needs them.
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <select value={mappingForm.placeType} onChange={(event) => setMappingForm({ ...mappingForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? mappingForm.customPlaceType : '' })} className={inputClassName}>
+              <select value={mappingForm.placeType} onChange={(event) => setMappingForm({ ...mappingForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? mappingForm.customPlaceType : '' })} className={inputClassName} style={selectStyle}>
                 <option value="">Select place type</option>
                 {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
               </select>

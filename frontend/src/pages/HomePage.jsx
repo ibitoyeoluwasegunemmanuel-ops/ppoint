@@ -26,6 +26,7 @@ const initialAddressForm = {
   phoneNumber: '',
 };
 const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500';
+const selectStyle = { colorScheme: 'dark' };
 
 const confidenceTone = {
   high: 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100',
@@ -429,7 +430,7 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName}>
+            <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName} style={selectStyle}>
               <option value="">Select place type</option>
               {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
             </select>
@@ -477,6 +478,7 @@ export default function HomePage() {
                 <div className={`mt-4 rounded-2xl border p-4 text-sm ${confidenceTone[draftAddress.confidence_level] || confidenceTone.medium}`}>
                   <p className="font-semibold uppercase tracking-[0.2em]">Confidence {draftAddress.confidence_score || 0}/100</p>
                   <p className="mt-2">{draftAddress.confidence_guidance || 'Review the detected entrance and street details before saving.'}</p>
+                  {Number(draftAddress.confidence_score || 0) < 60 && <p className="mt-2 font-semibold">Low location accuracy. Adjust the map pin or confirm the entrance point.</p>}
                 </div>
               )}
 
@@ -512,7 +514,7 @@ export default function HomePage() {
               )}
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName}>
+                <select value={addressForm.placeType} onChange={(event) => setAddressForm({ ...addressForm, placeType: event.target.value, customPlaceType: event.target.value === 'Other' ? addressForm.customPlaceType : '' })} className={inputClassName} style={selectStyle}>
                   <option value="">Select place type</option>
                   {PLACE_TYPES.map((placeType) => <option key={placeType} value={placeType}>{placeType}</option>)}
                 </select>
@@ -569,6 +571,7 @@ export default function HomePage() {
                 <div className={`mt-4 rounded-2xl border p-4 text-sm ${confidenceTone[activeAddress.confidence_level] || confidenceTone.medium}`}>
                   <p className="font-semibold uppercase tracking-[0.2em]">Confidence {activeAddress.confidence_score || 0}/100</p>
                   {activeAddress.confidence_guidance && <p className="mt-2">{activeAddress.confidence_guidance}</p>}
+                  {Number(activeAddress.confidence_score || 0) < 60 && <p className="mt-2 font-semibold">Low location accuracy. Adjust the map pin or confirm the entrance point.</p>}
                 </div>
               )}
 

@@ -8,9 +8,9 @@ const PRIMARY_ADMIN_EMAIL = 'ibitoyeoluwasegunemmanuel@gmail.com';
 const PRIMARY_ADMIN_PASSWORD = 'Clause01!';
 
 const rolePermissions = {
-  'Super Admin': ['overview', 'addresses', 'businesses', 'agents', 'developers', 'usage', 'plans', 'payments', 'regions', 'registry', 'dispatch', 'settings'],
-  'Admin': ['overview', 'addresses', 'businesses', 'agents', 'regions', 'registry', 'dispatch'],
-  'Manager': ['overview', 'addresses', 'businesses', 'agents', 'regions', 'registry', 'dispatch'],
+  'Super Admin': ['overview', 'addresses', 'moderation', 'businesses', 'agents', 'developers', 'usage', 'plans', 'payments', 'regions', 'registry', 'dispatch', 'settings'],
+  'Admin': ['overview', 'addresses', 'moderation', 'businesses', 'agents', 'regions', 'registry', 'dispatch'],
+  'Manager': ['overview', 'addresses', 'moderation', 'businesses', 'agents', 'regions', 'registry', 'dispatch'],
   'Field Officer': ['addresses', 'agents', 'regions', 'dispatch'],
 };
 
@@ -783,6 +783,8 @@ export const platformStore = {
       pending_business_verification: moderationQueues.pending_business_verification.length,
       reported_addresses: moderationQueues.reported_addresses.length,
       suspicious_activity: moderationQueues.suspicious_activity.length,
+      low_confidence_addresses: moderationQueues.low_confidence_addresses.length,
+      unverified_buildings: moderationQueues.unverified_buildings.length,
       active_developers: developers.filter((item) => item.status === 'active').length,
       pending_payments: payments.filter((item) => item.status === 'pending').length,
       monthly_api_requests: usage.reduce((sum, item) => sum + item.request_count, 0),

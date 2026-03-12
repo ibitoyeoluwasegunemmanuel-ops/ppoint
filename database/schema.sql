@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS addresses (
     entrance_latitude DECIMAL(10, 8),
     entrance_longitude DECIMAL(11, 8),
     confidence_score INTEGER DEFAULT 0,
+    auto_generated_flag BOOLEAN DEFAULT false,
     place_type VARCHAR(64),
     custom_place_type VARCHAR(120),
     address_metadata JSONB DEFAULT '{}'::jsonb,
@@ -175,6 +176,9 @@ ADD COLUMN IF NOT EXISTS entrance_longitude DECIMAL(11, 8);
 
 ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS confidence_score INTEGER DEFAULT 0;
+
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS auto_generated_flag BOOLEAN DEFAULT false;
 
 ALTER TABLE addresses
 ADD COLUMN IF NOT EXISTS place_type VARCHAR(64);

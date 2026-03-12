@@ -85,6 +85,24 @@ const createRandomIdentifier = () => {
 
 const structuredAddressLine = (houseNumber, streetName) => [houseNumber, streetName].filter(Boolean).join(' ').trim() || null;
 
+const calculateDistanceInMeters = (from, to) => {
+  if (!from || !to) {
+    return null;
+  }
+
+  const earthRadius = 6371000;
+  const lat1 = (Number(from.latitude) * Math.PI) / 180;
+  const lat2 = (Number(to.latitude) * Math.PI) / 180;
+  const deltaLat = ((Number(to.latitude) - Number(from.latitude)) * Math.PI) / 180;
+  const deltaLng = ((Number(to.longitude) - Number(from.longitude)) * Math.PI) / 180;
+
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(earthRadius * c);
+};
+
 const normalizeGeoPoint = (point) => {
   if (!point) {
     return null;
@@ -129,6 +147,7 @@ const getAddressIntelligence = (address) => {
 
   return {
     community_name: address.community_name || metadata.community_name || metadata.reverse_geocoding?.community_name || null,
+    suburb_name: metadata.suburb_name || metadata.reverse_geocoding?.suburb_name || null,
     building_polygon_id: address.building_polygon_id || metadata.building_id || null,
     entrance_label: address.entrance_label || null,
     entrance_latitude: address.entrance_latitude === null || address.entrance_latitude === undefined ? null : Number(address.entrance_latitude),
@@ -143,7 +162,9 @@ const getAddressIntelligence = (address) => {
     building_entrance_point: normalizeGeoPoint(metadata.building_entrance_point),
     building_polygon: normalizePath(metadata.building_polygon),
     road_segment: normalizePath(metadata.road_segment),
+    road_proximity_meters: metadata.road_proximity_meters === undefined || metadata.road_proximity_meters === null ? null : Number(metadata.road_proximity_meters),
     geocoding_providers: Array.isArray(metadata.geocoding_providers) ? metadata.geocoding_providers : [],
+    auto_generated_flag: Boolean(address.auto_generated_flag || metadata.auto_generated_flag),
   };
 };
 
@@ -198,20 +219,25 @@ class AddressService {
       enrichLocationWithOsmData(lat, lng),
       reverseGeocodeLocation(lat, lng),
     ]);
-    const resolvedCommunityName = options.communityName || reverseGeocoding?.communityName || null;
+    const resolvedCommunityName = options.communityName || reverseGeocoding?.communityName || reverseGeocoding?.suburbName || null;
     const resolvedHouseNumber = options.houseNumber || osmEnrichment?.buildingNumber || null;
     const resolvedStreetName = options.streetName || osmEnrichment?.streetName || reverseGeocoding?.streetName || null;
     const resolvedBuildingPolygonId = options.buildingPolygonId || osmEnrichment?.metadata?.building_id || null;
     const navigationPoints = normalizeNavigationPoints(osmEnrichment?.navigationPoints || osmEnrichment?.metadata?.navigation_points || []);
     const selectedNavigationPointKey = options.selectedNavigationPoint || osmEnrichment?.selectedNavigationPoint || null;
     const selectedNavigationPoint = navigationPoints.find((entry) => entry.key === selectedNavigationPointKey) || null;
+    const roadProximityMeters = calculateDistanceInMeters(
+      normalizeGeoPoint(osmEnrichment?.buildingEntrancePoint) || { latitude: lat, longitude: lng },
+      normalizeGeoPoint(osmEnrichment?.snappedRoadPoint)
+    );
     const confidence = calculateAddressConfidence({
       gpsAccuracy: options.gpsAccuracy || options.gps_accuracy || null,
       buildingDetected: Boolean(osmEnrichment?.metadata?.building_detected),
-      streetDetected: Boolean(osmEnrichment?.metadata?.street_detected || resolvedStreetName),
+      roadProximity: roadProximityMeters,
       entranceDetected: Boolean(selectedNavigationPoint || osmEnrichment?.buildingEntrancePoint),
       geocodingProviders: reverseGeocoding?.providers || [],
       communityName: resolvedCommunityName,
+      streetName: resolvedStreetName,
     });
     const resolvedEntranceLabel = options.entranceLabel || selectedNavigationPoint?.label || null;
     const resolvedEntranceLatitude = options.entranceLatitude ?? selectedNavigationPoint?.latitude ?? osmEnrichment?.buildingEntrancePoint?.latitude ?? null;
@@ -221,12 +247,14 @@ class AddressService {
       reverse_geocoding: {
         street_name: reverseGeocoding?.streetName || null,
         community_name: reverseGeocoding?.communityName || null,
+        suburb_name: reverseGeocoding?.suburbName || null,
         city: reverseGeocoding?.city || null,
         state: reverseGeocoding?.state || null,
         country: reverseGeocoding?.country || null,
       },
       geocoding_providers: reverseGeocoding?.providers || [],
       community_name: resolvedCommunityName,
+      suburb_name: reverseGeocoding?.suburbName || null,
       confidence_score: confidence.score,
       confidence_level: confidence.level,
       confidence_guidance: confidence.guidance,
@@ -235,6 +263,8 @@ class AddressService {
       selected_navigation_point: selectedNavigationPointKey,
       snapped_road_point: normalizeGeoPoint(osmEnrichment?.snappedRoadPoint),
       building_entrance_point: normalizeGeoPoint(osmEnrichment?.buildingEntrancePoint),
+      road_proximity_meters: roadProximityMeters,
+      auto_generated_flag: Boolean(options.autoGeneratedFlag || options.auto_generated_flag),
       minimum_distance_meters: PROXIMITY_RADIUS,
       fallback_mode: !osmEnrichment,
     };
@@ -264,6 +294,7 @@ class AddressService {
           entrance_latitude: resolvedEntranceLatitude,
           entrance_longitude: resolvedEntranceLongitude,
           confidence_score: confidence.score,
+          auto_generated_flag: Boolean(options.autoGeneratedFlag || options.auto_generated_flag || existingAddress.auto_generated_flag),
           street_description: options.streetDescription,
           description: options.description || existingAddress.description || localityLabel || null,
           place_type: placeTypeInfo.placeType,
@@ -296,9 +327,9 @@ class AddressService {
           cityCode: city.city_code,
           lat,
           lng,
-          country: city.country,
-          state: city.state,
-          city: cityLabel,
+          country: reverseGeocoding?.country || city.country,
+          state: reverseGeocoding?.state || city.state,
+          city: reverseGeocoding?.city || cityLabel,
           communityName: resolvedCommunityName,
           district: options.district,
           landmark: options.landmark,
@@ -313,6 +344,7 @@ class AddressService {
           entranceLatitude: resolvedEntranceLatitude,
           entranceLongitude: resolvedEntranceLongitude,
           confidenceScore: confidence.score,
+          autoGeneratedFlag: Boolean(options.autoGeneratedFlag || options.auto_generated_flag),
           placeType: placeTypeInfo.placeType,
           customPlaceType: placeTypeInfo.customPlaceType,
           addressMetadata: resolvedMetadata,
