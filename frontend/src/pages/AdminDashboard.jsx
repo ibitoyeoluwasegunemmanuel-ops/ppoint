@@ -148,10 +148,53 @@ export default function AdminDashboard() {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [scriptError, setScriptError] = useState(null);
+  // Device detection for UI tweaks
+  const [deviceType, setDeviceType] = useState('desktop');
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    if (/Mobi|Android|iPhone|iPad|Tablet/i.test(ua)) setDeviceType('mobile');
+    else setDeviceType('desktop');
+    // Global error handler for JS failures
+    window.onerror = (msg, url, line, col, err) => {
+      setScriptError(`${msg} at ${url}:${line}:${col}`);
+      setLoading(false);
+      setError('A script error occurred. Please reload or contact support.');
+      return false;
+    };
+    window.onunhandledrejection = (event) => {
+      setScriptError(event.reason?.message || 'Unhandled promise rejection');
+      setLoading(false);
+      setError('A script error occurred. Please reload or contact support.');
+    };
+    return () => {
+      window.onerror = null;
+      window.onunhandledrejection = null;
+    };
+  }, []);
 
   const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
-  const permissions = adminProfile?.permissions || rolePermissions[adminProfile?.role] || [];
-  const visibleTabs = tabs.filter((tab) => permissions.includes(tab.id));
+  // Robust permissions check: handle missing/malformed adminProfile
+  const permissions = adminProfile?.permissions || (adminProfile?.role && rolePermissions[adminProfile.role]) || [];
+  const visibleTabs = Array.isArray(permissions) ? tabs.filter((tab) => permissions.includes(tab.id)) : [];
+  // Fallback UI for missing/invalid adminProfile after login
+  if (token && !adminProfile) {
+    return (
+      <div className="text-red-500 p-8 text-center">
+        <h2 className="text-2xl font-bold mb-4">Admin profile is missing or invalid</h2>
+        <p className="mb-4">Your session may have expired or there was a login error. Please log in again.</p>
+        <button
+          className="rounded-full bg-stone-950 px-5 py-3 font-semibold text-white"
+          onClick={() => {
+            localStorage.removeItem('ppoint_admin_session');
+            localStorage.removeItem('ppoint_admin_profile');
+            setToken('');
+            setAdminProfile(null);
+          }}
+        >Logout</button>
+      </div>
+    );
+  }
 
   const availableStates = useMemo(() => {
     const selectedCountryIds = selectedRegionIds.country || [];
@@ -341,19 +384,29 @@ export default function AdminDashboard() {
     setLoading(true);
     setError(null);
     setNotice(null);
-
+    setScriptError(null);
     try {
       const response = await api.post('/admin/auth/login', loginForm);
       const nextToken = response.data.data.token;
       const nextAdmin = response.data.data.admin;
+      // Store token in localStorage
       localStorage.setItem('ppoint_admin_session', nextToken);
       localStorage.setItem('ppoint_admin_profile', JSON.stringify(nextAdmin));
+      // Store token in cookie (fallback for mobile)
+      document.cookie = `ppoint_admin_session=${nextToken}; path=/; SameSite=Lax; max-age=86400`;
       setToken(nextToken);
       setAdminProfile(nextAdmin);
       setNotice('Admin session established.');
-      navigate('/admin/dashboard', { replace: true });
+      // Only redirect after token is set and verified
+      setTimeout(() => {
+        navigate('/admin/dashboard', { replace: true });
+      }, 100);
     } catch (loginError) {
       setError(loginError.response?.data?.error || 'Invalid admin email or password.');
+      // Redirect to login with error
+      setTimeout(() => {
+        navigate('/admin/login', { replace: true, state: { error: loginError.response?.data?.error || 'Authentication failed.' } });
+      }, 300);
     } finally {
       setLoading(false);
     }
@@ -644,17 +697,16 @@ export default function AdminDashboard() {
         <p className="text-sm uppercase tracking-[0.35em] text-amber-600">Admin Login</p>
         <h1 className="mt-4 text-3xl font-black text-stone-950">Platform Control System</h1>
         <p className="mt-3 text-stone-600">Use admin email and password to access addresses, developers, payments, plans, regions, and settings.</p>
+        {scriptError && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Script error: {scriptError}</div>}
         {error && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
         {notice && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</div>}
-
+        {loading && <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-700">Loading admin dashboard...</div>}
         <form onSubmit={handleAdminLogin} className="mt-6 space-y-4">
           <input value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} className={inputClassName} placeholder="Admin Email" />
           <input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} className={inputClassName} placeholder="Password" />
           <button disabled={loading} className="w-full rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-50">{loading ? 'Authenticating...' : 'Login to Admin Dashboard'}</button>
         </form>
-
         <button onClick={() => setShowForgotPassword((current) => !current)} className="mt-4 text-sm font-semibold text-amber-700 underline underline-offset-4">Forgot Password?</button>
-
         {showForgotPassword && (
           <div className="mt-6 rounded-[1.5rem] border border-stone-200 bg-stone-50 p-6">
             <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -662,7 +714,6 @@ export default function AdminDashboard() {
               <input value={forgotPasswordEmail} onChange={(event) => setForgotPasswordEmail(event.target.value)} className={inputClassName} placeholder="Admin email" />
               <button disabled={loading} className="rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-50">Send Reset Token</button>
             </form>
-
             <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
               <h3 className="text-base font-bold text-stone-950">Reset Password</h3>
               <input value={resetToken} onChange={(event) => setResetToken(event.target.value)} className={inputClassName} placeholder="Reset token" />
@@ -671,6 +722,7 @@ export default function AdminDashboard() {
             </form>
           </div>
         )}
+        <div className="mt-6 text-xs text-stone-400">Device: {deviceType}</div>
       </div>
     );
   }
