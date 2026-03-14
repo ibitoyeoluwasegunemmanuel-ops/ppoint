@@ -113,7 +113,14 @@ const getErrorMessage = (error, fallbackMessage) => error?.response?.data?.error
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [token, setToken] = useState(localStorage.getItem('ppoint_admin_session') || '');
+  // Defensive: Only access localStorage in browser
+  const getInitialToken = () => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return localStorage.getItem('ppoint_admin_session') || '';
+    }
+    return '';
+  };
+  const [token, setToken] = useState(getInitialToken);
   const [adminProfile, setAdminProfile] = useState(readStoredAdmin);
   const [loginForm, setLoginForm] = useState(initialLogin);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('ibitoyeoluwasegunemmanuel@gmail.com');
@@ -722,12 +729,13 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!token) {
+  if (!token || typeof token !== 'string' || token.length < 10) {
     return (
       <div className="mx-auto max-w-2xl rounded-[2rem] border border-white/10 bg-white p-8 text-stone-900 shadow-2xl shadow-black/20">
         <p className="text-sm uppercase tracking-[0.35em] text-amber-600">Admin Login</p>
         <h1 className="mt-4 text-3xl font-black text-stone-950">Platform Control System</h1>
         <p className="mt-3 text-stone-600">Use admin email and password to access addresses, developers, payments, plans, regions, and settings.</p>
+        <div className="mt-2 text-xs text-stone-400">[Debug] Token: {JSON.stringify(token)}</div>
         {scriptError && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Script error: {scriptError}</div>}
         {error && (
           <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
