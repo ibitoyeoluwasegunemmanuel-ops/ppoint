@@ -177,12 +177,15 @@ export default function AdminDashboard() {
   // Robust permissions check: handle missing/malformed adminProfile
   const permissions = adminProfile?.permissions || (adminProfile?.role && rolePermissions[adminProfile.role]) || [];
   const visibleTabs = Array.isArray(permissions) ? tabs.filter((tab) => permissions.includes(tab.id)) : [];
-  // Fallback UI for missing/invalid adminProfile after login
-  if (token && !adminProfile) {
+  // Fallback UI for missing/invalid/malformed adminProfile after login
+  if (token && (!adminProfile || typeof adminProfile !== 'object' || !adminProfile.role)) {
     return (
       <div className="text-red-500 p-8 text-center">
-        <h2 className="text-2xl font-bold mb-4">Admin profile is missing or invalid</h2>
-        <p className="mb-4">Your session may have expired or there was a login error. Please log in again.</p>
+        <h2 className="text-2xl font-bold mb-4">Admin profile is missing, invalid, or incomplete</h2>
+        <p className="mb-4">Your session may have expired, there was a login error, or your admin profile is malformed.<br/>Please log in again. If this persists, contact support.</p>
+        <pre className="bg-red-100 text-red-700 rounded p-2 text-xs overflow-x-auto max-w-xl mx-auto mb-4" style={{textAlign:'left'}}>
+          {JSON.stringify(adminProfile, null, 2)}
+        </pre>
         <button
           className="rounded-full bg-stone-950 px-5 py-3 font-semibold text-white"
           onClick={() => {
@@ -195,6 +198,34 @@ export default function AdminDashboard() {
       </div>
     );
   }
+  // Fallback UI for critical dashboard data load failure
+  if (token && adminProfile && (!Array.isArray(visibleTabs) || visibleTabs.length === 0)) {
+    return (
+      <div className="text-red-500 p-8 text-center">
+        <h2 className="text-2xl font-bold mb-4">Dashboard failed to load</h2>
+        <p className="mb-4">No admin tabs are available. This may be due to a malformed profile, missing permissions, or a backend error.</p>
+        <pre className="bg-red-100 text-red-700 rounded p-2 text-xs overflow-x-auto max-w-xl mx-auto mb-4" style={{textAlign:'left'}}>
+          {JSON.stringify(adminProfile, null, 2)}
+        </pre>
+        <button
+          className="rounded-full bg-stone-950 px-5 py-3 font-semibold text-white"
+          onClick={() => {
+            localStorage.removeItem('ppoint_admin_session');
+            localStorage.removeItem('ppoint_admin_profile');
+            setToken('');
+            setAdminProfile(null);
+          }}
+        >Logout</button>
+      </div>
+    );
+  }
+  // Debug: log adminProfile and visibleTabs for troubleshooting blank screens
+  useEffect(() => {
+    if (token) {
+      // eslint-disable-next-line no-console
+      console.log('AdminDashboard debug:', { adminProfile, visibleTabs });
+    }
+  }, [token, adminProfile, visibleTabs]);
 
   const availableStates = useMemo(() => {
     const selectedCountryIds = selectedRegionIds.country || [];
