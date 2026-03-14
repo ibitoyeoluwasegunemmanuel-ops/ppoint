@@ -190,6 +190,7 @@ export default function AdminDashboard() {
       <div className="text-red-500 p-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Admin profile is missing, invalid, or incomplete</h2>
         <p className="mb-4">Your session may have expired, there was a login error, or your admin profile is malformed.<br/>Please log in again. If this persists, contact support.</p>
+        <div className="mb-2 text-xs text-stone-400">[Debug] Token: {JSON.stringify(token)}</div>
         <pre className="bg-red-100 text-red-700 rounded p-2 text-xs overflow-x-auto max-w-xl mx-auto mb-4" style={{textAlign:'left'}}>
           {JSON.stringify(adminProfile, null, 2)}
         </pre>
@@ -211,6 +212,7 @@ export default function AdminDashboard() {
       <div className="text-red-500 p-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Dashboard failed to load</h2>
         <p className="mb-4">No admin tabs are available. This may be due to a malformed profile, missing permissions, or a backend error.</p>
+        <div className="mb-2 text-xs text-stone-400">[Debug] Token: {JSON.stringify(token)}</div>
         <pre className="bg-red-100 text-red-700 rounded p-2 text-xs overflow-x-auto max-w-xl mx-auto mb-4" style={{textAlign:'left'}}>
           {JSON.stringify(adminProfile, null, 2)}
         </pre>
