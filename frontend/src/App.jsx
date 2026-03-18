@@ -4,6 +4,7 @@ import AddressPage from './pages/AddressPage';
 import AdminDashboard from './pages/AdminDashboard';
 import DevelopersPage from './pages/DevelopersPage';
 import AgentsPage from './pages/AgentsPage';
+import DriversPage from './pages/DriversPage';
 import Layout from './components/Layout';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/developer/dashboard" element={<DevelopersPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/drivers" element={<DriversPage />} />
         <Route path="/:code" element={<AddressPage />} />
       </Routes>
     </Layout>

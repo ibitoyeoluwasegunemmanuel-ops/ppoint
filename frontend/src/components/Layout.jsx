@@ -30,6 +30,7 @@ export default function Layout({ children }) {
             <div className="flex items-center gap-3 text-sm text-stone-300">
               {[
                 { to: '/', label: 'Get Address' },
+                { to: '/drivers', label: 'Driver Navigation' },
                 { to: '/agents', label: 'Agents' },
                 { to: '/developers', label: 'Developers' },
                 { to: '/admin', label: 'Admin' },
@@ -42,8 +43,10 @@ export default function Layout({ children }) {
                   {item.label}
                 </NavLink>
               ))}
-              <Globe2 size={16} />
-              <span>ppoint.africa</span>
+              <>
+                <Globe2 size={16} />
+                <span>ppoint.africa</span>
+              </>
             </div>
           </div>
         </div>

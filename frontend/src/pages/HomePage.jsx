@@ -199,6 +199,34 @@ function PlaceTypePicker({ value, customValue, onChange, onCustomChange, tone = 
 }
 
 export default function HomePage() {
+      // Detects the user's current location using the browser geolocation API
+      const detectLocation = () => {
+        if (!navigator.geolocation) {
+          setError('Geolocation is not supported by your browser.');
+          return;
+        }
+        setLoading(true);
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setPosition([position.coords.latitude, position.coords.longitude]);
+            setSelectedPosition([position.coords.latitude, position.coords.longitude]);
+            setLoading(false);
+            setError('');
+          },
+          (err) => {
+            setError('Unable to retrieve your location.');
+            setLoading(false);
+          }
+        );
+      };
+    // Handles updating the place type and resets customPlaceType if needed
+    const updatePlaceType = (nextType) => {
+      setAddressForm((current) => ({
+        ...current,
+        placeType: nextType,
+        customPlaceType: nextType === 'Other' ? current.customPlaceType : '',
+      }));
+    };
   const [position, setPosition] = useState([6.5244, 3.3792]);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [draftAddress, setDraftAddress] = useState(null);
@@ -263,105 +291,8 @@ export default function HomePage() {
       setSelectedNavigationKey('');
       return;
     }
-
     setSelectedNavigationKey(draftAddress.selected_navigation_point || draftAddress.navigation_points?.[0]?.key || '');
   }, [draftAddress]);
-
-  const setCopied = (value) => {
-    setCopyState(value);
-    setTimeout(() => setCopyState(''), 1800);
-  };
-
-  const updatePlaceType = (nextPlaceType) => {
-    setAddressForm((current) => ({
-      ...current,
-      placeType: nextPlaceType,
-      customPlaceType: nextPlaceType === 'Other' ? current.customPlaceType : '',
-    }));
-  };
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by this browser. Use Select Map Point instead.');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const nextPosition = [coords.latitude, coords.longitude];
-        setSelectedPosition(nextPosition);
-        setPosition(nextPosition);
-        setGpsAccuracy(coords.accuracy ?? null);
-        setError('');
-        setNotice(`Location detected${coords.accuracy ? ` with about ${Math.round(coords.accuracy)}m GPS accuracy` : ''}. Drag the marker if you need to adjust the exact entrance.`);
-      },
-      () => {
-        setError('Location permission was denied. Select the map point manually.');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
-
-  const generateCommunityAddress = async () => {
-    if (!selectedPosition) {
-      setError('Select a map point or detect your location first.');
-      return;
-    }
-
-    if (!addressForm.placeType) {
-      setError('Select a place type before generating a PPOINNT address.');
-      return;
-    }
-
-    if (addressForm.placeType === 'Other' && !addressForm.customPlaceType.trim()) {
-      setError('Enter the custom place type when selecting Other.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setNotice('');
-
-    try {
-      const response = await api.post('/platform/community/addresses/generate', {
-        latitude: selectedPosition[0],
-        longitude: selectedPosition[1],
-        placeType: addressForm.placeType,
-        customPlaceType: addressForm.customPlaceType,
-        gpsAccuracy,
-      });
-      setDraftAddress(response.data.data);
-      setSelectedNavigationKey(response.data.data.selected_navigation_point || response.data.data.navigation_points?.[0]?.key || '');
-      setAddressForm((current) => ({
-        ...current,
-        houseNumber: response.data.data.house_number || current.houseNumber,
-      }));
-      setSearchResult(null);
-      setNotice(response.data.data.isExisting ? 'An existing PPOINNT address was found within 5 meters. Review the details and save any updates.' : 'PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
-    } catch (requestError) {
-      try {
-        const fallbackResponse = await api.post(resolveCommunityApiUrl('/platform/community/addresses/generate'), {
-          latitude: selectedPosition[0],
-          longitude: selectedPosition[1],
-          placeType: addressForm.placeType,
-          customPlaceType: addressForm.customPlaceType,
-          gpsAccuracy,
-        });
-        setDraftAddress(fallbackResponse.data.data);
-        setSelectedNavigationKey(fallbackResponse.data.data.selected_navigation_point || fallbackResponse.data.data.navigation_points?.[0]?.key || '');
-        setAddressForm((current) => ({
-          ...current,
-          houseNumber: fallbackResponse.data.data.house_number || current.houseNumber,
-        }));
-        setSearchResult(null);
-        setNotice(fallbackResponse.data.data.isExisting ? 'An existing PPOINNT address was found within 5 meters. Review the details and save any updates.' : 'PPOINNT code generated. Add the building name and any optional delivery details, then save. Community addresses go live immediately.');
-      } catch (fallbackError) {
-        setError(fallbackError.response?.data?.message || requestError.response?.data?.message || 'Failed to generate PPOINNT code.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const saveCommunityAddress = async () => {
     if (!draftAddress?.id) {
@@ -511,8 +442,8 @@ export default function HomePage() {
 
   return (
     <div className="space-y-10">
-      <section className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-white/6 p-8 backdrop-blur-xl">
+      <section className="flex flex-row gap-8 items-start">
+        <div className="flex-1 min-w-[340px] max-w-lg rounded-[2rem] border border-white/10 bg-white/6 p-8 backdrop-blur-xl">
           <p className="text-sm uppercase tracking-[0.35em] text-amber-300">Community Address Creation</p>
           <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">Get Your PPOINNT Address</h1>
           <p className="mt-4 max-w-3xl text-lg leading-8 text-stone-200">
@@ -525,6 +456,7 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 space-y-4">
+            <Link to="/drivers" className="inline-block rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white text-lg shadow-lg hover:bg-blue-700 transition mb-4">Driver Navigation</Link>
             <PlaceTypePicker
               value={addressForm.placeType}
               customValue={addressForm.customPlaceType}
@@ -718,7 +650,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="flex-1 min-w-[340px] max-w-2xl space-y-6">
           <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-stone-950/60 shadow-2xl shadow-black/30">
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
               <div>

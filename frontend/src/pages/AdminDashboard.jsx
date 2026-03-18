@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { PLACE_TYPES } from '../constants/placeTypes';
 import { Link, useNavigate } from 'react-router-dom';
 import { CircleMarker, MapContainer, Polygon, Popup, TileLayer } from 'react-leaflet';
 import { BarChart3, Building2, CreditCard, Globe, KeyRound, MapPinned, Settings2, ShieldAlert, ShieldCheck, Truck, Users } from 'lucide-react';
@@ -959,7 +960,17 @@ export default function AdminDashboard() {
                   <input value={address.district || ''} onChange={(event) => updateAddressField(address.id, 'district', event.target.value)} className={inputClassName} placeholder="District" />
                   <input value={address.phone_number || ''} onChange={(event) => updateAddressField(address.id, 'phone_number', event.target.value)} className={inputClassName} placeholder="Phone Number" />
                   <input value={address.address_type || 'community'} onChange={(event) => updateAddressField(address.id, 'address_type', event.target.value)} className={inputClassName} placeholder="Address Type" />
-                  <input value={address.place_type || ''} onChange={(event) => updateAddressField(address.id, 'place_type', event.target.value)} className={inputClassName} placeholder="Place Type" />
+                  <select
+                    value={address.place_type || ''}
+                    onChange={(event) => updateAddressField(address.id, 'place_type', event.target.value)}
+                    className={selectClassName}
+                    style={selectStyle}
+                  >
+                    <option value="">Select Place Type</option>
+                    {PLACE_TYPES.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
                   <input value={address.auto_generated_flag ? 'Yes' : 'No'} readOnly className={inputClassName} placeholder="Auto Generated" />
                   <textarea value={address.street_description || address.description || ''} onChange={(event) => updateAddressField(address.id, 'street_description', event.target.value)} className={`${inputClassName} min-h-24 md:col-span-2 xl:col-span-3`} placeholder="Street description" />
                 </div>
