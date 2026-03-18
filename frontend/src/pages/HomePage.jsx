@@ -135,64 +135,73 @@ function PlaceTypePicker({ value, customValue, onChange, onCustomChange, tone = 
         wrapper: 'rounded-[1.5rem] border border-stone-200 bg-stone-50 p-4',
         label: 'text-stone-700',
         helper: 'text-stone-500',
-        clear: 'text-stone-600 hover:text-stone-900',
-        option: 'border-stone-200 bg-white text-stone-700 hover:border-stone-300 hover:bg-stone-100',
-        activeOption: 'border-stone-950 bg-stone-950 text-white shadow-lg shadow-stone-950/10',
+        select: 'border-stone-200 bg-white text-stone-900',
         customInput: 'border-stone-200 bg-white text-stone-900 placeholder:text-stone-400',
       }
     : {
         wrapper: 'rounded-[1.5rem] border border-white/10 bg-black/20 p-4',
         label: 'text-stone-200',
         helper: 'text-stone-400',
-        clear: 'text-stone-300 hover:text-white',
-        option: 'border-white/10 bg-white/5 text-stone-200 hover:border-white/25 hover:bg-white/10',
-        activeOption: 'border-amber-300/40 bg-amber-300/10 text-white shadow-lg shadow-amber-300/10',
+        select: 'border-white/10 bg-white/5 text-stone-100',
         customInput: 'border-white/10 bg-white/5 text-white placeholder:text-stone-500',
       };
 
+  const PLACE_OPTIONS = [
+    { type: 'House', icon: '🏠' },
+    { type: 'Shop', icon: '🛍' },
+    { type: 'Office', icon: '🏢' },
+    { type: 'School', icon: '🎓' },
+    { type: 'Hospital', icon: '🏥' },
+    { type: 'Hotel', icon: '🏨' },
+    { type: 'Police Station', icon: '🚓' },
+    { type: 'Church', icon: '⛪' },
+    { type: 'Mosque', icon: '🕌' },
+    { type: 'Warehouse', icon: '📦' },
+    { type: 'Market', icon: '🛒' },
+    { type: 'Government Office', icon: '🏛' },
+    { type: 'Estate Gate', icon: '🚪' },
+    { type: 'Barracks', icon: '🪖' },
+    { type: 'Public Building', icon: '🏛' },
+    { type: 'Other', icon: '📍' },
+  ];
+
   return (
     <div className={`${theme.wrapper} space-y-4`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className={`text-sm font-semibold uppercase tracking-[0.25em] ${theme.label}`}>Place Type</p>
-          <p className={`mt-1 text-sm ${theme.helper}`}>Choose the location that best matches the pin you are saving.</p>
-        </div>
-        {value && (
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            className={`text-xs font-semibold uppercase tracking-[0.2em] transition ${theme.clear}`}
-          >
-            Clear
-          </button>
-        )}
+      <div>
+        <label className={`text-sm font-semibold uppercase tracking-[0.25em] block ${theme.label}`}>Place Type</label>
+        <p className={`mt-1 text-sm ${theme.helper}`}>Select the location type that matches this pin.</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {PLACE_TYPES.map((placeType) => {
-          const isActive = value === placeType;
-
-          return (
-            <button
-              key={placeType}
-              type="button"
-              onClick={() => onChange(placeType)}
-              className={`rounded-2xl border px-4 py-4 text-left transition ${isActive ? theme.activeOption : theme.option}`}
-            >
-              <p className="font-semibold">{placeType}</p>
-              <p className={`mt-2 text-sm ${isActive ? 'text-white/80' : theme.helper}`}>{placeTypeDescriptions[placeType] || 'Save this location under the selected place type.'}</p>
-            </button>
-          );
-        })}
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full appearance-none rounded-2xl border px-4 py-4 text-base font-medium outline-none transition focus:ring-2 focus:ring-amber-400/50 ${theme.select}`}
+        >
+          <option value="" disabled>Select a place type...</option>
+          {PLACE_OPTIONS.map((opt) => (
+            <option key={opt.type} value={opt.type}>
+              {opt.icon} {opt.type}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+          <svg className={`h-5 w-5 ${tone === 'light' ? 'text-stone-400' : 'text-stone-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </div>
 
       {value === 'Other' && (
-        <input
-          value={customValue}
-          onChange={(event) => onCustomChange(event.target.value)}
-          className={`w-full rounded-2xl border px-4 py-3 outline-none ${theme.customInput}`}
-          placeholder="Enter custom place type"
-        />
+        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+          <input
+            value={customValue}
+            onChange={(event) => onCustomChange(event.target.value)}
+            className={`w-full rounded-2xl border px-4 py-3 outline-none ${theme.customInput}`}
+            placeholder="Enter custom place type (e.g. Workshop)"
+            autoFocus
+          />
+        </div>
       )}
     </div>
   );
