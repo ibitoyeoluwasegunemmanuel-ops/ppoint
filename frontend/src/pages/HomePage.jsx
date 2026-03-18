@@ -294,6 +294,53 @@ export default function HomePage() {
     setSelectedNavigationKey(draftAddress.selected_navigation_point || draftAddress.navigation_points?.[0]?.key || '');
   }, [draftAddress]);
 
+  const generateCommunityAddress = async () => {
+    if (!selectedPosition) return;
+    setLoading(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const response = await api.post('/platform/community/addresses/generate', {
+        latitude: selectedPosition[0],
+        longitude: selectedPosition[1]
+      });
+      const nextAddress = response.data.data;
+      setDraftAddress(nextAddress);
+      
+      const nextLat = Number(nextAddress.latitude);
+      const nextLng = Number(nextAddress.longitude);
+      if (!isNaN(nextLat) && !isNaN(nextLng)) {
+        setSelectedPosition([nextLat, nextLng]);
+        setPosition([nextLat, nextLng]);
+      }
+      
+      setNotice('PPOINNT code generated. Please review and save beneath the map to activate it.');
+    } catch (requestError) {
+      try {
+        const fallbackResponse = await api.post(resolveCommunityApiUrl('/platform/community/addresses/generate'), {
+          latitude: selectedPosition[0],
+          longitude: selectedPosition[1]
+        });
+        const nextAddress = fallbackResponse.data.data;
+        setDraftAddress(nextAddress);
+        
+        const nextLat = Number(nextAddress.latitude);
+        const nextLng = Number(nextAddress.longitude);
+        if (!isNaN(nextLat) && !isNaN(nextLng)) {
+          setSelectedPosition([nextLat, nextLng]);
+          setPosition([nextLat, nextLng]);
+        }
+        
+        setNotice('PPOINNT code generated. Please review and save beneath the map to activate it.');
+      } catch (fallbackError) {
+        setError(fallbackError.response?.data?.message || requestError.response?.data?.error || 'Failed to generate community address.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const saveCommunityAddress = async () => {
     if (!draftAddress?.id) {
       setError('Generate a PPOINNT code before saving address details.');
