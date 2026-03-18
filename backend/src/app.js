@@ -13,7 +13,10 @@ import developerRoutes from './routes/developerRoutes.js';
 import geoRoutes from './routes/geoRoutes.js';
 import platformRoutes from './routes/platformRoutes.js';
 import regionRoutes from './routes/regionRoutes.js';
-import { initDatabase } from './scripts/initDatabase.js';
+import routeRoutes from './routes/routeRoutes.js';
+import buildingDetectionRoutes from './routes/buildingDetectionRoutes.js';
+import adminBuildingRoutes from './routes/adminBuildingRoutes.js';
+import buildingClaimRoutes from './routes/buildingClaimRoutes.js';
 
 dotenv.config();
 
@@ -65,6 +68,10 @@ app.use('/api/developers', developerRoutes);
 app.use('/api/geo', geoRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/regions', regionRoutes);
+app.use('/api', routeRoutes);
+app.use('/api', buildingDetectionRoutes);
+app.use('/api', adminBuildingRoutes);
+app.use('/api', buildingClaimRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

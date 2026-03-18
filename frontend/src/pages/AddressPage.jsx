@@ -14,6 +14,9 @@ export default function AddressPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [publicConfig, setPublicConfig] = useState(null);
+  const [driverLat, setDriverLat] = useState(null);
+  const [driverLng, setDriverLng] = useState(null);
+  const [driverLocationError, setDriverLocationError] = useState(null);
 
   const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/${code}` : `https://ppoint.africa/${code}`;
 
@@ -80,7 +83,42 @@ export default function AddressPage() {
           <MapContainer center={position} zoom={15} style={{ height: '100%', width: '100%' }}>
             <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <Marker position={position}><Popup>{address.code}</Popup></Marker>
+            {/* Driver location marker */}
+            {driverLat && driverLng && (
+              <Marker position={[driverLat, driverLng]}>
+                <Popup>My Location</Popup>
+              </Marker>
+            )}
           </MapContainer>
+        </div>
+        <div className="mt-4 flex items-center gap-4">
+          <button
+            className="rounded-xl bg-blue-600 px-4 py-2 text-white font-semibold"
+            onClick={() => {
+              if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    setDriverLat(pos.coords.latitude);
+                    setDriverLng(pos.coords.longitude);
+                    setDriverLocationError(null);
+                  },
+                  (err) => {
+                    setDriverLocationError('Unable to detect location');
+                  }
+                );
+              } else {
+                setDriverLocationError('Geolocation not supported');
+              }
+            }}
+          >
+            Detect My Location
+          </button>
+          {driverLat && driverLng && (
+            <span className="text-sm text-stone-700">Lat: {driverLat.toFixed(6)}, Lng: {driverLng.toFixed(6)}</span>
+          )}
+          {driverLocationError && (
+            <span className="text-sm text-red-600">{driverLocationError}</span>
+          )}
         </div>
       </div>
 
@@ -139,6 +177,18 @@ export default function AddressPage() {
           <p className="text-sm font-semibold text-stone-700">Support</p>
           <p className="mt-2 text-sm text-stone-600">{publicConfig?.support_contacts?.support_email || 'support@ppoinnt.africa'} • {publicConfig?.support_contacts?.support_phone_number || '+234-800-PPOINNT'}</p>
         </div>
+
+        {/* Claim system: show if building is detected and unclaimed */}
+        {address.status === 'unverified' || address.status === 'claimed' ? (
+          <div className="mt-6">
+            <a
+              href={`/claim-building?buildingId=${address.id}`}
+              className="block w-full rounded-2xl bg-yellow-500 px-5 py-4 text-center font-bold text-white text-lg shadow-md mt-2"
+            >
+              {address.status === 'claimed' ? 'This building is already claimed' : 'This building already exists. Claim this PPOINNT address.'}
+            </a>
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_220px]">
           <div className="rounded-2xl bg-stone-50 p-4">

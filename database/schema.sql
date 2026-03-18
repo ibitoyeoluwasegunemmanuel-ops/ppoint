@@ -1,3 +1,40 @@
+-- Automatic Building Mapping System
+CREATE TABLE IF NOT EXISTS buildings (
+    id SERIAL PRIMARY KEY,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    building_polygon GEOMETRY(POLYGON, 4326),
+    confidence_score DOUBLE PRECISION,
+    country VARCHAR(64),
+    state VARCHAR(64),
+    city VARCHAR(64),
+    community VARCHAR(64),
+    street VARCHAR(128),
+    ppoint_code VARCHAR(64) UNIQUE,
+    status VARCHAR(16) DEFAULT 'unverified', -- unverified, verified, claimed
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS building_entrances (
+    id SERIAL PRIMARY KEY,
+    building_id INTEGER REFERENCES buildings(id),
+    entrance_type VARCHAR(32), -- main, vehicle, delivery, parking
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    description VARCHAR(128)
+);
+
+CREATE TABLE IF NOT EXISTS building_claims (
+    id SERIAL PRIMARY KEY,
+    building_id INTEGER REFERENCES buildings(id),
+    user_id INTEGER,
+    building_name VARCHAR(128),
+    business_name VARCHAR(128),
+    delivery_instructions TEXT,
+    landmark VARCHAR(128),
+    phone_number VARCHAR(32),
+    claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS continents (
@@ -19,7 +56,7 @@ CREATE TABLE IF NOT EXISTS countries (
 );
 
 ALTER TABLE countries
-ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMfeatures for mobile optimization.P DEFAULT CURRENT_TIMESTAMP;
 
 ALTER TABLE countries
 ADD COLUMN IF NOT EXISTS name VARCHAR(100);
