@@ -17,6 +17,7 @@ import routeRoutes from './routes/routeRoutes.js';
 import buildingDetectionRoutes from './routes/buildingDetectionRoutes.js';
 import adminBuildingRoutes from './routes/adminBuildingRoutes.js';
 import buildingClaimRoutes from './routes/buildingClaimRoutes.js';
+import aiMappingRoutes from './routes/aiMappingRoutes.js';
 
 dotenv.config();
 
@@ -72,6 +73,7 @@ app.use('/api', routeRoutes);
 app.use('/api', buildingDetectionRoutes);
 app.use('/api', adminBuildingRoutes);
 app.use('/api', buildingClaimRoutes);
+app.use('/api', aiMappingRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

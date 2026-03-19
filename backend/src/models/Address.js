@@ -38,12 +38,13 @@ class Address {
   }
 
   static async findByCode(code) {
+    const normalizedCode = String(code || '').trim().toUpperCase();
     if (inMemoryStore.isEnabled()) {
-      return inMemoryStore.findAddressByCode(code);
+      return inMemoryStore.findAddressByCode(normalizedCode);
     }
 
-    const query = 'SELECT * FROM addresses WHERE COALESCE(ppoint_code, code) = $1 LIMIT 1';
-    const result = await pool.query(query, [code]);
+    const query = 'SELECT * FROM addresses WHERE UPPER(COALESCE(ppoint_code, code)) = $1 LIMIT 1';
+    const result = await pool.query(query, [normalizedCode]);
     return result.rows[0];
   }
 
@@ -80,9 +81,10 @@ class Address {
     moderationStatus,
     agentId,
   }) {
+    const normalizedCode = String(ppointCode || '').trim().toUpperCase();
     if (inMemoryStore.isEnabled()) {
       return inMemoryStore.createAddress({
-        ppointCode,
+        ppointCode: normalizedCode,
         uniqueIdentifier,
         cityCode,
         lat,
@@ -158,7 +160,7 @@ class Address {
     `;
     try {
       const result = await pool.query(query, [
-        ppointCode,
+        normalizedCode,
         cityCode,
         lat,
         lng,
@@ -381,6 +383,14 @@ class Address {
       ORDER BY total_addresses DESC
     `;
     const result = await pool.query(query);
+    return result.rows;
+  }
+
+  static async getLatestDebug() {
+    if (inMemoryStore.isEnabled()) {
+      return inMemoryStore.getAddresses({}).slice(0, 10);
+    }
+    const result = await pool.query('SELECT * FROM addresses ORDER BY created_at DESC LIMIT 10');
     return result.rows;
   }
 }

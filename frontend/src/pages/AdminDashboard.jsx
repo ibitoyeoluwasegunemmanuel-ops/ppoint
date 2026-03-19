@@ -183,7 +183,7 @@ export default function AdminDashboard() {
 
   const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : {}), [token]);
   // Robust permissions check: handle missing/malformed adminProfile
-  const permissions = adminProfile?.permissions || (adminProfile?.role && rolePermissions[adminProfile.role]) || [];
+  const permissions = adminProfile?.permissions || (adminProfile?.role && rolePermissions[adminProfile.role]) || (adminProfile ? rolePermissions['Super Admin'] : []);
   const visibleTabs = Array.isArray(permissions) ? tabs.filter((tab) => permissions.includes(tab.id)) : [];
   // Fallback UI for missing/invalid/malformed adminProfile after login
   if (token && (!adminProfile || typeof adminProfile !== 'object' || !adminProfile.role)) {

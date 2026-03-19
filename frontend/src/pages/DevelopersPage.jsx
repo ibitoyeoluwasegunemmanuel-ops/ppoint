@@ -539,20 +539,40 @@ export default function DevelopersPage() {
                 </div>
               </div>
 
-              <aside className="rounded-[2rem] border border-white/10 bg-white/6 p-6 backdrop-blur-xl">
-                <h3 className="text-xl font-bold text-white">PPOINNT Search Documentation</h3>
-                <p className="mt-3 text-sm leading-7 text-stone-300">Use your developer key to search addresses by PPOINNT code.</p>
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-sm font-semibold text-white">Example endpoint</p>
-                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm text-stone-200">GET {dashboard.documentation.search_endpoint}</pre>
+              <aside className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+                <h3 className="text-xl font-bold text-white">API Reference</h3>
+                <p className="mt-3 text-sm leading-7 text-stone-300">PPOINNT High-Performance Logistics & Mapping API.</p>
+
+                <div className="mt-5 space-y-5">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs font-bold uppercase tracking-widest text-amber-400">Address Resolution</p>
+                    <p className="mt-2 font-mono text-xs text-stone-200">GET {dashboard.documentation.resolve_endpoint}</p>
+                    <p className="mt-1 text-xs text-stone-400">Fetch coordinates, confidence, and entrance points in &lt;200ms.</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs font-bold uppercase tracking-widest text-sky-400">Bulk Conversion</p>
+                    <p className="mt-2 font-mono text-xs text-stone-200">POST {dashboard.documentation.bulk_endpoint}</p>
+                    <p className="mt-1 text-xs text-stone-400">Batch geocode text addresses into PPOINNT codes.</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">Routing Engine</p>
+                    <p className="mt-2 font-mono text-xs text-stone-200">POST {dashboard.documentation.route_endpoint}</p>
+                    <p className="mt-1 text-xs text-stone-400">Calculate routes with turn-by-turn steps & ETAs for Africa.</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-sm font-semibold text-white">Example JSON Response</p>
+                    <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-lg bg-black/40 p-3 text-[10px] text-stone-300 font-mono">
+                      {JSON.stringify(dashboard.documentation.response_example, null, 2)}
+                    </pre>
+                  </div>
                 </div>
+
                 <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                   <p className="text-sm font-semibold text-white">Usage Identity</p>
-                  <p className="mt-3 text-sm text-stone-200">Usage is tracked against your developer account {dashboard.developer.developer_id}, not against a single API key string.</p>
-                </div>
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-sm font-semibold text-white">Response Example</p>
-                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-sm text-stone-200">{JSON.stringify(dashboard.documentation.response_example, null, 2)}</pre>
+                  <p className="mt-2 text-xs text-stone-300">Tracking against developer {dashboard.developer.developer_id}.</p>
                 </div>
               </aside>
             </div>

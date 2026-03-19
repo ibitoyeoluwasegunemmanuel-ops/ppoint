@@ -492,13 +492,21 @@ export const platformStore = {
       payment_settings: this.getSettings(),
       support_contacts: { ...settings.support_contacts },
       documentation: {
-        search_endpoint: '/api/address/search?code=PPT-NG-LAG-IKD-X4D9T',
+        resolve_endpoint: '/api/resolve/:ppooint_code',
+        bulk_endpoint: '/api/bulk/resolve',
+        route_endpoint: '/api/route',
+        intelligence_endpoint: '/api/intelligence/:ppooint_code',
         response_example: {
-          code: 'PPT-NG-LAG-IKD-X4D9T',
-          country: 'Nigeria',
-          state: 'Lagos',
+          ppooint_code: 'PPT-NG-LAG-IKD-X4D9T',
+          latitude: 6.599475,
+          longitude: 3.348890,
+          place_type: 'Shop',
+          building_name: 'Zenith Bank Ikorodu',
           city: 'Ikorodu',
-          coordinates: '6.599475,3.348890',
+          state: 'Lagos',
+          confidence_score: 95,
+          entrance_latitude: 6.599480,
+          entrance_longitude: 3.348900
         },
       },
     };
@@ -770,27 +778,26 @@ export const platformStore = {
 
   getOverview() {
     const addresses = inMemoryStore.getAddresses({});
-    const usage = this.listUsage();
-    const countries = inMemoryStore.getAdminCountries();
-    const businesses = inMemoryStore.listBusinesses();
-    const moderationQueues = inMemoryStore.getModerationQueues();
+    const usage = this.listUsage() || [];
+    const countries = inMemoryStore.getAdminCountries() || [];
+    const businesses = inMemoryStore.listBusinesses() || [];
+    const moderationQueues = inMemoryStore.getModerationQueues() || {};
 
     return {
       total_addresses: addresses.length,
       total_developers: developers.length,
       total_businesses: businesses.length,
+      total_countries: countries.length,
+      active_countries: countries.filter((c) => c.is_active).length,
       verified_businesses: businesses.filter((item) => item.status === 'approved').length,
-      pending_business_verification: moderationQueues.pending_business_verification.length,
-      reported_addresses: moderationQueues.reported_addresses.length,
-      suspicious_activity: moderationQueues.suspicious_activity.length,
-      low_confidence_addresses: moderationQueues.low_confidence_addresses.length,
-      unverified_buildings: moderationQueues.unverified_buildings.length,
+      pending_business_verification: (moderationQueues.pending_business_verification || []).length,
+      reported_addresses: (moderationQueues.reported_addresses || []).length,
+      suspicious_activity: (moderationQueues.suspicious_activity || []).length,
+      low_confidence_addresses: (moderationQueues.low_confidence_addresses || []).length,
+      unverified_buildings: (moderationQueues.unverified_buildings || []).length,
       active_developers: developers.filter((item) => item.status === 'active').length,
       pending_payments: payments.filter((item) => item.status === 'pending').length,
-      monthly_api_requests: usage.reduce((sum, item) => sum + item.request_count, 0),
-      active_countries: countries.filter((item) => item.is_active).length,
-      total_countries: countries.length,
-      plans: plans.length,
+      monthly_api_requests: usage.reduce((sum, item) => sum + (item.request_count || 0), 0),
     };
-  }
+  },
 };

@@ -11,12 +11,23 @@ const cities = africaSeedData.cities.map((city) => ({ ...city }));
 const areas = [];
 
 const addresses = [];
-
 const businesses = [];
-
 const agents = [];
-
 const nationalAddresses = [];
+
+const roads = [
+  { id: 1, road_name: 'Ikorodu Road', surface_type: 'asphalt', vehicle_access: 'all', one_way: false, speed_limit: 60, geometry: [[6.596, 3.342], [6.598, 3.345], [6.600, 3.348]] },
+  { id: 2, road_name: 'Agbede Main Street', surface_type: 'asphalt', vehicle_access: 'all', one_way: false, speed_limit: 40, geometry: [[6.599, 3.348], [6.601, 3.350], [6.603, 3.352]] },
+  { id: 3, road_name: 'Ebute Ikorodu Way', surface_type: 'dirt', vehicle_access: 'motorcycle,walking', one_way: true, speed_limit: 30, geometry: [[6.597, 3.340], [6.595, 3.338]] },
+];
+
+const landmarks = [
+  { id: 1, name: 'Zenith Bank Ikorodu', type: 'bank', latitude: 6.599475, longitude: 3.348890, city: 'Ikorodu', state: 'Lagos', country: 'Nigeria' },
+  { id: 2, name: 'Agbede Market', type: 'market', latitude: 6.601200, longitude: 3.350500, city: 'Ikorodu', state: 'Lagos', country: 'Nigeria' },
+  { id: 3, name: 'First Bank Agbede', type: 'bank', latitude: 6.602500, longitude: 3.352100, city: 'Ikorodu', state: 'Lagos', country: 'Nigeria' },
+  { id: 4, name: 'Ikorodu General Hospital', type: 'hospital', latitude: 6.595000, longitude: 3.340000, city: 'Ikorodu', state: 'Lagos', country: 'Nigeria' },
+  { id: 5, name: 'St. Mary Church', type: 'church', latitude: 6.598000, longitude: 3.346000, city: 'Ikorodu', state: 'Lagos', country: 'Nigeria' },
+];
 
 const staffAccounts = [
   {
@@ -368,7 +379,8 @@ export const inMemoryStore = {
   },
 
   findAddressByCode(code) {
-    return sanitizeAddress(addresses.find((item) => item.code === code || item.ppoint_code === code) || null);
+    const normalizedCode = String(code || '').toUpperCase();
+    return sanitizeAddress(addresses.find((item) => String(item.code || '').toUpperCase() === normalizedCode || String(item.ppoint_code || '').toUpperCase() === normalizedCode) || null);
   },
 
   createAddress(input, legacyCityCode, legacyLat, legacyLng, legacyCountry, legacyState) {
@@ -752,6 +764,55 @@ export const inMemoryStore = {
     return sanitizeAddress(deletedAddress);
   },
 
+  // ─── Road Intelligence ───
+
+  getRoads() {
+    return [...roads];
+  },
+
+  findNearestRoad(lat, lng, radiusMeters = 50) {
+    let nearest = null;
+    let minDistance = radiusMeters;
+
+    roads.forEach((road) => {
+      road.geometry.forEach(([rLat, rLng]) => {
+        const dist = calculateDistanceInMeters(lat, lng, rLat, rLng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearest = { road, distance: dist, snappedPoint: [rLat, rLng] };
+        }
+      });
+    });
+
+    return nearest;
+  },
+
+  // ─── Landmark Intelligence ───
+
+  getLandmarks() {
+    return [...landmarks];
+  },
+
+  findNearbyLandmarks(lat, lng, radiusMeters = 300) {
+    return landmarks
+      .map((landmark) => ({
+        ...landmark,
+        distance: calculateDistanceInMeters(lat, lng, landmark.latitude, landmark.longitude),
+      }))
+      .filter((l) => l.distance <= radiusMeters)
+      .sort((a, b) => a.distance - b.distance);
+  },
+
+  createLandmark(data) {
+    const landmark = {
+      id: landmarks.length + 1,
+      ...data,
+      created_at: new Date().toISOString(),
+    };
+    landmarks.push(landmark);
+    return landmark;
+  },
+
   updateAddressModeration(id, { status, isActive, updates = {}, reviewedBy }) {
     const address = addresses.find((item) => item.id === Number(id));
     if (!address) {
@@ -978,8 +1039,11 @@ export const inMemoryStore = {
         status: address.moderation_status,
       })),
       totals: {
-        ready_addresses: deliveryReadyAddresses.length,
-        active_agents: agents.filter((agent) => agent.status === 'active').length,
+        active_developers: developers.filter((item) => item.status === 'active').length,
+        pending_payments: payments.filter((item) => item.status === 'pending').length,
+        monthly_api_requests: usage.reduce((sum, item) => sum + item.request_count, 0),
+        total_countries: continents.reduce((sum, c) => sum + countries.filter(cn => cn.continent_id === c.id).length, 0),
+        active_countries: countries.filter(c => c.is_active).length,
       },
     };
   },

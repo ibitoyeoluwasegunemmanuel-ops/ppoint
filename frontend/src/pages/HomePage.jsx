@@ -267,17 +267,15 @@ export default function HomePage() {
   const shareUrl = activeAddress ? `${window.location.origin}/${activeAddress.code}` : '';
   const addressSettings = getAddressSettings(publicConfig);
   const deliveryMessage = activeAddress ? [
-    'Delivery destination',
+    'My PPOINNT delivery address:',
     '',
-    `PPOINNT Code: ${activeAddress.code}`,
-    activeAddress.display_place_type ? `Place Type: ${activeAddress.display_place_type}` : null,
-    `Place: ${activeAddress.building_name || activeAddress.landmark || 'Saved location'}`,
-    activeAddress.structured_address_line || null,
-    activeAddress.community_name ? `Community: ${activeAddress.community_name}` : null,
-    activeAddress.entrance_label ? `Access Point: ${activeAddress.entrance_label}` : null,
-    `City: ${activeAddress.city}, ${activeAddress.state}`,
-    shareUrl ? `Share Link: ${shareUrl}` : null,
-  ].filter(Boolean).join('\n') : '';
+    activeAddress.code,
+    [activeAddress.building_name || activeAddress.community_name || activeAddress.landmark, activeAddress.city, activeAddress.state].filter(Boolean).join(', '),
+    activeAddress.entrance_label ? `Access point: ${activeAddress.entrance_label}` : null,
+    '',
+    'Open location:',
+    shareUrl || `https://ppoint.online/${activeAddress.code}`,
+  ].filter(v => v !== null).join('\n') : '';
   const shareCardText = activeAddress ? [
     'My PPOINNT Address',
     '',
@@ -622,6 +620,14 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
+
+              <PlaceTypePicker
+                tone="dark"
+                value={addressForm.placeType}
+                customValue={addressForm.customPlaceType}
+                onChange={(nextType) => setAddressForm({ ...addressForm, placeType: nextType })}
+                onCustomChange={(nextCustom) => setAddressForm({ ...addressForm, customPlaceType: nextCustom })}
+              />
 
               <div className="space-y-4">
                 <input value={addressForm.buildingName} onChange={(event) => setAddressForm({ ...addressForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name (Required)" />
