@@ -55,7 +55,7 @@ const regionTabCopy = {
 
 const initialLogin = {
   email: 'ibitoyeoluwasegunemmanuel@gmail.com',
-  password: 'Clause01!',
+  password: 'PPOINNTAdmin@2026',
 };
 
 const initialStaffForm = {

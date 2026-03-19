@@ -109,6 +109,24 @@ router.get('/address/:code', optionalDeveloperApiAuth, async (req, res) => {
   }
 });
 
+router.get('/addresses/:code', optionalDeveloperApiAuth, async (req, res) => {
+  try {
+    const address = await AddressService.getAddressInfo(req.params.code);
+    res.json({
+      status: 'success',
+      success: true,
+      message: 'Address found',
+      data: address
+    });
+  } catch (error) {
+    res.status(404).json({
+      status: 'error',
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 router.get('/search', optionalDeveloperApiAuth, async (req, res) => {
   try {
     const query = String(req.query.code || req.query.q || req.query.query || '').trim();

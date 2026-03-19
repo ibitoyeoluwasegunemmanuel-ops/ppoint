@@ -76,7 +76,7 @@ export default function DriversPage() {
     setRouteInfo(null);
     setRouteError(null);
     try {
-      const response = await api.get(`/address/${code}`);
+      const response = await api.get(`/addresses/${code}`);
       const data = response.data.data;
       // Prefer entrance coordinates if available
       const destLat = data.entrance_latitude ?? data.entranceLatitude ?? data.latitude;

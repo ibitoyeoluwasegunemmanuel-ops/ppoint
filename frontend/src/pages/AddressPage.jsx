@@ -66,10 +66,12 @@ export default function AddressPage() {
   useEffect(() => {
     const fetchAddress = async () => {
       try {
-        const response = await api.get(`/address/${code}`);
+        const response = await api.get(`/addresses/${code}`);
         setAddress(response.data.data);
       } catch (requestError) {
-        setError(requestError.response?.data?.error || 'Address not found');
+        let errStr = requestError.response?.data?.error || requestError.response?.data?.message || 'Address not found';
+        if (typeof errStr !== 'string') errStr = JSON.stringify(errStr);
+        setError(errStr);
       } finally {
         setLoading(false);
       }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import { ArrowRight, Building2, Copy, LocateFixed, MapPinned, Search, Share2, Smartphone, Truck } from 'lucide-react';
+import { ArrowRight, Building2, Check, Copy, LocateFixed, MapPinned, Navigation, Search, Share2, Smartphone, Truck } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
@@ -246,6 +246,7 @@ export default function HomePage() {
   const [copyState, setCopyState] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -325,6 +326,7 @@ export default function HomePage() {
       }
       
       setNotice('PPOINNT code generated. Please review and save beneath the map to activate it.');
+      setStep(2);
     } catch (requestError) {
       try {
         const fallbackResponse = await api.post(resolveCommunityApiUrl('/platform/community/addresses/generate'), {
@@ -342,6 +344,7 @@ export default function HomePage() {
         }
         
         setNotice('PPOINNT code generated. Please review and save beneath the map to activate it.');
+        setStep(2);
       } catch (fallbackError) {
         setError(fallbackError.response?.data?.message || requestError.response?.data?.error || 'Failed to generate community address.');
       }
@@ -416,6 +419,7 @@ export default function HomePage() {
       setShowMoreDetails(false);
       localStorage.setItem(storageKey, JSON.stringify(nextSaved));
       setNotice('Community address saved and activated. It is ready for delivery, navigation, and sharing.');
+      setStep(4);
     } catch (requestError) {
       try {
         const fallbackResponse = await api.patch(resolveCommunityApiUrl(`/platform/community/addresses/${draftAddress.id}/details`), payload);
@@ -429,6 +433,7 @@ export default function HomePage() {
         setShowMoreDetails(false);
         localStorage.setItem(storageKey, JSON.stringify(nextSaved));
         setNotice('Community address saved and activated. It is ready for delivery, navigation, and sharing.');
+        setStep(4);
       } catch (fallbackError) {
         setError(fallbackError.response?.data?.message || requestError.response?.data?.message || 'Failed to save community address.');
       }
@@ -457,6 +462,7 @@ export default function HomePage() {
       setSelectedPosition([Number(nextResult.latitude), Number(nextResult.longitude)]);
       setPosition([Number(nextResult.latitude), Number(nextResult.longitude)]);
       setNotice('PPOINNT address found.');
+      setStep(4);
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'PPOINNT code not found.');
       setSearchResult(null);
@@ -471,7 +477,7 @@ export default function HomePage() {
     }
 
     await navigator.clipboard.writeText(value);
-    setCopied(type);
+    setCopyState(type);
   };
 
   const sendToDriver = () => {
@@ -501,207 +507,172 @@ export default function HomePage() {
       <section className="flex flex-row gap-8 items-start">
         <div className="flex-1 min-w-[340px] max-w-lg rounded-[2rem] border border-white/10 bg-white/6 p-8 backdrop-blur-xl">
           <p className="text-sm uppercase tracking-[0.35em] text-amber-300">Community Address Creation</p>
-          <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">Get Your PPOINNT Address</h1>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-stone-200">
-            Create a PPOINNT address for your home, shop, business, estate gate, school, or public building without a developer account.
-            Detect your location, place a map point manually when permission is denied, enter the building name, and generate a delivery-ready PPOINNT address in seconds.
-          </p>
+          <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">PPOINNT Details</h1>
 
-          <div className="mt-6 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-            Community addresses become active as soon as you save them. Admin review is reserved for reported, suspicious, or business-verification cases.
+          <div className="mb-8 mt-6 flex gap-2">
+            {[1, 2, 3, 4].map((s) => (
+               <div key={s} className={`h-2 flex-1 rounded-full transition ${step >= s ? 'bg-amber-400' : 'bg-white/10'}`} />
+            ))}
           </div>
 
-          <div className="mt-8 space-y-4">
-            <Link to="/drivers" className="inline-block rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white text-lg shadow-lg hover:bg-blue-700 transition mb-4">Driver Navigation</Link>
-            <PlaceTypePicker
-              value={addressForm.placeType}
-              customValue={addressForm.customPlaceType}
-              onChange={updatePlaceType}
-              onCustomChange={(nextValue) => setAddressForm((current) => ({ ...current, customPlaceType: nextValue }))}
-            />
+          {error && <div className="mt-4 mb-4 rounded-2xl border border-red-200/40 bg-red-500/10 p-4 text-sm text-red-100">{error}</div>}
+          {notice && <div className="mt-4 mb-4 rounded-2xl border border-emerald-200/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">{notice}</div>}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-            <button onClick={detectLocation} disabled={loading} className="flex items-center justify-center gap-3 rounded-2xl bg-stone-950 px-6 py-4 font-semibold text-white disabled:opacity-50">
-              <LocateFixed size={22} />
-              Detect My Location
-            </button>
-            <button onClick={generateCommunityAddress} disabled={loading || !selectedPosition} className="flex items-center justify-center gap-3 rounded-2xl border border-stone-300 bg-white px-6 py-4 font-semibold text-stone-900 disabled:opacity-50">
-              <ArrowRight size={20} />
-              {loading ? 'Generating...' : 'Generate PPOINNT Code'}
-            </button>
+          {step === 1 && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              <p className="max-w-3xl text-lg leading-8 text-stone-200">
+                Detect your location, place a map point manually, and generate a delivery-ready PPOINNT address in seconds.
+              </p>
+
+              <div className="mt-4 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100 mb-6">
+                Community addresses become active instantly upon saving without admin review.
+              </div>
+
+              <div className="space-y-4">
+                <Link to="/drivers" className="inline-block rounded-2xl bg-blue-600 px-6 py-4 font-bold text-white text-lg shadow-lg hover:bg-blue-700 transition">Driver Navigation</Link>
+                <PlaceTypePicker
+                  value={addressForm.placeType}
+                  customValue={addressForm.customPlaceType}
+                  onChange={updatePlaceType}
+                  onCustomChange={(nextValue) => setAddressForm((current) => ({ ...current, customPlaceType: nextValue }))}
+                />
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                <button onClick={detectLocation} disabled={loading} className="flex items-center justify-center gap-3 rounded-2xl bg-stone-950 px-6 py-4 font-semibold text-white disabled:opacity-50">
+                  <LocateFixed size={22} />
+                  Detect Location
+                </button>
+                <button onClick={generateCommunityAddress} disabled={loading || !selectedPosition} className="flex items-center justify-center gap-3 rounded-2xl border border-amber-400 bg-amber-400 px-6 py-4 font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300 disabled:opacity-50 disabled:shadow-none">
+                  <ArrowRight size={20} />
+                  {loading ? 'Generating...' : 'Generate PPOINNT'}
+                </button>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-stone-300">
+                {selectedPosition
+                  ? `Final pin: ${selectedPosition[0].toFixed(6)}, ${selectedPosition[1].toFixed(6)}. Drag the marker to the real entrance.`
+                  : 'Click the map to place a marker anywhere in Africa.'}
+              </div>
+
+              <form onSubmit={(e) => { handleSearch(e); if (searchQuery) setStep(4); }} className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-stone-400">Search PPOINNT Code</p>
+                <div className="mt-4 flex flex-col gap-3 md:flex-row">
+                  <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search: PPT-NG... " className={inputClassName} />
+                  <button disabled={searching} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-stone-950 disabled:opacity-50">
+                    <Search size={18} />
+                    {searching ? 'Searching...' : 'Search'}
+                  </button>
+                </div>
+              </form>
             </div>
-          </div>
+          )}
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-stone-300">
-            {selectedPosition
-              ? `Final pin: ${selectedPosition[0].toFixed(6)}, ${selectedPosition[1].toFixed(6)}. Drag the marker until it matches the real entrance or delivery point.`
-              : 'Click the map to place a marker anywhere in Africa. If browser location is blocked, manual pin selection remains available.'}
-          </div>
-
-          <form onSubmit={handleSearch} className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/20 p-5">
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-stone-400">Search PPOINNT Code</p>
-            <div className="mt-4 flex flex-col gap-3 md:flex-row">
-              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search: PPT-NG-LAG-IKD-X4D9T" className={inputClassName} />
-              <button disabled={searching} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-stone-950 disabled:opacity-50">
-                <Search size={18} />
-                {searching ? 'Searching...' : 'Search'}
-              </button>
-            </div>
-          </form>
-
-          {error && <div className="mt-6 rounded-2xl border border-red-200/40 bg-red-500/10 p-4 text-sm text-red-100">{error}</div>}
-          {notice && <div className="mt-6 rounded-2xl border border-emerald-200/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">{notice}</div>}
-
-          {draftAddress && (
-            <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-black/20 p-6">
+          {step === 2 && draftAddress && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
               <p className="text-sm uppercase tracking-[0.35em] text-stone-400">Generated PPOINNT Code</p>
-              <h2 className="mt-3 text-4xl font-black text-white">{draftAddress.code}</h2>
-              {draftAddress.display_place_type && <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-amber-200">{draftAddress.display_place_type}</p>}
-              {draftAddress.structured_address_line && <p className="mt-2 text-lg text-stone-200">{draftAddress.structured_address_line}</p>}
-              <p className="mt-2 text-stone-300">{draftAddress.city}, {draftAddress.state}, {draftAddress.country}</p>
-              <p className="mt-3 text-xs font-mono text-stone-400">{Number(draftAddress.latitude).toFixed(6)}, {Number(draftAddress.longitude).toFixed(6)}</p>
+              <h2 className="mt-3 text-5xl font-black text-amber-400">{draftAddress.code}</h2>
+              {draftAddress.display_place_type && <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-white">{draftAddress.display_place_type}</p>}
+              
+              <div className="mt-4 space-y-2 text-lg text-stone-200">
+                <p>{draftAddress.city}, {draftAddress.state}, {draftAddress.country}</p>
+                <p className="font-mono text-sm text-stone-400">{Number(draftAddress.latitude).toFixed(6)}, {Number(draftAddress.longitude).toFixed(6)}</p>
+              </div>
 
               {(draftAddress.confidence_score || draftAddress.confidence_guidance) && (
-                <div className={`mt-4 rounded-2xl border p-4 text-sm ${confidenceTone[draftAddress.confidence_level] || confidenceTone.medium}`}>
-                  <p className="font-semibold uppercase tracking-[0.2em]">Confidence {draftAddress.confidence_score || 0}/100</p>
-                  <p className="mt-2">{draftAddress.confidence_guidance || 'Review the detected entrance and street details before saving.'}</p>
-                  {Number(draftAddress.confidence_score || 0) < 60 && <p className="mt-2 font-semibold">Low location accuracy. Adjust the map pin or confirm the entrance point.</p>}
+                <div className={`mt-6 rounded-2xl border p-4 text-sm ${confidenceTone[draftAddress.confidence_level] || confidenceTone.medium}`}>
+                  <p className="font-semibold uppercase tracking-[0.2em]">Accuracy Score {draftAddress.confidence_score || 0}/100</p>
+                  <p className="mt-2">{draftAddress.confidence_guidance}</p>
                 </div>
               )}
 
+              <button onClick={() => setStep(3)} className="mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-6 py-5 text-xl font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300">
+                Continue to Add Details <ArrowRight size={22} />
+              </button>
+              <button onClick={() => setStep(1)} className="mt-4 flex w-full justify-center text-sm font-semibold uppercase tracking-widest text-stone-500 hover:text-white transition">Cancel</button>
+            </div>
+          )}
+
+          {step === 3 && draftAddress && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-stone-400">Add Missing Details</p>
+
               {(draftAddress.community_name || draftAddress.street_name) && (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-stone-200">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-stone-200">
                   {draftAddress.community_name && <p>Detected community: <span className="font-semibold text-white">{draftAddress.community_name}</span></p>}
                   {draftAddress.street_name && <p className="mt-2">Detected street: <span className="font-semibold text-white">{draftAddress.street_name}</span></p>}
                 </div>
               )}
 
-              <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-                Only Building / Place Name is required. You can save the PPOINNT address in about {addressSettings.quickCreateTargetSeconds} seconds and add the rest later.
-              </div>
-
               {navigationPoints.length > 0 && (
-                <div className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-                  <p className="text-sm font-semibold uppercase tracking-[0.25em] text-stone-300">Suggested access point</p>
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-[0.25em] text-stone-300">Select best entrance point</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {navigationPoints.map((point) => (
                       <button
                         key={point.key}
                         type="button"
                         onClick={() => setSelectedNavigationKey(point.key)}
-                        className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${selectedNavigationPoint?.key === point.key ? 'border-white bg-white text-stone-950' : 'border-white/10 bg-black/20 text-stone-200'}`}
+                        className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${selectedNavigationPoint?.key === point.key ? 'border-amber-400 bg-amber-400 text-stone-950' : 'border-white/10 bg-black/20 text-stone-200'}`}
                       >
                         <p className="font-semibold">{point.label}</p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.2em] opacity-70">{point.is_road_access ? 'Road access point' : 'Entrance point'}</p>
-                        <p className="mt-2 font-mono text-xs">{Number(point.latitude).toFixed(6)}, {Number(point.longitude).toFixed(6)}</p>
+                        <p className={`mt-1 text-xs uppercase tracking-[0.2em] ${selectedNavigationPoint?.key === point.key ? 'opacity-90' : 'opacity-60'}`}>{point.is_road_access ? 'Road access point' : 'Entrance'}</p>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="mt-6 space-y-4">
-                <PlaceTypePicker
-                  value={addressForm.placeType}
-                  customValue={addressForm.customPlaceType}
-                  onChange={updatePlaceType}
-                  onCustomChange={(nextValue) => setAddressForm((current) => ({ ...current, customPlaceType: nextValue }))}
-                  tone="light"
-                />
-
-                <div className="grid gap-4 md:grid-cols-2">
-                <input value={addressForm.buildingName} onChange={(event) => setAddressForm({ ...addressForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name" />
+              <div className="space-y-4">
+                <input value={addressForm.buildingName} onChange={(event) => setAddressForm({ ...addressForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name (Required)" />
                 {addressSettings.showLandmark && <input value={addressForm.landmark} onChange={(event) => setAddressForm({ ...addressForm, landmark: event.target.value })} className={inputClassName} placeholder="Nearest Landmark (optional)" />}
-                {addressSettings.showStreetDescription && <textarea value={addressForm.streetDescription} onChange={(event) => setAddressForm({ ...addressForm, streetDescription: event.target.value })} className={`${inputClassName} min-h-24 md:col-span-2`} placeholder="Street Description (optional)" />}
-                {addressSettings.showPhoneNumber && <input value={addressForm.phoneNumber} onChange={(event) => setAddressForm({ ...addressForm, phoneNumber: event.target.value })} className={`${inputClassName} md:col-span-2`} placeholder="Phone Number (optional)" />}
-                </div>
+                {addressSettings.showStreetDescription && <textarea value={addressForm.streetDescription} onChange={(event) => setAddressForm({ ...addressForm, streetDescription: event.target.value })} className={`${inputClassName} min-h-24`} placeholder="Street Description (optional)" />}
+                {addressSettings.showPhoneNumber && <input value={addressForm.phoneNumber} onChange={(event) => setAddressForm({ ...addressForm, phoneNumber: event.target.value })} className={inputClassName} placeholder="Phone Number (optional)" />}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowMoreDetails((current) => !current)}
-                className="mt-4 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white"
-              >
-                {showMoreDetails ? 'Hide more details' : 'Add more details'}
-              </button>
-
-              {showMoreDetails && (
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  {addressSettings.enableHouseNumber && <input value={addressForm.houseNumber} onChange={(event) => setAddressForm({ ...addressForm, houseNumber: event.target.value })} className={inputClassName} placeholder="House Number" />}
-                  {addressSettings.enableDistrict && <input value={addressForm.district} onChange={(event) => setAddressForm({ ...addressForm, district: event.target.value })} className={inputClassName} placeholder="District" />}
-                </div>
-              )}
-
-              <div className="mt-3 text-xs text-stone-400">
-                Optional details help delivery accuracy, but they are not required to create the address.
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button onClick={saveCommunityAddress} disabled={saving} className="rounded-2xl bg-white px-5 py-3 font-semibold text-stone-950 disabled:opacity-50">
-                  {saving ? 'Saving...' : 'Save PPOINNT Address'}
+              <div className="flex flex-col gap-3 pt-4">
+                <button onClick={saveCommunityAddress} disabled={saving} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-6 py-5 text-xl font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300 disabled:opacity-50">
+                  <Check size={22} /> {saving ? 'Saving...' : 'Save PPOINNT Address'}
                 </button>
-                <button onClick={() => copyValue(draftAddress.code, 'code')} className="rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white">
-                  {copyState === 'code' ? 'Code Copied' : 'Copy Code'}
-                </button>
+                <button onClick={() => setStep(2)} className="mt-2 text-sm font-semibold uppercase tracking-widest text-stone-500 hover:text-white transition">Back</button>
               </div>
             </div>
           )}
 
-          {activeAddress && (
-            <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/10">
-              <p className="text-sm uppercase tracking-[0.35em] text-stone-500">My PPOINNT Address</p>
-              <h2 className="mt-3 text-4xl font-black text-stone-950">{activeAddress.code}</h2>
-              {activeAddress.display_place_type && <p className="mt-2 text-xs font-semibold uppercase tracking-[0.25em] text-stone-500">{activeAddress.display_place_type}</p>}
-              <p className="mt-2 text-stone-600">{[activeAddress.house_number, activeAddress.building_name || activeAddress.landmark || activeAddress.description || 'Community mapped address'].filter(Boolean).join(' ')}</p>
-              {activeAddress.structured_address_line && <p className="mt-1 text-stone-600">{activeAddress.structured_address_line}</p>}
-              {activeAddress.community_name && <p className="mt-1 text-stone-600">Community: {activeAddress.community_name}</p>}
-              {activeAddress.entrance_label && <p className="mt-1 text-stone-600">Access point: {activeAddress.entrance_label}</p>}
-              <p className="mt-1 text-stone-600">{activeAddress.city}, {activeAddress.state}</p>
-              <p className="mt-2 text-xs font-medium uppercase tracking-[0.25em] text-stone-500">Status: {activeAddress.moderation_status || 'active'}</p>
-
-              {(activeAddress.confidence_score || activeAddress.confidence_guidance) && (
-                <div className={`mt-4 rounded-2xl border p-4 text-sm ${confidenceTone[activeAddress.confidence_level] || confidenceTone.medium}`}>
-                  <p className="font-semibold uppercase tracking-[0.2em]">Confidence {activeAddress.confidence_score || 0}/100</p>
-                  {activeAddress.confidence_guidance && <p className="mt-2">{activeAddress.confidence_guidance}</p>}
-                  {Number(activeAddress.confidence_score || 0) < 60 && <p className="mt-2 font-semibold">Low location accuracy. Adjust the map pin or confirm the entrance point.</p>}
+          {step === 4 && (activeAddress || draftAddress || searchResult) && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+              {!(searchResult && !activeAddress && !draftAddress) && (
+                <div className="rounded-[1.75rem] border border-emerald-400/30 bg-emerald-500/10 p-6 text-center shadow-xl mb-8">
+                  <h3 className="text-xl font-black text-emerald-400 mb-2">Address Saved!</h3>
+                  <p className="text-sm text-emerald-100">Your address is now permanently active and searchable on the PPOINNT network.</p>
                 </div>
               )}
 
-              <div className="mt-6 rounded-2xl bg-stone-50 p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-stone-700">
-                  <Share2 size={16} />
-                  Send to Driver
+              <p className="text-sm uppercase tracking-[0.35em] text-stone-500">My PPOINNT Address</p>
+              <h2 className="mt-3 text-5xl font-black text-white">{(searchResult || activeAddress || draftAddress).code}</h2>
+              <p className="mt-4 text-lg text-stone-300">{[(searchResult || activeAddress || draftAddress).house_number, (searchResult || activeAddress || draftAddress).building_name || (searchResult || activeAddress || draftAddress).landmark || 'Community mapped address'].filter(Boolean).join(' ')}</p>
+              <p className="mt-1 text-stone-400">{(searchResult || activeAddress || draftAddress).city}, {(searchResult || activeAddress || draftAddress).state}</p>
+              
+              <div className="mt-8 rounded-2xl bg-white/5 p-4 border border-white/10">
+                <div className="flex items-center gap-2 text-sm font-semibold text-stone-300">
+                  <Share2 size={16} /> Send to Driver
                 </div>
-                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-stone-600">{deliveryMessage}</p>
+                <p className="mt-3 whitespace-pre-line text-sm leading-6 text-stone-400">{deliveryMessage || `PPOINNT Code: ${(searchResult || activeAddress || draftAddress).code}\nPlace: ${[(searchResult || activeAddress || draftAddress).house_number, (searchResult || activeAddress || draftAddress).building_name].filter(Boolean).join(' ')}\nCity: ${(searchResult || activeAddress || draftAddress).city}, ${(searchResult || activeAddress || draftAddress).state}`}</p>
               </div>
 
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
-                <a href={`https://maps.google.com/?q=${activeAddress.latitude},${activeAddress.longitude}`} target="_blank" rel="noreferrer" className="rounded-2xl bg-stone-100 px-4 py-3 text-center text-sm font-semibold text-stone-900">Open on Map</a>
-                <button onClick={() => copyValue(deliveryMessage, 'driver-message')} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-900">
-                  {copyState === 'driver-message' ? 'Copied Message' : 'Copy Message'}
+              <div className="mt-6 grid gap-3 md:grid-cols-2">
+                <a href={`https://maps.google.com/?q=${(searchResult || activeAddress || draftAddress).latitude},${(searchResult || activeAddress || draftAddress).longitude}`} target="_blank" rel="noreferrer" className="flex items-center justify-center rounded-2xl bg-white/10 px-4 py-4 text-center font-bold text-white hover:bg-white/20 transition"><Navigation size={18} className="mr-2"/> Open Map</a>
+                <button onClick={() => copyValue((searchResult || activeAddress || draftAddress).code, 'share-code')} className="flex items-center justify-center rounded-2xl bg-white/10 px-4 py-4 font-bold text-white hover:bg-white/20 transition">
+                  <Copy size={18} className="mr-2"/> {copyState === 'share-code' ? 'Copied' : 'Copy Code'}
                 </button>
-                <button onClick={() => copyValue(activeAddress.code, 'share-code')} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-900">
-                  {copyState === 'share-code' ? 'Copied Code' : 'Copy Code'}
-                </button>
+                <button onClick={sendToDriver} className="flex items-center justify-center rounded-2xl bg-[#25D366] px-4 py-4 font-bold text-white shadow-lg transition hover:bg-[#20b858]">WhatsApp</button>
+                <button onClick={sendBySms} className="flex items-center justify-center rounded-2xl bg-white/10 px-4 py-4 font-bold text-white hover:bg-white/20 transition">SMS</button>
               </div>
 
-              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <button onClick={sendToDriver} className="rounded-2xl bg-stone-950 px-4 py-3 text-sm font-semibold text-white">
-                  WhatsApp
-                </button>
-                <button onClick={sendBySms} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-900">
-                  SMS
-                </button>
-                <button onClick={() => copyValue(shareCardText, 'card')} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-900">
-                  {copyState === 'card' ? 'Copied Share Card' : 'Copy Share Card'}
-                </button>
-                <Link to={`/${activeAddress.code}`} className="rounded-2xl bg-[#25D366] px-4 py-3 text-center text-sm font-semibold text-white">Open Address Page</Link>
-              </div>
-
-              <div className="mt-6 rounded-2xl bg-stone-50 p-4">
-                <p className="text-sm font-semibold text-stone-700">Support</p>
-                <p className="mt-2 text-sm text-stone-600">{publicConfig?.support_contacts?.support_email || 'support@ppoinnt.africa'} • {publicConfig?.support_contacts?.support_phone_number || '+234-800-PPOINNT'}</p>
-              </div>
+              <Link to={`/${(searchResult || activeAddress || draftAddress).code}`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-400 px-6 py-5 text-xl font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300">
+                  Open Address Page <ArrowRight size={22} />
+              </Link>
+              <button onClick={() => { setDraftAddress(null); setSearchResult(null); setStep(1); }} className="mt-6 flex w-full justify-center text-sm font-semibold uppercase tracking-widest text-stone-500 hover:text-white transition">Generate New Address</button>
             </div>
           )}
         </div>
