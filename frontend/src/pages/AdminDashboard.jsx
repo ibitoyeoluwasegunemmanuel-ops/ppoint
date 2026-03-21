@@ -96,7 +96,7 @@ const initialBuildingDetectionForm = {
 
 const readStoredAdmin = () => {
   try {
-    return JSON.parse(localStorage.getItem('ppoint_admin_profile') || 'null');
+    return JSON.parse(localStorage.getItem('admin_user') || 'null');
   } catch {
     return null;
   }
@@ -117,7 +117,7 @@ export default function AdminDashboard() {
   // Defensive: Only access localStorage in browser
   const getInitialToken = () => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      return localStorage.getItem('ppoint_admin_session') || '';
+      return localStorage.getItem('admin_token') || '';
     }
     return '';
   };
@@ -198,8 +198,8 @@ export default function AdminDashboard() {
         <button
           className="rounded-full bg-stone-950 px-5 py-3 font-semibold text-white"
           onClick={() => {
-            localStorage.removeItem('ppoint_admin_session');
-            localStorage.removeItem('ppoint_admin_profile');
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('admin_user');
             setToken('');
             setAdminProfile(null);
           }}
@@ -209,6 +209,7 @@ export default function AdminDashboard() {
   }
   // Fallback UI for critical dashboard data load failure
   if (token && adminProfile && (!Array.isArray(visibleTabs) || visibleTabs.length === 0)) {
+    console.error('Token or Permissions issue detected: No visible tabs available for the current admin profile.');
     return (
       <div className="text-red-500 p-8 text-center">
         <h2 className="text-2xl font-bold mb-4">Dashboard failed to load</h2>
@@ -220,8 +221,8 @@ export default function AdminDashboard() {
         <button
           className="rounded-full bg-stone-950 px-5 py-3 font-semibold text-white"
           onClick={() => {
-            localStorage.removeItem('ppoint_admin_session');
-            localStorage.removeItem('ppoint_admin_profile');
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('admin_user');
             setToken('');
             setAdminProfile(null);
           }}
@@ -358,11 +359,13 @@ export default function AdminDashboard() {
 
     setLoading(true);
     loadAdminData().catch((loadError) => {
+      console.error('Dashboard fetch failure: Failed to load admin dashboard modules', loadError);
       const status = loadError?.response?.status;
-      setError(getErrorMessage(loadError, 'Failed to load admin dashboard. Some admin modules may be unavailable.'));
+      setError(getErrorMessage(loadError, 'Failed to load dashboard.'));
       if (status === 401 || status === 403) {
-        localStorage.removeItem('ppoint_admin_session');
-        localStorage.removeItem('ppoint_admin_profile');
+        console.error('Token issue: session unauthorized or expired.');
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
         setToken('');
         setAdminProfile(null);
       }
@@ -428,13 +431,13 @@ export default function AdminDashboard() {
     setScriptError(null);
     try {
       const response = await api.post('/admin/auth/login', loginForm);
-      const nextToken = response.data.data.token;
-      const nextAdmin = response.data.data.admin;
+      const nextToken = response.data.token || response.data.data?.token;
+      const nextAdmin = response.data.user || response.data.data?.admin || response.data.data?.user;
       // Store token in localStorage
-      localStorage.setItem('ppoint_admin_session', nextToken);
-      localStorage.setItem('ppoint_admin_profile', JSON.stringify(nextAdmin));
+      localStorage.setItem('admin_token', nextToken);
+      localStorage.setItem('admin_user', JSON.stringify(nextAdmin));
       // Store token in cookie (fallback for mobile)
-      document.cookie = `ppoint_admin_session=${nextToken}; path=/; SameSite=Lax; max-age=86400`;
+      document.cookie = `admin_token=${nextToken}; path=/; SameSite=Lax; max-age=86400`;
       setToken(nextToken);
       setAdminProfile(nextAdmin);
       setNotice('Admin session established.');
@@ -443,6 +446,7 @@ export default function AdminDashboard() {
         navigate('/admin/dashboard', { replace: true });
       }, 100);
     } catch (loginError) {
+      console.error('Login failure: Failed to authenticate admin', loginError);
       setError(loginError.response?.data?.error || 'Invalid admin email or password.');
       // Redirect to login with error
       setTimeout(() => {
@@ -782,17 +786,26 @@ export default function AdminDashboard() {
           <p className="mt-3 text-stone-300">Control developers, API usage, subscription plans, payments, regions, and system configuration without code changes.</p>
           <p className="mt-2 text-sm text-stone-400">Signed in as {adminProfile?.role || 'Super Admin'}</p>
         </div>
-        <button onClick={() => { localStorage.removeItem('ppoint_admin_session'); localStorage.removeItem('ppoint_admin_profile'); setToken(''); setAdminProfile(null); }} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Logout</button>
+        <button onClick={() => { localStorage.removeItem('admin_token'); localStorage.removeItem('admin_user'); setToken(''); setAdminProfile(null); }} className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white">Logout</button>
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-red-200/30 bg-red-500/10 p-4 text-sm text-red-100">
-          {typeof error === 'string' ? error : error?.message || JSON.stringify(error)}
+        <div className="rounded-2xl border border-red-200/30 bg-red-500/10 p-4 text-sm text-red-100 font-bold">
+          {typeof error === 'string' ? error : error?.message || 'Failed to load dashboard'}
         </div>
       )}
       {notice && <div className="rounded-2xl border border-emerald-200/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">{notice}</div>}
       {loading && <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-stone-200">Loading admin data...</div>}
 
+      {/* If error is fatal and no dashboard loaded yet, stop rendering tabs */}
+      {error && !overview && (
+        <div className="mt-8 text-center">
+          <p className="text-xl text-red-400 font-semibold mb-4">Failed to load dashboard</p>
+          <button onClick={() => window.location.reload()} className="px-5 py-3 rounded-xl bg-red-500/20 text-red-100 hover:bg-red-500/30 font-bold transition">Try Again</button>
+        </div>
+      )}
+
+      <div className={error && !overview ? 'hidden' : 'block'}>
       <div className="flex flex-wrap gap-3">
         {visibleTabs.map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab.id ? 'bg-white text-stone-950' : 'bg-white/10 text-white'}`}>
@@ -1386,6 +1399,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

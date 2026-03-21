@@ -1,26 +1,27 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import MapboxMap, { Marker, Popup, Source, Layer, MapViewToggle } from '../components/MapboxMap';
 import {
   Navigation, Search, LocateFixed, Car, Bike, Footprints,
-  Bus, X, Maximize2, Minimize2, ChevronRight, Clock, Route,
-  AlertTriangle, CheckCircle2, ArrowLeft, MapPin, Zap
+  Bus, X, Maximize2, CheckCircle2, MapPin, Zap, AlertTriangle,
+  Volume2, VolumeX, Navigation2
 } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import api from '../services/api';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
-const driverIcon = L.divIcon({
-  html: `<div style="width:28px;height:28px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.3),0 0 12px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2L8 10H16L12 2Z"/><circle cx="12" cy="16" r="4"/></svg>
-  </div>`,
-  className: '',
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-});
+function DriverMarkerPin() {
+  return (
+    <div style={{
+      width: 28, height: 28, background: '#3b82f6', border: '3px solid white',
+      borderRadius: '50%', boxShadow: '0 0 0 4px rgba(59,130,246,0.3),0 0 12px rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M12 2L8 10H16L12 2Z"/><circle cx="12" cy="16" r="4"/></svg>
+    </div>
+  );
+}
 
-const getDestinationIcon = (placeType) => {
+function DestinationPin({ placeType }) {
   const emojiMap = {
     House: '🏠', Shop: '🛍', Office: '🏢', School: '🎓', Hospital: '🏥',
     Hotel: '🏨', 'Police Station': '🚓', Church: '⛪', Mosque: '🕌',
@@ -28,13 +29,8 @@ const getDestinationIcon = (placeType) => {
     'Estate Gate': '🚪', Barracks: '🪖', Other: '📍',
   };
   const emoji = emojiMap[placeType] || '📍';
-  return L.divIcon({
-    html: `<div style="font-size:34px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));transform:translateY(-17px);text-align:center;line-height:1">${emoji}</div>`,
-    className: '',
-    iconSize: [40, 42],
-    iconAnchor: [20, 42],
-  });
-};
+  return <div style={{ fontSize: 32, lineHeight: 1, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}>{emoji}</div>;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,24 +65,79 @@ const TRANSPORT_MODES = [
   { id: 'public-transport', label: 'Transit', Icon: Bus },
 ];
 
+// Distance from driver to closest point on route polyline
+function distanceToRoute(driverLat, driverLng, routePolyline) {
+  if (!routePolyline || routePolyline.length < 2) return Infinity;
+  let minDist = Infinity;
+  for (const [lat, lng] of routePolyline) {
+    const d = haversineM(driverLat, driverLng, lat, lng);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
+}
+
+// Generate a random session ID
+function genSessionId() {
+  return `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// Route Confidence Badge component
+function ConfidenceBadge({ confidence }) {
+  if (!confidence) return null;
+  return (
+    <div
+      className="flex items-center gap-2 rounded-2xl border border-white/10 bg-stone-900/80 px-4 py-2.5 backdrop-blur-sm"
+      title={`Confidence factors: ${JSON.stringify(confidence.factors)}`}
+    >
+      <div className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: confidence.color }} />
+      <span className="text-xs font-bold text-white">Route Confidence</span>
+      <span className="ml-auto text-sm font-black" style={{ color: confidence.color }}>
+        {confidence.score}%
+      </span>
+      <span className="text-xs font-semibold" style={{ color: confidence.color }}>{confidence.label}</span>
+    </div>
+  );
+}
+
+// Africa routing hint banner
+function AfricaHintBanner({ hint }) {
+  if (!hint) return null;
+  const { mode_recommendation, traffic_hint } = hint;
+  if (!mode_recommendation && !traffic_hint) return null;
+  return (
+    <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm">
+      {traffic_hint && <p className="text-amber-200">🚦 {traffic_hint}</p>}
+      {mode_recommendation && (
+        <p className="mt-1 font-semibold text-amber-300">
+          💡 {mode_recommendation.reason}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function MapController({ driverPos, destination, navigating }) {
-  const map = useMap();
-  useEffect(() => {
-    if (navigating && driverPos) {
-      map.flyTo([driverPos.lat, driverPos.lng], 17, { animate: true, duration: 1.2 });
-    } else if (destination && driverPos) {
-      const bounds = L.latLngBounds([
-        [driverPos.lat, driverPos.lng],
-        [destination.lat, destination.lng],
-      ]);
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
-    } else if (destination) {
-      map.flyTo([destination.lat, destination.lng], 15, { animate: true });
-    }
-  }, [driverPos, destination, navigating, map]);
-  return null;
+// Route GeoJSON line layer for Mapbox
+function RouteLayer({ route }) {
+  if (!route || route.length === 0) return null;
+  const geojson = {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: route.map(([lat, lng]) => [lng, lat]),
+    },
+  };
+  return (
+    <Source id="route-driver" type="geojson" data={geojson}>
+      <Layer id="route-driver-casing" type="line" paint={{
+        'line-color': '#000000', 'line-width': 10, 'line-opacity': 0.3
+      }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+      <Layer id="route-driver-line" type="line" paint={{
+        'line-color': '#f59e0b', 'line-width': 6, 'line-opacity': 0.9
+      }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+    </Source>
+  );
 }
 
 function NextManeuverCard({ step, distanceAhead }) {
@@ -158,12 +209,34 @@ export default function DriversPage() {
 
   const [transportMode, setTransportMode] = useState('driving-car');
   const [navigating, setNavigating] = useState(false);
+  const [autoFollow, setAutoFollow] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [arrived, setArrived] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [navViewMode, setNavViewMode] = useState('hybrid');
+
+  // Auto-follow effect for map tracking driver
+  useEffect(() => {
+    if (navigating && autoFollow && driverPos && navMapRef.current) {
+      navMapRef.current.flyTo(driverPos.lng, driverPos.lat);
+    }
+  }, [driverPos, navigating, autoFollow]);
+
+  // ─── Driver Intelligence State ─────────────────────────────────────────────
+  const [routeConfidence, setRouteConfidence] = useState(null);
+  const [africaHint, setAfricaHint] = useState(null);
+  const [sessionId] = useState(() => genSessionId());
+  const [deviationCount, setDeviationCount] = useState(0);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [positionLog, setPositionLog] = useState([]); // for learned route submission
 
   const watchRef = useRef(null);
-  const MAP_DEFAULT = [6.5244, 3.3792]; // Lagos
+  const navMapRef = useRef(null);
+  const previewMapRef = useRef(null);
+  const positionIntervalRef = useRef(null); // interval for sending positions to backend
+  const MAP_DEFAULT_LNG = 3.3792;
+  const MAP_DEFAULT_LAT = 6.5244;
 
   // ─── GPS ─────────────────────────────────────────────────────────────────
 
@@ -278,6 +351,8 @@ export default function DriversPage() {
       const data = response.data.data;
       setRoute(data.polyline || []);
       setRouteInfo(data);
+      // Confidence comes bundled with the route response
+      if (data.confidence) setRouteConfidence(data.confidence);
     } catch {
       setRouteError('Could not calculate route. Check your connection.');
     } finally {
@@ -292,276 +367,343 @@ export default function DriversPage() {
     }
   }, [transportMode]); // eslint-disable-line
 
+  // ─── Route Confidence + Africa Hints ─────────────────────────────────────
+
+  const fetchConfidenceAndHints = useCallback(async (sLat, sLng, eLat, eLng, mode, polyline) => {
+    try {
+      const [confRes, hintsRes] = await Promise.all([
+        api.post('/driver/route/confidence', {
+          start_lat: sLat, start_lng: sLng,
+          end_lat: eLat, end_lng: eLng,
+          mode, polyline,
+        }).catch(() => null),
+        api.post('/driver/route/hints', {
+          start_lat: sLat, start_lng: sLng,
+          end_lat: eLat, end_lng: eLng,
+          mode,
+        }).catch(() => null),
+      ]);
+      if (confRes?.data?.success) setRouteConfidence(confRes.data.data);
+      if (hintsRes?.data?.success) setAfricaHint(hintsRes.data.data);
+    } catch { /* non-critical */ }
+  }, []);
+
+  // ─── Start Intelligence Session ───────────────────────────────────────────
+
+  const startIntelligenceSession = useCallback(async (sLat, sLng, eLat, eLng, mode) => {
+    try {
+      await api.post('/driver/session/start', {
+        session_id: sessionId,
+        start_lat: sLat, start_lng: sLng,
+        end_lat: eLat, end_lng: eLng,
+        mode,
+      });
+    } catch { /* non-critical */ }
+  }, [sessionId]);
+
+  // ─── Position Reporting to Backend (every 10s) ───────────────────────────
+
+  const startPositionReporting = useCallback((sid) => {
+    if (positionIntervalRef.current) clearInterval(positionIntervalRef.current);
+    positionIntervalRef.current = setInterval(() => {
+      setDriverPos(pos => {
+        if (pos) {
+          api.post(`/driver/session/${sid}/position`, { lat: pos.lat, lng: pos.lng }).catch(() => {});
+          setPositionLog(prev => [...prev.slice(-200), [pos.lat, pos.lng]]);
+        }
+        return pos;
+      });
+    }, 10000);
+  }, []);
+
+  const stopPositionReporting = useCallback(() => {
+    if (positionIntervalRef.current) {
+      clearInterval(positionIntervalRef.current);
+      positionIntervalRef.current = null;
+    }
+  }, []);
+
+  // ─── Complete Session ─────────────────────────────────────────────────────
+
+  const completeIntelligenceSession = useCallback(async (reason = 'arrived') => {
+    stopPositionReporting();
+    try {
+      await api.post(`/driver/session/${sessionId}/complete`, { reason });
+      if (deviationCount > 0 && positionLog.length >= 2 && destination) {
+        await api.post('/driver/route/learn', {
+          start_lat: positionLog[0][0], start_lng: positionLog[0][1],
+          end_lat: destination.lat, end_lng: destination.lng,
+          mode: transportMode,
+          path: positionLog,
+          duration_s: 0,
+        }).catch(() => {});
+      }
+    } catch { /* non-critical */ }
+  }, [sessionId, deviationCount, positionLog, destination, transportMode, stopPositionReporting]);
+
+
+  // ─── Deviation Detection ──────────────────────────────────────────────────
+  // If driver is >80m off route, recalculate automatically
+  useEffect(() => {
+    if (!navigating || !driverPos || !route.length || arrived || isRecalculating) return;
+    const dist = distanceToRoute(driverPos.lat, driverPos.lng, route);
+    if (dist > 80) { // 80m off route = deviation
+      setDeviationCount(d => d + 1);
+      setIsRecalculating(true);
+      // Record deviation in backend
+      const closestPoint = route.reduce((best, pt) => {
+        const d = haversineM(driverPos.lat, driverPos.lng, pt[0], pt[1]);
+        return d < best.d ? { d, lat: pt[0], lng: pt[1] } : best;
+      }, { d: Infinity, lat: route[0]?.[0], lng: route[0]?.[1] });
+      api.post(`/driver/session/${sessionId}/deviation`, {
+        driver_lat: driverPos.lat, driver_lng: driverPos.lng,
+        expected_lat: closestPoint.lat, expected_lng: closestPoint.lng,
+      }).catch(() => {});
+      // Instant recalculation
+      calcRoute(driverPos.lat, driverPos.lng, destination.lat, destination.lng)
+        .finally(() => setIsRecalculating(false));
+    }
+  }, [driverPos, navigating, route, arrived, isRecalculating, destination, sessionId]); // eslint-disable-line
+
+  // ─── Fly map to driver position when navigating ───────────────────────────
+  useEffect(() => {
+    if (navigating && driverPos && navMapRef.current) {
+      navMapRef.current.flyTo(driverPos.lng, driverPos.lat, 17);
+    }
+  }, [driverPos, navigating]);
+
+  // ─── Fit preview map ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!navigating && driverPos && destination && previewMapRef.current) {
+      previewMapRef.current.fitBounds(
+        [[Math.min(driverPos.lng, destination.lng) - 0.01, Math.min(driverPos.lat, destination.lat) - 0.01],
+         [Math.max(driverPos.lng, destination.lng) + 0.01, Math.max(driverPos.lat, destination.lat) + 0.01]],
+        { padding: 60, maxZoom: 16 }
+      );
+    } else if (!navigating && destination && previewMapRef.current) {
+      previewMapRef.current.flyTo(destination.lng, destination.lat, 15);
+    }
+  }, [driverPos, destination, navigating]);
+
+  // ─── Fetch confidence + hints after route calculated ─────────────────────
+  useEffect(() => {
+    if (routeInfo && driverPos && destination) {
+      fetchConfidenceAndHints(
+        driverPos.lat, driverPos.lng,
+        destination.lat, destination.lng,
+        transportMode,
+        route,
+      );
+    }
+  }, [routeInfo]); // eslint-disable-line
+
   const startNavigation = async () => {
     if (!driverPos) { startGPS(); return; }
     if (destination && (!route.length || !routeInfo)) {
       await calcRoute(driverPos.lat, driverPos.lng, destination.lat, destination.lng);
     }
+    // Start intelligence session
+    await startIntelligenceSession(
+      driverPos.lat, driverPos.lng,
+      destination.lat, destination.lng,
+      transportMode,
+    );
+    startPositionReporting(sessionId);
     setNavigating(true);
     setIsFullscreen(true);
     setCurrentStep(0);
     setArrived(false);
+    setDeviationCount(0);
+    setPositionLog([]);
+    setNavViewMode('hybrid');
   };
+
+  // ─── On arrival ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (arrived && navigating) {
+      completeIntelligenceSession('arrived');
+    }
+  }, [arrived]); // eslint-disable-line
+
+  // ─── Cleanup on unmount ────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      stopPositionReporting();
+      if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current);
+    };
+  }, [stopPositionReporting]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className={`min-h-screen bg-stone-950 text-white ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
-      {/* ── Fullscreen Navigation Mode ── */}
-      {navigating && isFullscreen ? (
-        <div className="flex h-screen flex-col">
-          {/* Map fills most of the screen */}
-          <div className="relative flex-1">
-            <MapContainer
-              center={driverPos ? [driverPos.lat, driverPos.lng] : MAP_DEFAULT}
-              zoom={16}
-              style={{ height: '100%', width: '100%' }}
-              zoomControl={false}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapController driverPos={driverPos} destination={destination} navigating />
-              {driverPos && <Marker position={[driverPos.lat, driverPos.lng]} icon={driverIcon}><Popup>You</Popup></Marker>}
-              {destination && (
-                <Marker position={[destination.lat, destination.lng]} icon={getDestinationIcon(destination.placeType)}>
-                  <Popup>{destination.code}</Popup>
-                </Marker>
-              )}
-              {route.length > 0 && <Polyline positions={route} color="#f59e0b" weight={6} opacity={0.85} />}
-            </MapContainer>
-
-            {/* Exit button */}
-            <button
-              onClick={() => { setNavigating(false); setIsFullscreen(false); }}
-              className="absolute top-4 left-4 z-[1000] flex items-center gap-2 rounded-2xl bg-stone-900/90 px-4 py-3 font-semibold text-white shadow-xl backdrop-blur-sm"
-            >
-              <X size={18} /> Exit
-            </button>
-          </div>
-
-          {/* Bottom panel */}
-          <div className="space-y-3 bg-stone-950 p-4">
-            {arrived ? (
-              <div className="flex items-center gap-4 rounded-3xl bg-emerald-600 p-5 shadow-xl">
-                <CheckCircle2 size={40} className="flex-shrink-0 text-white" />
-                <div>
-                  <p className="text-xl font-black text-white">You have arrived!</p>
-                  <p className="text-sm text-emerald-100">{destination?.code}</p>
-                </div>
-              </div>
-            ) : (
-              <NextManeuverCard step={routeInfo?.steps?.[currentStep]} distanceAhead={0} />
-            )}
-            <RouteInfoBar routeInfo={routeInfo} remainingStep={currentStep} />
-          </div>
-        </div>
-      ) : (
-        /* ── Normal Setup Mode ── */
-        <div className="mx-auto max-w-2xl px-4 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-400">PPOINNT</p>
-            <h1 className="mt-2 text-4xl font-black text-white">Driver Navigation</h1>
-            <p className="mt-2 text-stone-400">Enter a PPOINNT code to get turn-by-turn directions to any address in Africa.</p>
-          </div>
-
-          {/* GPS Status */}
-          <div className={`mb-6 flex items-center gap-3 rounded-2xl border p-4 ${driverPos ? 'border-emerald-400/30 bg-emerald-500/10' : 'border-white/10 bg-white/5'}`}>
-            <LocateFixed size={20} className={driverPos ? 'text-emerald-400' : 'text-stone-500'} />
-            {driverPos ? (
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-emerald-300">GPS Active</p>
-                <p className="text-xs text-stone-400">{driverPos.lat.toFixed(6)}, {driverPos.lng.toFixed(6)}{driverPos.accuracy ? ` · ±${Math.round(driverPos.accuracy)}m` : ''}</p>
-              </div>
-            ) : (
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-stone-300">{locationError || 'Detecting location…'}</p>
-              </div>
-            )}
-            <button onClick={startGPS} className="rounded-xl bg-stone-800 px-3 py-2 text-xs font-semibold text-white hover:bg-stone-700 transition">
-              Refresh
-            </button>
-          </div>
-
-          {/* PPOINNT Code Search */}
-          <div className="mb-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-stone-400">Search PPOINNT Destination</p>
-            <div className="flex gap-3">
-              <input
-                value={code}
-                onChange={e => setCode(e.target.value.toUpperCase())}
-                onKeyDown={e => e.key === 'Enter' && searchCode()}
-                placeholder="e.g. PPT-NG-LAG-IKD-U658KY"
-                className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 font-mono text-sm text-white outline-none placeholder:text-stone-600 focus:border-amber-400/50"
-              />
-              <button
-                onClick={searchCode}
-                disabled={searchLoading || !code.trim()}
-                className="flex items-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 font-bold text-stone-950 shadow-lg shadow-amber-400/20 transition hover:bg-amber-300 disabled:opacity-50"
-              >
-                {searchLoading ? <span className="animate-spin text-xs">⌛</span> : <Search size={18} />}
-                {searchLoading ? 'Searching…' : 'Search'}
-              </button>
-            </div>
-            {searchError && (
-              <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">
-                <AlertTriangle size={16} /> {searchError}
-              </div>
-            )}
-          </div>
-
-          {/* Transport Mode */}
-          <div className="mb-6">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-stone-400">Transport Mode</p>
-            <div className="flex gap-2 flex-wrap">
-              {TRANSPORT_MODES.map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setTransportMode(id)}
-                  className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
-                    transportMode === id
-                      ? 'border-amber-400 bg-amber-400 text-stone-950'
-                      : 'border-white/10 bg-white/5 text-stone-300 hover:border-white/20'
-                  }`}
-                >
-                  <Icon size={16} /> {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Map */}
-          <div className="relative mb-6 overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl">
-            <div className="h-80">
-              <MapContainer
-                center={driverPos ? [driverPos.lat, driverPos.lng] : MAP_DEFAULT}
-                zoom={driverPos ? 13 : 5}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapController driverPos={driverPos} destination={destination} navigating={false} />
-                {driverPos && <Marker position={[driverPos.lat, driverPos.lng]} icon={driverIcon}><Popup>Your location</Popup></Marker>}
-                {destination && (
-                  <Marker position={[destination.lat, destination.lng]} icon={getDestinationIcon(destination.placeType)}>
-                    <Popup>{destination.code}</Popup>
-                  </Marker>
-                )}
-                {route.length > 0 && <Polyline positions={route} color="#f59e0b" weight={5} opacity={0.9} />}
-              </MapContainer>
-            </div>
-            <button
-              onClick={() => setIsFullscreen(f => !f)}
-              className="absolute bottom-3 right-3 z-[1000] rounded-xl bg-stone-900/80 p-2 text-white backdrop-blur-sm transition hover:bg-stone-800"
-            >
-              <Maximize2 size={18} />
-            </button>
-          </div>
-
-          {/* Destination Info */}
-          {destinationData && (
-            <div className="mb-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-stone-400">Destination</p>
-              <h2 className="mt-2 text-3xl font-black text-amber-400">{destinationData.ppoint_code || destinationData.code}</h2>
-              {destinationData.building_name && <p className="mt-1 text-lg text-white">{destinationData.building_name}</p>}
-              {destinationData.display_place_type && <p className="mt-1 text-sm text-stone-400">{destinationData.display_place_type}</p>}
-              <p className="mt-1 text-stone-400">{destinationData.city}, {destinationData.state}, {destinationData.country}</p>
-              {destinationData.entrance_label && (
-                <p className="mt-2 text-sm font-semibold text-emerald-400">🚪 {destinationData.entrance_label}</p>
-              )}
-              {destinationData.confidence_score > 0 && (
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-800">
-                    <div
-                      className={`h-2 rounded-full transition-all ${destinationData.confidence_score >= 80 ? 'bg-emerald-400' : destinationData.confidence_score >= 60 ? 'bg-amber-400' : 'bg-red-400'}`}
-                      style={{ width: `${destinationData.confidence_score}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-stone-400">{destinationData.confidence_score}/100</span>
-                </div>
-              )}
-              <div className="mt-4 flex gap-3">
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${destination?.lat},${destination?.lng}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500 transition"
-                >
-                  Google Maps
-                </a>
-                <a
-                  href={`https://waze.com/ul?ll=${destination?.lat},${destination?.lng}&navigate=yes`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-2xl bg-purple-600 px-4 py-3 text-sm font-bold text-white hover:bg-purple-500 transition"
-                >
-                  Waze
-                </a>
-              </div>
-            </div>
+    <div className="relative w-full h-full flex flex-col bg-stone-900 overflow-hidden">
+      {/* ── FULLSCREEN MAP ── */}
+      <div className="absolute inset-0 z-0">
+        <MapboxMap
+          ref={navigating ? navMapRef : previewMapRef}
+          center={driverPos ? [driverPos.lng, driverPos.lat] : [MAP_DEFAULT_LNG, MAP_DEFAULT_LAT]}
+          zoom={driverPos ? (navigating ? 16 : 14) : 5}
+          defaultViewMode={navViewMode}
+          defaultTheme="dark"
+          showViewToggle={false}
+          onDragStart={() => setAutoFollow(false)}
+          style={{ height: '100%', width: '100%' }}
+        >
+          {route && <RouteLayer route={route} />}
+          {driverPos && (
+             <Marker longitude={driverPos.lng} latitude={driverPos.lat} anchor="center">
+                <DriverMarkerPin />
+             </Marker>
           )}
-
-          {/* Route Info */}
-          {routeLoading && (
-            <div className="mb-6 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-stone-400">
-              <span className="animate-spin text-lg">⌛</span> Calculating best route…
-            </div>
-          )}
-
-          {routeInfo && !routeLoading && (
-            <div className="mb-6 space-y-4">
-              <RouteInfoBar routeInfo={routeInfo} remainingStep={null} />
-              {routeInfo.source === 'estimated' && (
-                <p className="text-xs text-amber-400">⚠ Estimated route — no Internet connection to routing engine.</p>
-              )}
-
-              {/* Turn-by-turn steps */}
-              {routeInfo.steps?.length > 0 && (
-                <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
-                  <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-stone-400">Turn-by-Turn Directions</p>
-                  <ol className="space-y-3">
-                    {routeInfo.steps.slice(0, 10).map((step, idx) => (
-                      <li key={idx} className="flex items-start gap-3 text-sm">
-                        <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-stone-800 text-xs font-bold text-amber-400">{idx + 1}</span>
-                        <div>
-                          <p className="font-semibold text-white">{step.instruction}</p>
-                          {(step.distance || step.duration) && (
-                            <p className="mt-0.5 text-xs text-stone-500">
-                              {step.distance ? formatDistance(step.distance) : ''}{step.distance && step.duration ? ' · ' : ''}{step.duration ? formatDuration(step.duration) : ''}
-                            </p>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                    {routeInfo.steps.length > 10 && (
-                      <li className="text-xs text-stone-500">…and {routeInfo.steps.length - 10} more steps</li>
-                    )}
-                  </ol>
-                </div>
-              )}
-            </div>
-          )}
-
-          {routeError && (
-            <div className="mb-6 flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
-              <AlertTriangle size={16} /> {routeError}
-            </div>
-          )}
-
-          {/* Start Navigation CTA */}
           {destination && (
+             <Marker longitude={destination.lng} latitude={destination.lat} anchor="bottom">
+                <DestinationPin placeType={destination.placeType} />
+             </Marker>
+          )}
+        </MapboxMap>
+      </div>
+
+      {/* ── FLOATING TOP CONTROLS ── */}
+      <div className="absolute top-4 inset-x-4 z-10 flex flex-col gap-3 max-w-xl mx-auto pointer-events-none">
+        {navigating ? (
+          <div className="flex flex-col gap-3 pointer-events-auto">
+             <NextManeuverCard step={routeInfo?.steps?.[currentStep]} distanceAhead={0} />
+          </div>
+        ) : (
+          <div className="flex gap-2 pointer-events-auto">
+            <input
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && searchCode()}
+              placeholder="Search Destination Code..."
+              className="flex-1 rounded-[1.5rem] border border-white/20 bg-stone-950/80 px-5 py-4 font-bold text-white shadow-xl backdrop-blur-xl outline-none placeholder:text-stone-400 focus:border-amber-400/50"
+            />
+            <button
+              onClick={searchCode}
+              disabled={searchLoading || !code.trim()}
+              className="flex items-center justify-center rounded-[1.5rem] bg-amber-400 px-5 py-4 font-black text-stone-950 shadow-xl transition hover:bg-amber-300 disabled:opacity-50"
+            >
+              {searchLoading ? <span className="animate-spin text-xl">⌛</span> : <Search size={24} />}
+            </button>
+          </div>
+        )}
+
+        {searchError && !navigating && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/80 p-3 text-sm font-semibold text-white shadow-lg backdrop-blur pointer-events-auto flex items-center gap-2">
+            <AlertTriangle size={16} /> {searchError}
+          </div>
+        )}
+        {locationError && !navigating && (
+           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/80 p-3 text-sm font-semibold text-stone-900 shadow-lg backdrop-blur pointer-events-auto flex items-center gap-2">
+             <AlertTriangle size={16} /> {locationError}
+           </div>
+        )}
+      </div>
+
+      {/* ── INTELLIGENCE ALERTS & RECALCULATING OVERLAY ── */}
+      <div className="absolute top-24 inset-x-4 z-10 flex flex-col gap-2 max-w-xl mx-auto pointer-events-none">
+        {isRecalculating && (
+           <div className="flex items-center gap-3 rounded-2xl border border-blue-400/30 bg-blue-500/80 px-4 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md pointer-events-auto">
+             <span className="animate-spin">↻</span> Rerouting to a better path...
+           </div>
+        )}
+        {navigating && routeConfidence && <div className="pointer-events-auto"><ConfidenceBadge confidence={routeConfidence} /></div>}
+        {navigating && africaHint && <div className="pointer-events-auto"><AfricaHintBanner hint={africaHint} /></div>}
+        {navigating && deviationCount > 0 && (
+           <div className="flex items-center gap-2 rounded-2xl border border-purple-400/30 bg-purple-500/80 px-4 py-2 text-xs font-bold text-white shadow-lg pointer-events-auto">
+             Learning new route pattern ({deviationCount} reroute{deviationCount > 1 ? 's' : ''})
+           </div>
+        )}
+      </div>
+
+      {/* ── FLOATING RIGHT CONTROLS ── */}
+      <div className="absolute right-4 bottom-56 z-10 flex flex-col gap-3 pointer-events-none">
+        {navigating && (
+          <>
+            <button
+              onClick={() => setVoiceEnabled((v) => !v)}
+              className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-stone-950/80 text-white shadow-xl backdrop-blur-xl hover:bg-stone-900 pointer-events-auto transition"
+            >
+              {voiceEnabled ? <Volume2 size={24} /> : <VolumeX size={24} className="text-stone-500" />}
+            </button>
+            {!autoFollow && (
+              <button
+                onClick={() => setAutoFollow(true)}
+                className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl border border-amber-400/50 bg-amber-400/90 text-stone-950 shadow-xl backdrop-blur-xl hover:bg-amber-400 pointer-events-auto transition animate-pulse"
+                title="Recenter"
+              >
+                <Navigation2 size={24} />
+              </button>
+            )}
+          </>
+        )}
+        {!navigating && (
+          <button
+            onClick={startGPS}
+            className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-stone-950/80 text-amber-400 shadow-xl backdrop-blur-xl hover:bg-stone-900 pointer-events-auto transition"
+            title="Locate Me"
+          >
+            <LocateFixed size={24} />
+          </button>
+        )}
+      </div>
+
+      {/* ── BOTTOM ACTION PANEL ── */}
+      <div className="absolute inset-x-4 bottom-8 z-10 mx-auto max-w-xl flex flex-col gap-3 transition-transform duration-300 pointer-events-none">
+        
+        {/* Destination Pre-Navigation Card */}
+        {destinationData && !navigating && (
+          <div className="rounded-[1.75rem] border border-white/20 bg-stone-950/80 p-5 shadow-2xl backdrop-blur-xl pointer-events-auto">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-amber-400">Destination</p>
+                <h2 className="mt-1 text-4xl font-black text-white">{destinationData.code}</h2>
+                <p className="text-sm text-stone-400 mt-1">{destinationData.city}, {destinationData.state}</p>
+              </div>
+              <button onClick={() => setTransportMode('motorcycle')} className={`p-3 rounded-2xl transition ${transportMode === 'motorcycle' ? 'bg-amber-400 text-stone-950' : 'bg-white/10 text-white'}`}><Zap size={24} /></button>
+              <button onClick={() => setTransportMode('driving-car')} className={`p-3 rounded-2xl transition ${transportMode === 'driving-car' ? 'bg-amber-400 text-stone-950' : 'bg-white/10 text-white'}`}><Car size={24} /></button>
+            </div>
+            
             <button
               onClick={startNavigation}
-              disabled={routeLoading}
-              className="flex w-full items-center justify-center gap-3 rounded-3xl bg-amber-400 px-8 py-6 text-2xl font-black text-stone-950 shadow-2xl shadow-amber-400/30 transition hover:bg-amber-300 disabled:opacity-50"
+              disabled={routeLoading || !route}
+              className="mt-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 py-4 text-xl font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300 disabled:opacity-50"
             >
-              <Navigation size={28} /> Start Live Navigation
+              <Navigation size={24} /> {routeLoading ? 'Calculating Route...' : 'Start Driving'}
             </button>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* Live Navigation Cards */}
+        {navigating && (
+          <div className="space-y-3 pointer-events-auto">
+            {arrived && (
+              <div className="flex items-center gap-4 rounded-[1.75rem] border border-emerald-400/30 bg-emerald-500/90 p-6 shadow-2xl backdrop-blur-xl">
+                <CheckCircle2 size={40} className="text-white" />
+                <div>
+                  <p className="text-2xl font-black text-white">You have arrived</p>
+                  <p className="text-sm font-semibold text-emerald-100">{destinationData?.code}</p>
+                </div>
+              </div>
+            )}
+            <div className="rounded-[1.75rem] border border-white/20 bg-stone-950/90 p-4 shadow-2xl backdrop-blur-xl">
+               <RouteInfoBar routeInfo={routeInfo} remainingStep={currentStep} />
+               <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => { setNavigating(false); completeIntelligenceSession('cancelled'); }}
+                    className="flex-1 rounded-2xl bg-red-500/20 py-3 font-bold text-red-400 hover:bg-red-500/30 transition shadow-lg"
+                  >
+                    End Navigation
+                  </button>
+                  <div className="flex items-center overflow-hidden rounded-2xl bg-stone-800 pointer-events-auto w-fit px-1">
+                     <MapViewToggle viewMode={navViewMode} onChange={setNavViewMode} theme="dark" />
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

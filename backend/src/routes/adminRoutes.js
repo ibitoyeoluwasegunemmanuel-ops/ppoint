@@ -24,12 +24,48 @@ router.post('/auth/login', async (req, res) => {
   }
 
   const token = platformStore.createAdminSession(admin.id);
-  res.json({ success: true, data: { token, admin: platformStore.getAdminBySession(token) } });
+  const adminData = platformStore.getAdminBySession(token);
+  res.json({
+    token,
+    user: {
+      email: adminData.email,
+      role: 'admin',
+      permissions: adminData.permissions,
+      full_name: adminData.full_name
+    }
+  });
 });
 
 router.use(adminAuth);
 
 router.get('/overview', async (req, res) => {
+  try {
+    const overview = platformStore.getOverview();
+    if (inMemoryStore.isEnabled()) {
+      return res.json({ success: true, data: overview });
+    }
+
+    const addresses = await Address.list('');
+    const queues = buildAddressModerationQueues(addresses);
+
+    return res.json({
+      success: true,
+      data: {
+        ...overview,
+        total_addresses: addresses.length,
+        reported_addresses: queues.reported_addresses.length,
+        suspicious_activity: queues.suspicious_activity.length,
+        low_confidence_addresses: queues.low_confidence_addresses.length,
+        unverified_buildings: queues.unverified_buildings.length,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Alias for dashboard
+router.get('/dashboard', async (req, res) => {
   try {
     const overview = platformStore.getOverview();
     if (inMemoryStore.isEnabled()) {

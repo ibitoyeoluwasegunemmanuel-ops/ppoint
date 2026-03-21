@@ -1,19 +1,17 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapContainer, Marker, Popup, TileLayer, Polyline, Polygon, useMap } from 'react-leaflet';
+import MapboxMap, { Marker, Popup, Source, Layer, MapViewToggle } from '../components/MapboxMap';
 import {
   Copy, Navigation, QrCode, Save, Share2, Car, Bike, Footprints,
   Bus, X, LocateFixed, AlertTriangle, CheckCircle2, Zap,
-  ChevronRight, Clock, MapPin, Building2, ArrowLeft,
+  Building2, ArrowLeft,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import api from '../services/api';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 
-// ─── Icons ─────────────────────────────────────────────────────────────────
+// ─── Icons / Pins ───────────────────────────────────────────────────────────
 
-const getDestinationIcon = (placeType) => {
+function DestinationPin({ placeType }) {
   const emojiMap = {
     House: '🏠', Shop: '🛍', Office: '🏢', School: '🎓', Hospital: '🏥',
     Hotel: '🏨', 'Police Station': '🚓', Church: '⛪', Mosque: '🕌',
@@ -21,27 +19,69 @@ const getDestinationIcon = (placeType) => {
     'Estate Gate': '🚪', Barracks: '🪖', 'Public Building': '🏛', Other: '📍',
   };
   const emoji = emojiMap[placeType] || '📍';
-  return L.divIcon({
-    html: `<div style="font-size:36px;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.4));transform:translateY(-18px);text-align:center;line-height:1">${emoji}</div>`,
-    className: '',
-    iconSize: [44, 44],
-    iconAnchor: [22, 44],
-  });
-};
+  return <div style={{ fontSize: 32, lineHeight: 1, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.5))' }}>{emoji}</div>;
+}
 
-const driverIcon = L.divIcon({
-  html: `<div style="width:26px;height:26px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.35),0 2px 12px rgba(0,0,0,0.4)"></div>`,
-  className: '',
-  iconSize: [26, 26],
-  iconAnchor: [13, 13],
-});
+function DriverPin() {
+  return (
+    <div style={{
+      width: 22, height: 22, background: '#3b82f6', border: '3px solid white',
+      borderRadius: '50%', boxShadow: '0 0 0 4px rgba(59,130,246,0.35),0 2px 12px rgba(0,0,0,0.4)'
+    }} />
+  );
+}
 
-const entranceIcon = L.divIcon({
-  html: `<div style="width:14px;height:14px;background:#22c55e;border:2px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(34,197,94,0.3)"></div>`,
-  className: '',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
+function EntrancePin() {
+  return (
+    <div style={{
+      width: 14, height: 14, background: '#22c55e', border: '2px solid white',
+      borderRadius: '50%', boxShadow: '0 0 0 3px rgba(34,197,94,0.3)'
+    }} />
+  );
+}
+
+function RoutePolyline({ polyline }) {
+  if (!polyline || polyline.length < 2) return null;
+  const geojson = {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: polyline.map(([lat, lng]) => [lng, lat]),
+    },
+  };
+  return (
+    <Source id="route-addr" type="geojson" data={geojson}>
+      <Layer id="route-addr-casing" type="line"
+        paint={{ 'line-color': '#000', 'line-width': 10, 'line-opacity': 0.25 }}
+        layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+      <Layer id="route-addr-line" type="line"
+        paint={{ 'line-color': '#f59e0b', 'line-width': 6, 'line-opacity': 0.9 }}
+        layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+    </Source>
+  );
+}
+
+function BuildingPolygonLayer({ polygon }) {
+  if (!polygon || polygon.length < 3) return null;
+  const geojson = {
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        ...polygon.map(p => [p.longitude, p.latitude]),
+        [polygon[0].longitude, polygon[0].latitude], // close ring
+      ]],
+    },
+  };
+  return (
+    <Source id="building-poly" type="geojson" data={geojson}>
+      <Layer id="building-poly-fill" type="fill"
+        paint={{ 'fill-color': '#f59e0b', 'fill-opacity': 0.18 }} />
+      <Layer id="building-poly-outline" type="line"
+        paint={{ 'line-color': '#f59e0b', 'line-width': 2, 'line-opacity': 0.8 }} />
+    </Source>
+  );
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -70,17 +110,7 @@ function fmtDur(s) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-function MapController({ driverPos, center, navigating }) {
-  const map = useMap();
-  useEffect(() => {
-    if (navigating && driverPos) {
-      map.flyTo(driverPos, 17, { animate: true, duration: 1.2 });
-    } else if (center) {
-      map.flyTo(center, 15, { animate: true, duration: 1 });
-    }
-  }, [driverPos, center, navigating, map]);
-  return null;
-}
+// MapController moved into useEffect calling mapRef.flyTo()
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -106,8 +136,12 @@ export default function AddressPage() {
   const [followDriver, setFollowDriver] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
   const [showBuildingPolygon, setShowBuildingPolygon] = useState(true);
+  const [navViewMode, setNavViewMode] = useState('hybrid');
+  const [addressViewMode, setAddressViewMode] = useState('hybrid');
 
   const watchIdRef = useRef(null);
+  const navMapRef = useRef(null);
+  const addrMapRef = useRef(null);
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/${code}`
     : `https://ppoint.online/${code}`;
@@ -316,75 +350,62 @@ export default function AddressPage() {
       <div className="fixed inset-0 z-50 flex flex-col bg-stone-950">
         {/* Map */}
         <div className="relative flex-1 overflow-hidden">
-          <MapContainer
-            center={driverPos || destPos}
+          <MapboxMap
+            ref={navMapRef}
+            center={driverPos ? [driverPos[1], driverPos[0]] : [destPos[1], destPos[0]]}
             zoom={driverPos ? 17 : 15}
-            zoomControl={false}
+            defaultViewMode={navViewMode}
+            defaultTheme="dark"
+            showViewToggle={false}
             style={{ height: '100%', width: '100%' }}
           >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution="&copy; OpenStreetMap &amp; CartoDB"
-            />
-            <MapController
-              driverPos={followDriver ? driverPos : null}
-              center={followDriver ? null : destPos}
-              navigating
-            />
-
             {/* Building polygon */}
-            {showBuildingPolygon && buildingPolygon.length >= 3 && (
-              <Polygon
-                positions={buildingPolygon.map(p => [p.latitude, p.longitude])}
-                pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2, weight: 2 }}
-              />
-            )}
+            {showBuildingPolygon && <BuildingPolygonLayer polygon={buildingPolygon} />}
+
+            {/* Route */}
+            {routeData?.polyline?.length > 0 && <RoutePolyline polyline={routeData.polyline} />}
 
             {/* Destination */}
-            <Marker position={destPos} icon={getDestinationIcon(address.place_type)}>
-              <Popup>{address.ppoint_code || address.code}</Popup>
+            <Marker longitude={destPos[1]} latitude={destPos[0]} anchor="bottom">
+              <DestinationPin placeType={address.place_type} />
             </Marker>
 
             {/* Entrance */}
             {hasEntrance && (
-              <Marker position={[Number(address.entrance_latitude), Number(address.entrance_longitude)]} icon={entranceIcon}>
-                <Popup>🚪 {address.entrance_label || 'Entrance'}</Popup>
+              <Marker longitude={Number(address.entrance_longitude)} latitude={Number(address.entrance_latitude)} anchor="center">
+                <EntrancePin />
               </Marker>
             )}
 
             {/* Driver */}
             {driverPos && (
-              <Marker position={driverPos} icon={driverIcon}>
-                <Popup>Your location</Popup>
+              <Marker longitude={driverPos[1]} latitude={driverPos[0]} anchor="center">
+                <DriverPin />
               </Marker>
             )}
-
-            {/* Route polyline */}
-            {routeData?.polyline?.length > 0 && (
-              <Polyline positions={routeData.polyline} color="#f59e0b" weight={6} opacity={0.85} />
-            )}
-          </MapContainer>
+          </MapboxMap>
 
           {/* Top-left controls */}
-          <div className="absolute left-4 top-4 z-[1000] flex flex-col gap-2">
+          <div className="absolute left-4 top-4 z-10 flex flex-col gap-2">
             <button
               onClick={() => { setNavigating(false); setRouteData(null); setArrived(false); }}
               className="flex items-center gap-2 rounded-2xl bg-stone-900/90 px-4 py-3 font-semibold text-white shadow-xl backdrop-blur-sm"
             >
               <X size={18} /> Exit
             </button>
+            <MapViewToggle viewMode={navViewMode} onChange={setNavViewMode} theme="dark" />
           </div>
 
           {/* Follow/Unfollow */}
           <button
             onClick={() => setFollowDriver(f => !f)}
-            className={`absolute right-4 top-4 z-[1000] rounded-2xl p-3 shadow-xl backdrop-blur-sm transition ${followDriver ? 'bg-amber-400 text-stone-950' : 'bg-stone-900/90 text-white'}`}
+            className={`absolute right-4 top-4 z-10 rounded-2xl p-3 shadow-xl backdrop-blur-sm transition ${followDriver ? 'bg-amber-400 text-stone-950' : 'bg-stone-900/90 text-white'}`}
           >
             <LocateFixed size={20} />
           </button>
 
           {/* Transport mode */}
-          <div className="absolute right-4 top-16 z-[1000] flex flex-col gap-1 rounded-2xl border border-white/10 bg-stone-900/90 p-1.5 shadow-xl backdrop-blur-sm">
+          <div className="absolute right-4 top-16 z-10 flex flex-col gap-1 rounded-2xl border border-white/10 bg-stone-900/90 p-1.5 shadow-xl backdrop-blur-sm">
             {TRANSPORT_MODES.slice(0, 4).map(({ id, Icon }) => (
               <button
                 key={id}
@@ -463,27 +484,25 @@ export default function AddressPage() {
         <div className="space-y-4">
           <div className="overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl">
             <div className="h-[480px]">
-              <MapContainer center={position} zoom={16} style={{ height: '100%', width: '100%' }}>
-                <TileLayer
-                  attribution="&copy; OpenStreetMap"
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {/* Building polygon footprint */}
-                {showBuildingPolygon && buildingPolygon.length >= 3 && (
-                  <Polygon
-                    positions={buildingPolygon.map(p => [p.latitude, p.longitude])}
-                    pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.18, weight: 2 }}
-                  />
-                )}
-                <Marker position={destPos} icon={getDestinationIcon(address.place_type)}>
-                  <Popup>{address.ppoint_code || address.code}</Popup>
+              <MapboxMap
+                ref={addrMapRef}
+                center={[destPos[1], destPos[0]]}
+                zoom={16}
+                defaultViewMode={addressViewMode}
+                defaultTheme="light"
+                showViewToggle
+                style={{ height: '100%', width: '100%' }}
+              >
+                {showBuildingPolygon && <BuildingPolygonLayer polygon={buildingPolygon} />}
+                <Marker longitude={destPos[1]} latitude={destPos[0]} anchor="bottom">
+                  <DestinationPin placeType={address.place_type} />
                 </Marker>
                 {hasEntrance && (
-                  <Marker position={[Number(address.entrance_latitude), Number(address.entrance_longitude)]} icon={entranceIcon}>
-                    <Popup>🚪 {address.entrance_label || 'Entrance'}</Popup>
+                  <Marker longitude={Number(address.entrance_longitude)} latitude={Number(address.entrance_latitude)} anchor="center">
+                    <EntrancePin />
                   </Marker>
                 )}
-              </MapContainer>
+              </MapboxMap>
             </div>
           </div>
 

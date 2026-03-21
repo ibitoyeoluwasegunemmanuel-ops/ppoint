@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Globe2, MapPin } from 'lucide-react';
 import api from '../services/api';
 
@@ -12,8 +12,11 @@ export default function Layout({ children }) {
       .catch(() => setPublicConfig(null));
   }, []);
 
+  const location = useLocation();
+  const isFullScreenMode = ['/', '/drivers'].includes(location.pathname);
+
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100">
+    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col">
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_24%),linear-gradient(180deg,_#0c0a09_0%,_#111827_48%,_#172554_100%)]"></div>
       <nav className="border-b border-white/10 bg-stone-950/70 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -51,20 +54,28 @@ export default function Layout({ children }) {
           </div>
         </div>
       </nav>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
-      <footer className="border-t border-white/10 bg-stone-950/70">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-stone-300">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <p>{publicConfig?.platform_name || 'PPOINT Africa'} • {publicConfig?.domain || 'ppoint.africa'}</p>
-            <div className="flex flex-wrap gap-4">
-              <span>Support: {publicConfig?.support_contacts?.support_email || 'support@ppoinnt.africa'}</span>
-              <span>Phone: {publicConfig?.support_contacts?.support_phone_number || '+234-800-PPOINNT'}</span>
+      {isFullScreenMode ? (
+        <main className="flex-1 w-full h-[calc(100vh-64px)] relative flex flex-col overflow-hidden">
+          {children}
+        </main>
+      ) : (
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+          {children}
+        </main>
+      )}
+      {!isFullScreenMode && (
+        <footer className="border-t border-white/10 bg-stone-950/70">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-stone-300">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <p>{publicConfig?.platform_name || 'PPOINT Africa'} • {publicConfig?.domain || 'ppoint.africa'}</p>
+              <div className="flex flex-wrap gap-4">
+                <span>Support: {publicConfig?.support_contacts?.support_email || 'support@ppoinnt.africa'}</span>
+                <span>Phone: {publicConfig?.support_contacts?.support_phone_number || '+234-800-PPOINNT'}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { reverseGeocodeLocation } from '../services/reverseGeocodingService.js';
 import { enrichLocationWithOsmData } from '../services/osmAddressingService.js';
 import Road from '../models/Road.js';
 import Landmark from '../models/Landmark.js';
+import { calculateRouteConfidence } from '../data/driverIntelligenceStore.js';
 
 const router = express.Router();
 
@@ -453,6 +454,8 @@ router.post('/route', async (req, res) => {
       }
     }
 
+    const confidence = calculateRouteConfidence(startLat, startLng, endLat, endLng, mode, coords);
+
     return res.json(ok({
       polyline: coords,
       distance: distanceM,
@@ -463,6 +466,7 @@ router.post('/route', async (req, res) => {
       transport_mode: mode,
       steps,
       source: 'osrm',
+      confidence,
     }, 'Route calculated'));
   } catch (osrmError) {
     // Fallback to OpenRouteService if API key is configured

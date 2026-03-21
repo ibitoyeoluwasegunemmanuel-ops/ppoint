@@ -4,8 +4,8 @@ import { createApiKey, createResetToken, createSessionToken, hashPassword, maskA
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 const now = () => new Date().toISOString();
 const passwordResetTokens = [];
-const PRIMARY_ADMIN_EMAIL = 'ibitoyeoluwasegunemmanuel@gmail.com';
-const PRIMARY_ADMIN_PASSWORD = 'PPOINNTAdmin@2026';
+const PRIMARY_ADMIN_EMAIL = 'admin@ppooint.com';
+const PRIMARY_ADMIN_PASSWORD = 'PPOINNT@Admin123';
 
 const rolePermissions = {
   'Super Admin': ['overview', 'addresses', 'moderation', 'businesses', 'agents', 'developers', 'usage', 'plans', 'payments', 'regions', 'registry', 'dispatch', 'settings'],
