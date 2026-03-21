@@ -172,6 +172,21 @@ function PlaceTypePicker({ value, customValue, onChange, onCustomChange, tone = 
   );
 }
 
+function BottomSheet({ isOpen, children }) {
+  return (
+    <>
+      {/* Overlay */}
+      <div className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} />
+      
+      {/* Sheet */}
+      <div className={`fixed inset-x-0 bottom-0 z-50 transform rounded-t-[2.5rem] border-t border-white/10 bg-stone-950 p-6 pb-12 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-spring ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+        <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-white/20" />
+        {children}
+      </div>
+    </>
+  );
+}
+
 export default function HomePage() {
       // Detects the user's current location using the browser geolocation API
       const detectLocation = () => {
