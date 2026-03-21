@@ -55,7 +55,7 @@ function getMapStyle(viewMode, theme) {
 }
 
 // ─── Map View Toggle Button ───────────────────────────────────────────────────
-export function MapViewToggle({ viewMode, onChange, theme = 'dark' }) {
+function MapViewToggle({ viewMode, onChange, theme = 'dark' }) {
   const VIEWS = [
     { id: 'standard',  label: 'Map',       icon: '🗺' },
     { id: 'satellite', label: 'Satellite', icon: '🛰' },
@@ -196,4 +196,4 @@ const MapboxMap = forwardRef(function MapboxMap(
 export default MapboxMap;
 
 // ─── Re-export react-map-gl primitives for use in pages ──────────────────────
-export { Marker, Popup, Source, Layer };
+export { Marker, Popup, Source, Layer, MapViewToggle };
