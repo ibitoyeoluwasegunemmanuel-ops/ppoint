@@ -21,9 +21,8 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: 32, textAlign: 'center', color: '#b91c1c', background: '#fffbe9', borderRadius: 24, margin: 32 }}>
-          <h2>Loading admin dashboard...</h2>
-          <p>Something went wrong. Please reload or contact support.</p>
-          <pre style={{ fontSize: 12, color: '#b91c1c', marginTop: 16 }}>{String(this.state.error)}</pre>
+          <h2>Something went wrong. Please reload.</h2>
+          <pre style={{ fontSize: 12, color: '#b91c1c', marginTop: 16, overflowX: 'auto' }}>{String(this.state.error)}</pre>
         </div>
       );
     }

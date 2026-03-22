@@ -663,7 +663,7 @@ export default function DevelopersPage() {
                 </form>
 
                 <div className="mt-6 space-y-3">
-                  {dashboard.payments.map((payment) => (
+                  {(dashboard.payments || []).map((payment) => (
                     <div key={payment.id} className="rounded-2xl border border-stone-200 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -680,9 +680,9 @@ export default function DevelopersPage() {
               <aside className="rounded-[2rem] border border-white/10 bg-white/6 p-6 backdrop-blur-xl">
                 <h3 className="text-xl font-bold text-white">Bank Transfer Details</h3>
                 <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-stone-200">
-                  <p>{dashboard.payment_settings.bank_transfer_details.bank_name}</p>
-                  <p>{dashboard.payment_settings.bank_transfer_details.account_name}</p>
-                  <p>{dashboard.payment_settings.bank_transfer_details.account_number}</p>
+                  <p>{dashboard.payment_settings?.bank_transfer_details?.bank_name}</p>
+                  <p>{dashboard.payment_settings?.bank_transfer_details?.account_name}</p>
+                  <p>{dashboard.payment_settings?.bank_transfer_details?.account_number}</p>
                 </div>
               </aside>
             </div>

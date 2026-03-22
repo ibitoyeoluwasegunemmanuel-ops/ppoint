@@ -800,7 +800,7 @@ export default function AdminDashboard() {
       {/* If error is fatal and no dashboard loaded yet, stop rendering tabs */}
       {error && !overview && (
         <div className="mt-8 text-center">
-          <p className="text-xl text-red-400 font-semibold mb-4">Failed to load dashboard</p>
+          <p className="text-xl text-red-400 font-semibold mb-4">Unable to load dashboard</p>
           <button onClick={() => window.location.reload()} className="px-5 py-3 rounded-xl bg-red-500/20 text-red-100 hover:bg-red-500/30 font-bold transition">Try Again</button>
         </div>
       )}
