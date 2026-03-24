@@ -21,7 +21,7 @@ function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/drivers" element={<DriversPage />} />
-        <Route path="/profile/:id" element={<ProfilePage />} />
+        <Route path="/p/:code" element={<AddressPage />} />
         <Route path="/:code" element={<AddressPage />} />
       </Routes>
     </Layout>

@@ -202,7 +202,7 @@ const toAddressResponse = (address, cityContext, countryCode, stateCode, cityCod
   created_at: address.created_at,
   creator_name: address.creator_name || 'Community',
   profile_id: address.profile_id || null,
-  shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/${address.ppoint_code || address.code}`,
+  shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/p/${address.ppoint_code || address.code}`,
   ...getAddressIntelligence(address),
 });
 

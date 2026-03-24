@@ -53,7 +53,6 @@ export default function HomePage() {
   const [buildingName, setBuildingName] = useState('');
   const [landmark, setLandmark] = useState('');
   const [note, setNote] = useState(''); // Formerly extraDirections
-  const [creatorName, setCreatorName] = useState('Ibitoye Oluwasegun Emmanuel');
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -178,7 +177,6 @@ export default function HomePage() {
         placeType,
         customPlaceType: placeType === 'Other' ? note : null,
         buildingName,
-        creatorName,
         isPaid: true // Tell backend payment is done
       });
       setResult(response.data.data);
@@ -198,7 +196,6 @@ export default function HomePage() {
       const response = await api.patch(`/platform/community/addresses/${result.code}/details`, { 
         landmark,
         description: note,
-        creator_name: creatorName,
       });
       setResult(response.data.data); // Update result with new data
       setNotice('PPOINNT improved with extra details!');
@@ -210,7 +207,7 @@ export default function HomePage() {
   };
 
   const shareToWhatsapp = (code) => {
-    const text = encodeURIComponent(`📍 PPOINNT Delivery Address:\nCode: ${code}\nLocation: ${result?.city || ''}\n\nLink: ${window.location.origin}/${code}`);
+    const text = encodeURIComponent(`📍 PPOINNT Delivery Address:\nCode: ${code}\nLocation: ${result?.city || ''}\n\nLink: ${window.location.origin}/p/${code}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
@@ -293,16 +290,8 @@ export default function HomePage() {
                 type="text"
                 value={buildingName}
                 onChange={(e) => setBuildingName(e.target.value)}
-                placeholder="Building Name (Optional)"
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
               />
-              <input 
-              type="text"
-              value={creatorName}
-              onChange={(e) => setCreatorName(e.target.value)}
-              placeholder="Your Full Name (required)"
-              className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
-            />
           </div>
     
             <PrimaryButton 
@@ -389,13 +378,6 @@ export default function HomePage() {
             onChange={e => setNote(e.target.value)}
             rows="2"
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50 resize-none"
-          />
-
-          <input 
-            placeholder="Creator Name"
-            value={creatorName}
-            onChange={e => setCreatorName(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50"
           />
 
           <PrimaryButton 
