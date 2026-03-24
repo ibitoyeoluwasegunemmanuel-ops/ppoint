@@ -1248,5 +1248,10 @@ export const inMemoryStore = {
     const count = (publicUsage.get(identifier) || 0) + 1;
     publicUsage.set(identifier, count);
     return count;
+  },
+
+  resetPublicUsage(identifier) {
+    publicUsage.set(identifier, 0);
+    return 0;
   }
 };

@@ -616,6 +616,22 @@ function formatManeuver(type, modifier) {
   }
 }
 
+// ─── POST /api/sms/lookup ────────────────────────────────────────────────────
+// Simulated SMS/USSD Hook for offline users
+router.post('/sms/lookup', async (req, res) => {
+  const code = (req.body.body || req.body.text || req.body.code || '').trim().toUpperCase();
+  if (!code) return res.status(400).json(err('PPOINNT Code required'));
+
+  try {
+    const address = await Address.findByCode(code);
+    if (!address) return res.status(404).json(err('PPOINNT Not Found'));
+    const msg = `📍 PPOINNT: ${address.code}\n${address.building_name || 'Building'}\n${address.landmark ? 'Near ' + address.landmark : ''}\n${address.city}, ${address.state}\nLink: ppoint.africa/${address.code}`;
+    return res.json(ok({ text: msg, status: 'active' }, 'SMS Response Generated'));
+  } catch (error) {
+    return res.status(500).json(err(error.message));
+  }
+});
+
 function syntheticRoute(lat1, lng1, lat2, lng2, mode) {
   const earthRadius = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;

@@ -1,6 +1,8 @@
 import express from 'express';
 import AddressService from '../services/addressService.js';
 import Address from '../models/Address.js';
+import PublicUsage from '../models/PublicUsage.js';
+import FieldAgent from '../models/FieldAgent.js';
 import { inMemoryStore } from '../data/inMemoryStore.js';
 import { platformStore } from '../data/platformStore.js';
 
@@ -24,12 +26,12 @@ router.post('/community/addresses/generate', async (req, res) => {
     }
 
     // Revenue Rule: First 3 FREE, then ₦50
-    const usage = inMemoryStore.checkPublicUsage(identifier);
+    const usage = await PublicUsage.getCheck(identifier);
     if (usage.isExceeded && !req.body.isPaid) {
       return res.status(402).json({
         ...failure('PPOINNT limit reached. Payment required for next generation.'),
         requiresPayment: true,
-        fee: 50,
+        fee: usage.fee_amount || 50,
         currency: 'NGN'
       });
     }
@@ -50,7 +52,7 @@ router.post('/community/addresses/generate', async (req, res) => {
     });
 
     res.status(201).json(success('Community PPOINNT code generated', address));
-    inMemoryStore.incrementPublicUsage(identifier);
+    await PublicUsage.increment(identifier);
   } catch (error) {
     res.status(error.status || 400).json(failure(error.message));
   }
@@ -189,9 +191,9 @@ router.post('/sms/lookup', async (req, res) => {
   }
 });
 
-router.post('/agents/register', (req, res) => {
+router.post('/agents/register', async (req, res) => {
   try {
-    const agent = inMemoryStore.registerAgent({
+    const agent = await FieldAgent.register({
       fullName: req.body.fullName || req.body.full_name,
       phoneNumber: req.body.phoneNumber || req.body.phone_number,
       email: req.body.email,
@@ -207,12 +209,12 @@ router.post('/agents/register', (req, res) => {
   }
 });
 
-router.get('/agents', (req, res) => {
-  res.json(success('Field agents loaded', inMemoryStore.listAgents()));
+router.get('/agents', async (req, res) => {
+  res.json(success('Field agents loaded', await FieldAgent.list()));
 });
 
-router.get('/agents/:id/dashboard', (req, res) => {
-  const dashboard = inMemoryStore.getAgentDashboard(req.params.id);
+router.get('/agents/:id/dashboard', async (req, res) => {
+  const dashboard = await inMemoryStore.getAgentDashboard(req.params.id); // Keeping dashboard logic in store for complex aggregation for now
   if (!dashboard) {
     return res.status(404).json(failure('Agent not found'));
   }
@@ -220,44 +222,52 @@ router.get('/agents/:id/dashboard', (req, res) => {
   res.json(success('Field agent dashboard loaded', dashboard));
 });
 
-router.post('/agents/:id/withdraw', (req, res) => {
+router.post('/agents/:id/withdraw', async (req, res) => {
   try {
     const amount = Number(req.body.amount);
     if (isNaN(amount) || amount <= 0) {
       return res.status(400).json(failure('Invalid withdrawal amount'));
     }
-    const withdrawal = inMemoryStore.requestWithdrawal(req.params.id, amount);
+    const withdrawal = await FieldAgent.withdraw(req.params.id, amount);
     res.json(success('Withdrawal request submitted', withdrawal));
   } catch (error) {
     res.status(400).json(failure(error.message));
   }
 });
 
-router.post('/payments/verify-ppoint-fee', (req, res) => {
-  // Simulate payment verification for ₦50 fee
+import PaymentService from '../services/paymentService.js';
+
+router.post('/payments/verify-ppoint-fee', async (req, res) => {
   const { reference, identifier } = req.body;
   if (!reference) return res.status(400).json(failure('Payment reference required'));
   
-  // In a real system, we'd verify the reference with Paystack/Flutterwave here
-  // For now, we just reset the usage count for this identifier so they can generate one more
-  if (identifier) {
-     const count = inMemoryStore.getPublicUsageCount(identifier);
-     if (count >= 3) {
-        // Mocking a decrement or "pass" by allowing one more
-        // In production, we'd have a 'paid_until' or 'tokens' balance
-     }
+  try {
+    const verified = await PaymentService.verifyReference(reference);
+    if (verified.status === 'success') {
+      // Upon successful payment of ₦50, we reset the count or grant more generations
+      // For MVP simplicity: we reset the count to 0 (user gets 3 more free)
+      if (identifier) {
+        if (!inMemoryStore.isEnabled()) {
+          const pool = (await import('../config/database.js')).default;
+          await pool.query('UPDATE public_usage SET count = 0 WHERE identifier = $1', [identifier]);
+        } else {
+           inMemoryStore.resetPublicUsage(identifier);
+        }
+      }
+      return res.json(success('Payment verified, 3 more free PPOINNTs granted!', { reference, status: 'success' }));
+    }
+    res.status(400).json(failure('Invalid reference or payment failed.'));
+  } catch (error) {
+    res.status(500).json(failure(error.message));
   }
-
-  res.json(success('Payment verified successfully', { reference, status: 'success' }));
 });
 
-router.get('/usage/check', (req, res) => {
+router.get('/usage/check', async (req, res) => {
   const identifier = req.query.id || req.ip;
-  const count = inMemoryStore.getPublicUsageCount(identifier);
+  const usage = await PublicUsage.getCheck(identifier);
   res.json(success('Usage count retrieved', { 
-    count, 
-    is_free: count < 3,
-    fee_required: count >= 3,
+    ...usage,
+    fee_required: usage.isExceeded,
     fee_amount: 50,
     currency: 'NGN'
   }));

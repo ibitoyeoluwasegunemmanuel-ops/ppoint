@@ -96,10 +96,22 @@ export default function DriversPage() {
   const [recalculating, setRecalculating] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isNearFinal, setIsNearFinal] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, sender: 'system', text: 'Welcome to PPOINNT Dispatch Chat.' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
   
   const navMapRef = useRef(null);
   const watchIdRef = useRef(null);
   const lastSpokenRef = useRef('');
+
+  const sendMessage = (text = null) => {
+    const msg = text || chatInput;
+    if (!msg.trim()) return;
+    setChatMessages([...chatMessages, { id: Date.now(), sender: 'driver', text: msg }]);
+    setChatInput('');
+  };
 
   const speak = (text) => {
     if (!voiceEnabled || !text || text === lastSpokenRef.current) return;
@@ -535,6 +547,69 @@ export default function DriversPage() {
         )}
       </div>
 
+      {/* ── CHAT SYSTEM ── */}
+      {navigating && !arrived && (
+        <button 
+          onClick={() => setShowChat(true)}
+          className="absolute right-6 bottom-48 z-50 flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400 text-stone-950 shadow-2xl shadow-amber-400/20 active:scale-95 transition-all pointer-events-auto"
+        >
+          <MessageSquare size={28} />
+          {chatMessages.length > 1 && (
+            <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white">{chatMessages.length - 1}</span>
+          )}
+        </button>
+      )}
+
+      {showChat && (
+        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 transition-all animate-in fade-in duration-300 pointer-events-auto">
+           <div className="w-full max-w-xl rounded-[2.5rem] bg-stone-900 border border-white/10 shadow-3xl animate-in slide-in-from-bottom-5 duration-500 overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400 text-stone-950">
+                    <MessageSquare size={20} />
+                  </div>
+                  <h2 className="text-xl font-black text-white italic tracking-tighter uppercase">Dispatch Chat</h2>
+                </div>
+                <button onClick={() => setShowChat(false)} className="rounded-full bg-white/5 p-2 text-white hover:bg-white/10">
+                  <ArrowLeft size={20} />
+                </button>
+              </div>
+
+              <div className="h-[300px] overflow-y-auto p-6 space-y-4">
+                {chatMessages.map(msg => (
+                  <div key={msg.id} className={`flex ${msg.sender === 'driver' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm font-bold ${msg.sender === 'driver' ? 'bg-blue-600 text-white' : 'bg-white/10 text-stone-300'}`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-6 border-t border-white/5 bg-black/20">
+                <div className="flex gap-2">
+                  <input 
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    placeholder="Type message..."
+                    className="flex-1 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-white outline-none focus:border-amber-400"
+                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                  />
+                  <button onClick={() => sendMessage()} className="h-12 w-12 flex items-center justify-center rounded-2xl bg-amber-400 text-stone-950 shadow-lg active:scale-95 transition">
+                    <Send size={18} />
+                  </button>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                   {['I am outside', 'Traffic is heavy', 'Almost there'].map(t => (
+                     <button key={t} onClick={() => sendMessage(t)} className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-black text-stone-400 border border-white/10 hover:border-amber-400 hover:text-white transition uppercase">
+                       {t}
+                     </button>
+                   ))}
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Error Fallback */}
       {recalculating && !navigating && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-stone-900/80 backdrop-blur-md">
@@ -544,6 +619,7 @@ export default function DriversPage() {
             </div>
           </div>
       )}
+
     </div>
   );
 }

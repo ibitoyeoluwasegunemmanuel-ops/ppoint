@@ -1100,14 +1100,46 @@ export default function AdminDashboard() {
 
       {activeTab === 'agents' && (
         <div className="rounded-[2rem] border border-white/10 bg-white p-6 text-stone-900 shadow-xl shadow-black/20">
-          <h2 className="text-2xl font-black text-stone-950">Field Agents</h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-stone-950">Field Agents</h2>
+            <button className="rounded-2xl bg-stone-950 px-5 py-3 text-sm font-semibold text-white">Register New Agent</button>
+          </div>
+          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {agents.map((agent) => (
-              <div key={agent.id} className="rounded-2xl border border-stone-200 bg-white p-4">
-                <p className="font-semibold text-stone-950">{agent.agent_code}</p>
-                <p className="mt-1 text-sm text-stone-600">{agent.full_name}</p>
-                <p className="mt-1 text-sm text-stone-600">{agent.territory}</p>
-                <p className="mt-3 text-xs uppercase tracking-[0.25em] text-stone-500">{agent.total_addresses} mapped • {agent.pending_addresses} pending</p>
+              <div key={agent.id} className="group relative overflow-hidden rounded-[2rem] border border-stone-200 bg-white p-6 transition-all hover:shadow-2xl hover:shadow-black/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 font-black text-stone-400 group-hover:bg-amber-400 group-hover:text-stone-950 transition-colors">
+                    {agent.agent_code?.slice(-2) || 'AG'}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Balance</p>
+                    <p className="text-xl font-black text-emerald-600">₦{(agent.earnings_balance || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="text-lg font-black text-stone-950">{agent.full_name}</h3>
+                  <div className="mt-2 flex items-center gap-2 text-sm font-bold text-stone-500">
+                    <Globe size={14} />
+                    <span>{agent.territory || 'Global Territory'}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-4 border-t border-stone-100 pt-6">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Mapped</p>
+                    <p className="text-lg font-black text-stone-950">{agent.total_addresses || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Status</p>
+                    <p className="text-sm font-bold text-emerald-500 uppercase tracking-widest">Active</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-2">
+                  <button className="flex-1 rounded-xl bg-stone-100 py-3 text-xs font-black hover:bg-stone-200 transition-colors">MANAGE TERRITORY</button>
+                  <button className="flex-1 rounded-xl bg-stone-950 py-3 text-xs font-black text-white hover:bg-stone-800 transition-colors">PAYOUT</button>
+                </div>
               </div>
             ))}
             {!agents.length && <p className="text-sm text-stone-500">No field agents registered yet.</p>}

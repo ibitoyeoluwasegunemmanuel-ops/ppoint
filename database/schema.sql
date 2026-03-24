@@ -410,3 +410,10 @@ CREATE INDEX IF NOT EXISTS idx_cities_boundary ON cities USING GIST(boundary);
 CREATE INDEX IF NOT EXISTS idx_areas_city_id ON areas(city_id);
 CREATE INDEX IF NOT EXISTS idx_staff_accounts_region ON staff_accounts(region_level, region_id);
 
+CREATE TABLE IF NOT EXISTS public_usage (
+    id SERIAL PRIMARY KEY,
+    identifier VARCHAR(255) UNIQUE NOT NULL, -- IP address or Guest ID
+    count INTEGER DEFAULT 0,
+    last_generation_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
