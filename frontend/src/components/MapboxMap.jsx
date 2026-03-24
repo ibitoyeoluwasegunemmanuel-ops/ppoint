@@ -4,14 +4,18 @@
 // Supports: High-res tiles, max zoom 22, building visibility from zoom 16+
 // Supports: Smooth zoom transitions, mobile-optimized tile loading
 
-import { useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
-import Map, { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { useRef, useState, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
+export { Marker, Popup, Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
+import Map from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { WifiOff } from 'lucide-react';
 
 // ─── Token ────────────────────────────────────────────────────────────────────
 // Set VITE_MAPBOX_TOKEN in your .env file for Mapbox tiles.
 // Without a token, an open-source MapLibre-compatible style is used as fallback.
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const REAL_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+// Mapbox GL JS v2+ strictly requires a token matching a specific format to initialize without throwing an Error.
+const MAPBOX_TOKEN = REAL_TOKEN || 'pk.eyJ1IjoiZHVtbXkiLCJhIjoiZHVtbXkifQ.dummy';
 
 // ─── Map Style Definitions ───────────────────────────────────────────────────
 // If Mapbox token is present, use official Mapbox styles (highest quality).
@@ -31,31 +35,40 @@ const MAPBOX_STYLES = {
   },
 };
 
-// Free fallback styles (no token needed)
+// ─── Style Fallbacks (ArcGIS & OSM) ──────────────────────────────────────────
 const FALLBACK_STYLES = {
   standard: {
-    light: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    dark:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    version: 8,
+    sources: { 'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, attribution: '© OSM' } },
+    layers: [{ id: 'osm-layer', type: 'raster', source: 'osm' }]
   },
   satellite: {
-    light: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-    dark:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    version: 8,
+    sources: { 'esri': { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: '© Esri', maxzoom: 19 } },
+    layers: [{ id: 'esri-layer', type: 'raster', source: 'esri' }]
   },
   hybrid: {
-    light: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    dark:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  },
+    version: 8,
+    sources: { 
+      'esri': { type: 'raster', tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: '© Esri', maxzoom: 19 },
+      'osm-labels': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, opacity: 0.6 } 
+    },
+    layers: [
+      { id: 'esri-layer', type: 'raster', source: 'esri' },
+      { id: 'labels-layer', type: 'raster', source: 'osm-labels' }
+    ]
+  }
 };
 
 function getMapStyle(viewMode, theme) {
-  if (MAPBOX_TOKEN) {
+  if (REAL_TOKEN) {
     return MAPBOX_STYLES[viewMode]?.[theme] || MAPBOX_STYLES.hybrid.dark;
   }
-  return FALLBACK_STYLES[viewMode]?.[theme] || FALLBACK_STYLES.hybrid.dark;
+  return FALLBACK_STYLES[viewMode] || FALLBACK_STYLES.standard; 
 }
 
 // ─── Map View Toggle Button ───────────────────────────────────────────────────
-function MapViewToggle({ viewMode, onChange, theme = 'dark' }) {
+export function MapViewToggle({ viewMode, onChange, theme = 'dark' }) {
   const VIEWS = [
     { id: 'standard',  label: 'Map',       icon: '🗺' },
     { id: 'satellite', label: 'Satellite', icon: '🛰' },
@@ -120,6 +133,19 @@ const MapboxMap = forwardRef(function MapboxMap(
   const mapRef = useRef(null);
   const [viewMode, setViewMode] = useState(defaultViewMode);
   const [theme] = useState(defaultTheme || getPreferredTheme());
+  const [isLowNetwork, setIsLowNetwork] = useState(false);
+  
+  // Detect low network connection
+  useEffect(() => {
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn) {
+      if (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g') {
+        setIsLowNetwork(true);
+        setViewMode('standard'); // Force lightweight
+      }
+    }
+  }, []);
+
   const [viewState, setViewState] = useState({
     longitude: center[0],
     latitude: center[1],
@@ -135,6 +161,9 @@ const MapboxMap = forwardRef(function MapboxMap(
         duration: 1200,
         essential: true,
       });
+    },
+    easeTo: (options) => {
+      mapRef.current?.easeTo(options);
     },
     fitBounds: (bounds, options) => {
       mapRef.current?.fitBounds(bounds, { ...options, duration: 1000 });
@@ -179,7 +208,12 @@ const MapboxMap = forwardRef(function MapboxMap(
 
       {/* View mode toggle overlay */}
       {showViewToggle && (
-        <div className="absolute bottom-3 left-3 z-10">
+        <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-2">
+          {isLowNetwork && (
+            <div className="flex items-center gap-2 rounded-xl bg-orange-500/90 px-3 py-1.5 text-[10px] font-black uppercase text-white backdrop-blur shadow-lg">
+              <WifiOff size={12} /> Low Network Mode
+            </div>
+          )}
           <MapViewToggle viewMode={viewMode} onChange={setViewMode} theme={theme} />
         </div>
       )}
@@ -195,5 +229,4 @@ const MapboxMap = forwardRef(function MapboxMap(
 
 export default MapboxMap;
 
-// ─── Re-export react-map-gl primitives for use in pages ──────────────────────
-export { Marker, Popup, Source, Layer, MapViewToggle };
+

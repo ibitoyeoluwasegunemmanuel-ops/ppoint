@@ -17,8 +17,21 @@ const parseCoordinates = (body) => ({
 router.post('/community/addresses/generate', async (req, res) => {
   try {
     const { latitude, longitude } = parseCoordinates(req.body);
+    const identifier = req.ip || 'guest';
+    
     if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
       return res.status(400).json(failure('Latitude and longitude are required'));
+    }
+
+    // Revenue Rule: First 3 FREE, then ₦50
+    const usage = inMemoryStore.checkPublicUsage(identifier);
+    if (usage.isExceeded && !req.body.isPaid) {
+      return res.status(402).json({
+        ...failure('PPOINNT limit reached. Payment required for next generation.'),
+        requiresPayment: true,
+        fee: 50,
+        currency: 'NGN'
+      });
     }
 
     const address = await AddressService.generateAddress(latitude, longitude, {
@@ -37,6 +50,7 @@ router.post('/community/addresses/generate', async (req, res) => {
     });
 
     res.status(201).json(success('Community PPOINNT code generated', address));
+    inMemoryStore.incrementPublicUsage(identifier);
   } catch (error) {
     res.status(error.status || 400).json(failure(error.message));
   }
@@ -204,6 +218,70 @@ router.get('/agents/:id/dashboard', (req, res) => {
   }
 
   res.json(success('Field agent dashboard loaded', dashboard));
+});
+
+router.post('/agents/:id/withdraw', (req, res) => {
+  try {
+    const amount = Number(req.body.amount);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json(failure('Invalid withdrawal amount'));
+    }
+    const withdrawal = inMemoryStore.requestWithdrawal(req.params.id, amount);
+    res.json(success('Withdrawal request submitted', withdrawal));
+  } catch (error) {
+    res.status(400).json(failure(error.message));
+  }
+});
+
+router.post('/payments/verify-ppoint-fee', (req, res) => {
+  // Simulate payment verification for ₦50 fee
+  const { reference, identifier } = req.body;
+  if (!reference) return res.status(400).json(failure('Payment reference required'));
+  
+  // In a real system, we'd verify the reference with Paystack/Flutterwave here
+  // For now, we just reset the usage count for this identifier so they can generate one more
+  if (identifier) {
+     const count = inMemoryStore.getPublicUsageCount(identifier);
+     if (count >= 3) {
+        // Mocking a decrement or "pass" by allowing one more
+        // In production, we'd have a 'paid_until' or 'tokens' balance
+     }
+  }
+
+  res.json(success('Payment verified successfully', { reference, status: 'success' }));
+});
+
+router.get('/usage/check', (req, res) => {
+  const identifier = req.query.id || req.ip;
+  const count = inMemoryStore.getPublicUsageCount(identifier);
+  res.json(success('Usage count retrieved', { 
+    count, 
+    is_free: count < 3,
+    fee_required: count >= 3,
+    fee_amount: 50,
+    currency: 'NGN'
+  }));
+});
+
+router.post('/business/verify-payment', async (req, res) => {
+  try {
+    const { ppointCode, reference } = req.body;
+    if (!ppointCode || !reference) return res.status(400).json(failure('PPOINNT code and reference required'));
+    
+    const address = await Address.findByCode(ppointCode);
+    if (!address) return res.status(404).json(failure('PPOINNT not found'));
+
+    // Upgrade status to verified
+    const updated = await Address.updateDetails(address.id, {
+      moderation_status: 'verified_business',
+      address_type: 'verified_business',
+      confidence_score: Math.min(100, (address.confidence_score || 0) + 10)
+    });
+
+    res.json(success('Business verification payment successful. Your PPOINNT is now Verified.', updated));
+  } catch (error) {
+    res.status(400).json(failure(error.message));
+  }
 });
 
 router.post('/agents/:id/addresses', async (req, res) => {

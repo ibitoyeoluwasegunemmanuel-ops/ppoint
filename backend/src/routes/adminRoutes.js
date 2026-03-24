@@ -19,6 +19,8 @@ router.post('/auth/login', async (req, res) => {
   platformStore.ensureDefaultAdmin();
   const admin = platformStore.authenticateAdmin(email, password);
 
+  console.log(`[AUTH DEBUG] Attempt: ${email} | Result: ${!!admin}`);
+
   if (!admin) {
     return res.status(401).json({ success: false, error: 'Invalid admin email or password' });
   }
@@ -29,7 +31,7 @@ router.post('/auth/login', async (req, res) => {
     token,
     user: {
       email: adminData.email,
-      role: 'admin',
+      role: adminData.role || 'Super Admin',
       permissions: adminData.permissions,
       full_name: adminData.full_name
     }

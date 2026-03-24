@@ -1,22 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import MapboxMap, { Marker, Popup, Source, Layer, MapViewToggle } from '../components/MapboxMap';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import MapboxMap, { Marker, Source, Layer } from '../components/MapboxMap';
 import {
-  Navigation, Search, LocateFixed, Car, Bike, Footprints,
-  Bus, X, Maximize2, CheckCircle2, MapPin, Zap, AlertTriangle,
-  Volume2, VolumeX, Navigation2
+  Navigation, Search, LocateFixed, Car, Zap, Footprints,
+  CheckCircle2, Compass, ArrowLeft, ArrowUpRight, 
+  ArrowUpLeft, ArrowUp, RotateCcw, AlertCircle,
+  Volume2, VolumeX, Share2
 } from 'lucide-react';
 import api from '../services/api';
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+// ─── Shared Components ────────────────────────────────────────────────────────
 
-function DriverMarkerPin() {
+function DriverMarkerPin({ bearing = 0 }) {
   return (
-    <div style={{
-      width: 28, height: 28, background: '#3b82f6', border: '3px solid white',
-      borderRadius: '50%', boxShadow: '0 0 0 4px rgba(59,130,246,0.3),0 0 12px rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M12 2L8 10H16L12 2Z"/><circle cx="12" cy="16" r="4"/></svg>
+    <div className="relative" style={{ transform: `rotate(${bearing}deg)`, transition: 'transform 0.3s ease-out' }}>
+       <div className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-20" />
+       <div className="relative h-12 w-12 flex items-center justify-center rounded-full border-[3px] border-white bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.5)]">
+          <Navigation size={24} className="text-white fill-white" />
+       </div>
     </div>
   );
 }
@@ -25,14 +26,16 @@ function DestinationPin({ placeType }) {
   const emojiMap = {
     House: '🏠', Shop: '🛍', Office: '🏢', School: '🎓', Hospital: '🏥',
     Hotel: '🏨', 'Police Station': '🚓', Church: '⛪', Mosque: '🕌',
-    Warehouse: '📦', Market: '🛒', 'Government Office': '🏛',
-    'Estate Gate': '🚪', Barracks: '🪖', Other: '📍',
+    Warehouse: '📦', Market: '🛒', 'Government Office': '🏛', Other: '📍',
   };
-  const emoji = emojiMap[placeType] || '📍';
-  return <div style={{ fontSize: 32, lineHeight: 1, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}>{emoji}</div>;
+  return (
+    <div className="text-5xl filter drop-shadow-xl animate-bounce">
+      {emojiMap[placeType] || '📍'}
+    </div>
+  );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helper Functions ─────────────────────────────────────────────────────────
 
 function haversineM(lat1, lng1, lat2, lng2) {
   if (!lat1 || !lng1 || !lat2 || !lng2) return Infinity;
@@ -44,666 +47,503 @@ function haversineM(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function formatDistance(m) {
-  if (m < 1000) return `${Math.round(m)} m`;
-  return `${(m / 1000).toFixed(1)} km`;
-}
-
-function formatDuration(s) {
-  if (s < 60) return `${Math.round(s)}s`;
-  const mins = Math.floor(s / 60);
-  if (mins < 60) return `${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  return `${hrs}h ${mins % 60}m`;
-}
-
-const TRANSPORT_MODES = [
-  { id: 'driving-car', label: 'Car', Icon: Car },
-  { id: 'motorcycle', label: 'Moto', Icon: Zap },
-  { id: 'walking', label: 'Walk', Icon: Footprints },
-  { id: 'bike', label: 'Bike', Icon: Bike },
-  { id: 'public-transport', label: 'Transit', Icon: Bus },
-];
-
-// Distance from driver to closest point on route polyline
-function distanceToRoute(driverLat, driverLng, routePolyline) {
-  if (!routePolyline || routePolyline.length < 2) return Infinity;
-  let minDist = Infinity;
-  for (const [lat, lng] of routePolyline) {
-    const d = haversineM(driverLat, driverLng, lat, lng);
-    if (d < minDist) minDist = d;
+function getPointDistanceToLine(px, py, x1, y1, x2, y2) {
+  const A = px - x1;
+  const B = py - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let param = -1;
+  if (lenSq !== 0) param = dot / lenSq;
+  let xx, yy;
+  if (param < 0) {
+    xx = x1; yy = y1;
+  } else if (param > 1) {
+    xx = x2; yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
   }
-  return minDist;
-}
-
-// Generate a random session ID
-function genSessionId() {
-  return `nav-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-// Route Confidence Badge component
-function ConfidenceBadge({ confidence }) {
-  if (!confidence) return null;
-  return (
-    <div
-      className="flex items-center gap-2 rounded-2xl border border-white/10 bg-stone-900/80 px-4 py-2.5 backdrop-blur-sm"
-      title={`Confidence factors: ${JSON.stringify(confidence.factors)}`}
-    >
-      <div className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ background: confidence.color }} />
-      <span className="text-xs font-bold text-white">Route Confidence</span>
-      <span className="ml-auto text-sm font-black" style={{ color: confidence.color }}>
-        {confidence.score}%
-      </span>
-      <span className="text-xs font-semibold" style={{ color: confidence.color }}>{confidence.label}</span>
-    </div>
-  );
-}
-
-// Africa routing hint banner
-function AfricaHintBanner({ hint }) {
-  if (!hint) return null;
-  const { mode_recommendation, traffic_hint } = hint;
-  if (!mode_recommendation && !traffic_hint) return null;
-  return (
-    <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm">
-      {traffic_hint && <p className="text-amber-200">🚦 {traffic_hint}</p>}
-      {mode_recommendation && (
-        <p className="mt-1 font-semibold text-amber-300">
-          💡 {mode_recommendation.reason}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-// Route GeoJSON line layer for Mapbox
-function RouteLayer({ route }) {
-  if (!route || route.length === 0) return null;
-  const geojson = {
-    type: 'Feature',
-    geometry: {
-      type: 'LineString',
-      coordinates: route.map(([lat, lng]) => [lng, lat]),
-    },
-  };
-  return (
-    <Source id="route-driver" type="geojson" data={geojson}>
-      <Layer id="route-driver-casing" type="line" paint={{
-        'line-color': '#000000', 'line-width': 10, 'line-opacity': 0.3
-      }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
-      <Layer id="route-driver-line" type="line" paint={{
-        'line-color': '#f59e0b', 'line-width': 6, 'line-opacity': 0.9
-      }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
-    </Source>
-  );
-}
-
-function NextManeuverCard({ step, distanceAhead }) {
-  if (!step) return null;
-  const icon = {
-    turn: '↪',
-    continue: '↑',
-    arrive: '🏁',
-    depart: '🚦',
-    roundabout: '🔄',
-    merge: '⤴',
-    fork: '⑂',
-  }[step.maneuver_type] || '↑';
-
-  return (
-    <div className="flex items-center gap-4 rounded-3xl border border-white/10 bg-stone-900/95 p-5 shadow-2xl backdrop-blur-xl">
-      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-400 text-3xl shadow-lg">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xl font-black text-white">{step.instruction}</p>
-        {step.name && <p className="mt-0.5 truncate text-sm text-stone-400">{step.name}</p>}
-        <p className="mt-1 text-sm font-semibold text-amber-400">{formatDistance(step.distance || distanceAhead)}</p>
-      </div>
-    </div>
-  );
-}
-
-function RouteInfoBar({ routeInfo, remainingStep }) {
-  if (!routeInfo) return null;
-  const remainingDist =
-    remainingStep !== null && routeInfo.steps
-      ? routeInfo.steps.slice(remainingStep).reduce((sum, s) => sum + (s.distance || 0), 0)
-      : routeInfo.distance;
-
-  return (
-    <div className="grid grid-cols-3 gap-3">
-      {[
-        { label: 'Distance', value: formatDistance(remainingDist || routeInfo.distance) },
-        { label: 'ETA', value: formatDuration(routeInfo.duration) },
-        { label: 'Arrive', value: routeInfo.estimated_arrival ? new Date(routeInfo.estimated_arrival).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—' },
-      ].map(({ label, value }) => (
-        <div key={label} className="rounded-2xl border border-white/10 bg-stone-900/80 p-3 text-center backdrop-blur-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-stone-500">{label}</p>
-          <p className="mt-1 text-lg font-black text-white">{value}</p>
-        </div>
-      ))}
-    </div>
-  );
+  const dx = px - xx;
+  const dy = py - yy;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function DriversPage() {
-  const [code, setCode] = useState('');
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
+  const [code, setCode] = useState(searchParams.get('code') || '');
   const [destination, setDestination] = useState(null);
   const [destinationData, setDestinationData] = useState(null);
-
-  const [driverPos, setDriverPos] = useState(null);
-  const [locationError, setLocationError] = useState(null);
-
+  
+  const [rawDriverPos, setRawDriverPos] = useState(null);
+  const [displayPos, setDisplayPos] = useState(null); 
+  const [bearing, setBearing] = useState(0);
+  
   const [route, setRoute] = useState([]);
   const [routeInfo, setRouteInfo] = useState(null);
-  const [routeError, setRouteError] = useState(null);
-  const [routeLoading, setRouteLoading] = useState(false);
-
-  const [searchError, setSearchError] = useState(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-
-  const [transportMode, setTransportMode] = useState('driving-car');
+  const [steps, setSteps] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  
+  const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [autoFollow, setAutoFollow] = useState(true);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [arrived, setArrived] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [navViewMode, setNavViewMode] = useState('hybrid');
-
-  // Auto-follow effect for map tracking driver
-  useEffect(() => {
-    if (navigating && autoFollow && driverPos && navMapRef.current) {
-      navMapRef.current.flyTo(driverPos.lng, driverPos.lat);
-    }
-  }, [driverPos, navigating, autoFollow]);
-
-  // ─── Driver Intelligence State ─────────────────────────────────────────────
-  const [routeConfidence, setRouteConfidence] = useState(null);
-  const [africaHint, setAfricaHint] = useState(null);
-  const [sessionId] = useState(() => genSessionId());
-  const [deviationCount, setDeviationCount] = useState(0);
-  const [isRecalculating, setIsRecalculating] = useState(false);
-  const [positionLog, setPositionLog] = useState([]); // for learned route submission
-
-  const watchRef = useRef(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isNearFinal, setIsNearFinal] = useState(false);
+  
   const navMapRef = useRef(null);
-  const previewMapRef = useRef(null);
-  const positionIntervalRef = useRef(null); // interval for sending positions to backend
-  const MAP_DEFAULT_LNG = 3.3792;
-  const MAP_DEFAULT_LAT = 6.5244;
+  const watchIdRef = useRef(null);
+  const lastSpokenRef = useRef('');
 
-  // ─── GPS ─────────────────────────────────────────────────────────────────
-
-  const startGPS = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation not supported by this browser.');
-      return;
+  const speak = (text) => {
+    if (!voiceEnabled || !text || text === lastSpokenRef.current) return;
+    
+    // Enrich with Landmark if near
+    let enrichedText = text;
+    if (isNearFinal && destinationData?.landmark) {
+       enrichedText = `${text}. Destination is near ${destinationData.landmark}.`;
     }
-    setLocationError(null);
 
-    // One-shot initial fix
-    navigator.geolocation.getCurrentPosition(
-      pos => setDriverPos({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
-      () => setLocationError('Unable to detect your location. Check browser permissions.'),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
-    );
-
-    // Continuous updates every ~2s during navigation
-    if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current);
-    watchRef.current = navigator.geolocation.watchPosition(
-      async (pos) => {
-        const rawLat = pos.coords.latitude;
-        const rawLng = pos.coords.longitude;
-        
-        // Road Snap (Map Matching)
-        try {
-          const snapRes = await api.post('/snap', { lat: rawLat, lng: rawLng });
-          if (snapRes.data.success && snapRes.data.data.snapped) {
-            setDriverPos({
-              lat: snapRes.data.data.latitude,
-              lng: snapRes.data.data.longitude,
-              accuracy: pos.coords.accuracy,
-              snapped: true,
-              road_name: snapRes.data.data.road_name
-            });
-          } else {
-            setDriverPos({ lat: rawLat, lng: rawLng, accuracy: pos.coords.accuracy, snapped: false });
-          }
-        } catch {
-          setDriverPos({ lat: rawLat, lng: rawLng, accuracy: pos.coords.accuracy, snapped: false });
-        }
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 2000 }
-    );
-  }, []);
-
-  useEffect(() => {
-    startGPS();
-    return () => { if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current); };
-  }, [startGPS]);
-
-  // ─── Arrival detection ────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (navigating && driverPos && destination) {
-      const dist = haversineM(driverPos.lat, driverPos.lng, destination.lat, destination.lng);
-      setArrived(dist <= 20);
-
-      // Advance turn-by-turn step when close enough to the step's location
-      if (routeInfo?.steps && currentStep < routeInfo.steps.length - 1) {
-        const step = routeInfo.steps[currentStep];
-        if (step.location) {
-          const stepDist = haversineM(driverPos.lat, driverPos.lng, step.location[0], step.location[1]);
-          if (stepDist < 30) setCurrentStep(s => Math.min(s + 1, routeInfo.steps.length - 1));
-        }
-      }
-    }
-  }, [driverPos, navigating, destination, routeInfo, currentStep]);
-
-  // ─── Search ───────────────────────────────────────────────────────────────
-
-  const searchCode = async () => {
-    if (!code.trim()) return;
-    setSearchError(null);
-    setDestination(null);
-    setDestinationData(null);
-    setRoute([]);
-    setRouteInfo(null);
-    setArrived(false);
-    setCurrentStep(0);
-    setSearchLoading(true);
-
-    try {
-      const response = await api.get(`/addresses/${code.trim().toUpperCase()}`);
-      const data = response.data.data;
-      const lat = data.entrance_latitude ?? data.latitude;
-      const lng = data.entrance_longitude ?? data.longitude;
-      setDestination({ lat, lng, code: data.ppoint_code || data.code, placeType: data.place_type });
-      setDestinationData(data);
-
-      if (driverPos) await calcRoute(driverPos.lat, driverPos.lng, lat, lng);
-    } catch {
-      setSearchError('PPOINNT code not found. Check the code and try again.');
-    } finally {
-      setSearchLoading(false);
-    }
+    const utterance = new SpeechSynthesisUtterance(enrichedText);
+    utterance.rate = 0.9; // Slightly slower for clarity
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+    lastSpokenRef.current = text;
   };
 
-  // ─── Route Calculation ────────────────────────────────────────────────────
+  const [isLowNetwork, setIsLowNetwork] = useState(false);
+  useEffect(() => {
+    const checkNetwork = () => {
+      if (navigator.connection && (navigator.connection.saveData || navigator.connection.effectiveType === '2g')) {
+        setIsLowNetwork(true);
+      } else {
+        setIsLowNetwork(false);
+      }
+    };
+    checkNetwork();
+    if (navigator.connection) navigator.connection.addEventListener('change', checkNetwork);
+    return () => navigator.connection?.removeEventListener('change', checkNetwork);
+  }, []);
 
-  const calcRoute = useCallback(async (startLat, startLng, endLat, endLng) => {
-    setRouteLoading(true);
-    setRouteError(null);
-    setCurrentStep(0);
+  // ─── GPS & SMOOTHING ────────────────────────────────────────────────────────
+
+  const startTracking = useCallback(() => {
+    if (!navigator.geolocation) return;
+    
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, heading } = pos.coords;
+        const newPos = { lat, lng };
+        
+        setRawDriverPos((prev) => {
+          if (prev && navigating) {
+            // Calculate bearing if not provided by GPS
+            if (heading === null || heading === undefined) {
+              const dy = lat - prev.lat;
+              const dx = lng - prev.lng;
+              if (Math.abs(dx) > 0.00001 || Math.abs(dy) > 0.00001) {
+                const angle = Math.atan2(dx, dy) * (180 / Math.PI);
+                setBearing(angle);
+              }
+            } else {
+              setBearing(heading);
+            }
+          }
+          return newPos;
+        });
+
+        // Initialize display pos if null
+        setDisplayPos((prev) => prev || newPos);
+      },
+      (err) => console.error('GPS Error:', err),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+    );
+  }, [navigating]);
+
+  useEffect(() => {
+    startTracking();
+    return () => { if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current); };
+  }, [startTracking]);
+
+  // Smooth lerp for marker
+  useEffect(() => {
+    if (!rawDriverPos || !displayPos) return;
+    const lerp = () => {
+      setDisplayPos((prev) => {
+        if (!prev) return rawDriverPos;
+        const lat = prev.lat + (rawDriverPos.lat - prev.lat) * 0.15;
+        const lng = prev.lng + (rawDriverPos.lng - prev.lng) * 0.15;
+        return { lat, lng };
+      });
+    };
+    const id = requestAnimationFrame(lerp);
+    return () => cancelAnimationFrame(id);
+  }, [rawDriverPos, displayPos]);
+
+  // ─── ROUTING LOGIC ──────────────────────────────────────────────────────────
+
+  const calcRoute = async (isRecalc = false) => {
+    if (!rawDriverPos || !destination) return;
+    if (isRecalc) setRecalculating(true); else setLoading(true);
+    
     try {
       const response = await api.post('/route', {
-        start_lat: startLat, start_lng: startLng,
-        end_lat: endLat, end_lng: endLng,
-        mode: transportMode,
+        start_lat: rawDriverPos.lat,
+        start_lng: rawDriverPos.lng,
+        end_lat: destination.lat,
+        end_lng: destination.lng,
+        mode: searchParams.get('mode') || 'motorcycle',
       });
+      
       const data = response.data.data;
       setRoute(data.polyline || []);
       setRouteInfo(data);
-      // Confidence comes bundled with the route response
-      if (data.confidence) setRouteConfidence(data.confidence);
-    } catch {
-      setRouteError('Could not calculate route. Check your connection.');
+      setSteps(data.steps || []);
+      setCurrentStepIndex(0);
+      setArrived(false);
+    } catch (err) {
+      console.error('Routing Error:', err);
     } finally {
-      setRouteLoading(false);
+      setLoading(false);
+      setRecalculating(false);
     }
-  }, [transportMode]);
-
-  // Re-calculate when mode changes
-  useEffect(() => {
-    if (driverPos && destination) {
-      calcRoute(driverPos.lat, driverPos.lng, destination.lat, destination.lng);
-    }
-  }, [transportMode]); // eslint-disable-line
-
-  // ─── Route Confidence + Africa Hints ─────────────────────────────────────
-
-  const fetchConfidenceAndHints = useCallback(async (sLat, sLng, eLat, eLng, mode, polyline) => {
-    try {
-      const [confRes, hintsRes] = await Promise.all([
-        api.post('/driver/route/confidence', {
-          start_lat: sLat, start_lng: sLng,
-          end_lat: eLat, end_lng: eLng,
-          mode, polyline,
-        }).catch(() => null),
-        api.post('/driver/route/hints', {
-          start_lat: sLat, start_lng: sLng,
-          end_lat: eLat, end_lng: eLng,
-          mode,
-        }).catch(() => null),
-      ]);
-      if (confRes?.data?.success) setRouteConfidence(confRes.data.data);
-      if (hintsRes?.data?.success) setAfricaHint(hintsRes.data.data);
-    } catch { /* non-critical */ }
-  }, []);
-
-  // ─── Start Intelligence Session ───────────────────────────────────────────
-
-  const startIntelligenceSession = useCallback(async (sLat, sLng, eLat, eLng, mode) => {
-    try {
-      await api.post('/driver/session/start', {
-        session_id: sessionId,
-        start_lat: sLat, start_lng: sLng,
-        end_lat: eLat, end_lng: eLng,
-        mode,
-      });
-    } catch { /* non-critical */ }
-  }, [sessionId]);
-
-  // ─── Position Reporting to Backend (every 10s) ───────────────────────────
-
-  const startPositionReporting = useCallback((sid) => {
-    if (positionIntervalRef.current) clearInterval(positionIntervalRef.current);
-    positionIntervalRef.current = setInterval(() => {
-      setDriverPos(pos => {
-        if (pos) {
-          api.post(`/driver/session/${sid}/position`, { lat: pos.lat, lng: pos.lng }).catch(() => {});
-          setPositionLog(prev => [...prev.slice(-200), [pos.lat, pos.lng]]);
-        }
-        return pos;
-      });
-    }, 10000);
-  }, []);
-
-  const stopPositionReporting = useCallback(() => {
-    if (positionIntervalRef.current) {
-      clearInterval(positionIntervalRef.current);
-      positionIntervalRef.current = null;
-    }
-  }, []);
-
-  // ─── Complete Session ─────────────────────────────────────────────────────
-
-  const completeIntelligenceSession = useCallback(async (reason = 'arrived') => {
-    stopPositionReporting();
-    try {
-      await api.post(`/driver/session/${sessionId}/complete`, { reason });
-      if (deviationCount > 0 && positionLog.length >= 2 && destination) {
-        await api.post('/driver/route/learn', {
-          start_lat: positionLog[0][0], start_lng: positionLog[0][1],
-          end_lat: destination.lat, end_lng: destination.lng,
-          mode: transportMode,
-          path: positionLog,
-          duration_s: 0,
-        }).catch(() => {});
-      }
-    } catch { /* non-critical */ }
-  }, [sessionId, deviationCount, positionLog, destination, transportMode, stopPositionReporting]);
-
-
-  // ─── Deviation Detection ──────────────────────────────────────────────────
-  // If driver is >80m off route, recalculate automatically
-  useEffect(() => {
-    if (!navigating || !driverPos || !route.length || arrived || isRecalculating) return;
-    const dist = distanceToRoute(driverPos.lat, driverPos.lng, route);
-    if (dist > 80) { // 80m off route = deviation
-      setDeviationCount(d => d + 1);
-      setIsRecalculating(true);
-      // Record deviation in backend
-      const closestPoint = route.reduce((best, pt) => {
-        const d = haversineM(driverPos.lat, driverPos.lng, pt[0], pt[1]);
-        return d < best.d ? { d, lat: pt[0], lng: pt[1] } : best;
-      }, { d: Infinity, lat: route[0]?.[0], lng: route[0]?.[1] });
-      api.post(`/driver/session/${sessionId}/deviation`, {
-        driver_lat: driverPos.lat, driver_lng: driverPos.lng,
-        expected_lat: closestPoint.lat, expected_lng: closestPoint.lng,
-      }).catch(() => {});
-      // Instant recalculation
-      calcRoute(driverPos.lat, driverPos.lng, destination.lat, destination.lng)
-        .finally(() => setIsRecalculating(false));
-    }
-  }, [driverPos, navigating, route, arrived, isRecalculating, destination, sessionId]); // eslint-disable-line
-
-  // ─── Fly map to driver position when navigating ───────────────────────────
-  useEffect(() => {
-    if (navigating && driverPos && navMapRef.current) {
-      navMapRef.current.flyTo(driverPos.lng, driverPos.lat, 17);
-    }
-  }, [driverPos, navigating]);
-
-  // ─── Fit preview map ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!navigating && driverPos && destination && previewMapRef.current) {
-      previewMapRef.current.fitBounds(
-        [[Math.min(driverPos.lng, destination.lng) - 0.01, Math.min(driverPos.lat, destination.lat) - 0.01],
-         [Math.max(driverPos.lng, destination.lng) + 0.01, Math.max(driverPos.lat, destination.lat) + 0.01]],
-        { padding: 60, maxZoom: 16 }
-      );
-    } else if (!navigating && destination && previewMapRef.current) {
-      previewMapRef.current.flyTo(destination.lng, destination.lat, 15);
-    }
-  }, [driverPos, destination, navigating]);
-
-  // ─── Fetch confidence + hints after route calculated ─────────────────────
-  useEffect(() => {
-    if (routeInfo && driverPos && destination) {
-      fetchConfidenceAndHints(
-        driverPos.lat, driverPos.lng,
-        destination.lat, destination.lng,
-        transportMode,
-        route,
-      );
-    }
-  }, [routeInfo]); // eslint-disable-line
-
-  const startNavigation = async () => {
-    if (!driverPos) { startGPS(); return; }
-    if (destination && (!route.length || !routeInfo)) {
-      await calcRoute(driverPos.lat, driverPos.lng, destination.lat, destination.lng);
-    }
-    // Start intelligence session
-    await startIntelligenceSession(
-      driverPos.lat, driverPos.lng,
-      destination.lat, destination.lng,
-      transportMode,
-    );
-    startPositionReporting(sessionId);
-    setNavigating(true);
-    setIsFullscreen(true);
-    setCurrentStep(0);
-    setArrived(false);
-    setDeviationCount(0);
-    setPositionLog([]);
-    setNavViewMode('hybrid');
   };
 
-  // ─── On arrival ───────────────────────────────────────────────────────────
+  // Initial search
   useEffect(() => {
-    if (arrived && navigating) {
-      completeIntelligenceSession('arrived');
-    }
-  }, [arrived]); // eslint-disable-line
-
-  // ─── Cleanup on unmount ────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      stopPositionReporting();
-      if (watchRef.current) navigator.geolocation.clearWatch(watchRef.current);
+    const fetchCode = async () => {
+      if (!code) return;
+      try {
+        const res = await api.get(`/addresses/${code.toUpperCase()}`);
+        const d = res.data.data;
+        setDestinationData(d);
+        setDestination({ lat: d.entrance_latitude || d.latitude, lng: d.entrance_longitude || d.longitude });
+      } catch (err) { console.error('Address Fetch Error:', err); }
     };
-  }, [stopPositionReporting]);
+    fetchCode();
+  }, [code]);
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // Trigger route on destination set
+  useEffect(() => {
+    if (destination && rawDriverPos && !route.length) calcRoute();
+  }, [destination, !!rawDriverPos]);
+
+  // ─── TURN-BY-TURN ENGINE ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!navigating || !rawDriverPos || !route.length || recalculating || !destination) return;
+    
+    const distToDest = haversineM(rawDriverPos.lat, rawDriverPos.lng, destination.lat, destination.lng);
+    
+    // Check if we are too far from the line segments of the route
+    let minLineDist = Infinity;
+    if (route && route.length > 1) {
+      for (let i = 0; i < route.length - 1; i++) {
+        const point1 = route[i];
+        const point2 = route[i + 1];
+        if (point1 && point2 && point1.length >= 2 && point2.length >= 2) {
+          const d = getPointDistanceToLine(rawDriverPos.lat, rawDriverPos.lng, point1[0], point1[1], point2[0], point2[1]);
+          if (d < minLineDist) minLineDist = d;
+        }
+      }
+    }
+
+    // Approx 50m in lat/lng units (0.00045 degrees approx)
+    if (minLineDist > 0.0005) {
+      calcRoute(true);
+      speak("You are off route. Recalculating.");
+      return;
+    }
+
+    const nextStep = steps[currentStepIndex + 1];
+    if (nextStep && nextStep.location) {
+      const distToNextStep = haversineM(rawDriverPos.lat, rawDriverPos.lng, nextStep.location[0], nextStep.location[1]);
+      
+      // Advance step if we are close enough (within 25m)
+      if (distToNextStep < 25) {
+        setCurrentStepIndex(v => v + 1);
+        const upcomingStep = steps[currentStepIndex + 2];
+        speak(upcomingStep?.instruction || "Continue on path");
+      } 
+      // Voice triggers for upcoming turns (announce 100m before)
+      else if (distToNextStep < 110 && distToNextStep > 90) {
+        speak(`In 100 meters, ${nextStep.instruction}`);
+      }
+    } else if (nextStep && !nextStep.location) {
+      // Fallback for steps without explicit location (e.g. synthetic routes)
+      // Advance by distance to destination instead or keep it simple
+      if (distToDest < 50 && steps.length > 1 && currentStepIndex === 0) {
+        setCurrentStepIndex(1);
+      }
+    }
+
+    // Final Approach detection (<30m)
+    if (distToDest < 35 && !isNearFinal) {
+      setIsNearFinal(true);
+      speak(`You are very close. Destination is near ${destinationData?.landmark || 'the marked point'}.`);
+    }
+
+    if (distToDest < 15 && !arrived) {
+      setArrived(true);
+      speak("You have arrived at your PPOINNT destination.");
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+    }
+
+  }, [rawDriverPos, route, navigating, steps, currentStepIndex, isNearFinal, arrived, destination, destinationData]);
+
+  // Map Follow
+  useEffect(() => {
+    if (navigating && autoFollow && displayPos && navMapRef.current) {
+      navMapRef.current.easeTo({
+        center: [displayPos.lng, displayPos.lat],
+        zoom: isNearFinal ? 19.5 : 18,
+        pitch: isNearFinal ? 0 : 60, // Top-down for final precision
+        bearing: bearing,
+        duration: 1000
+      });
+    }
+  }, [displayPos, navigating, autoFollow, bearing, isNearFinal]);
+
+  // ─── RENDERING ──────────────────────────────────────────────────────────────
+
+  const currentStepData = steps[currentStepIndex] || null;
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-stone-900 overflow-hidden">
-      {/* ── FULLSCREEN MAP ── */}
-      <div className="absolute inset-0 z-0">
+    <div className="relative h-screen w-full bg-stone-950 font-sans overflow-hidden">
+      
+      {/* ── MAP ── */}
+      <div className="absolute inset-0">
         <MapboxMap
-          ref={navigating ? navMapRef : previewMapRef}
-          center={driverPos ? [driverPos.lng, driverPos.lat] : [MAP_DEFAULT_LNG, MAP_DEFAULT_LAT]}
-          zoom={driverPos ? (navigating ? 16 : 14) : 5}
-          defaultViewMode={navViewMode}
-          defaultTheme="dark"
-          showViewToggle={false}
+          ref={navMapRef}
+          center={displayPos ? [displayPos.lng, displayPos.lat] : [3.3792, 6.5244]}
+          zoom={14}
+          defaultViewMode="hybrid"
           onDragStart={() => setAutoFollow(false)}
           style={{ height: '100%', width: '100%' }}
         >
-          {route && <RouteLayer route={route} />}
-          {driverPos && (
-             <Marker longitude={driverPos.lng} latitude={driverPos.lat} anchor="center">
-                <DriverMarkerPin />
+          {isNearFinal && destination && (
+            <Source id="final-circle" type="geojson" data={{
+              type: 'Feature', geometry: { type: 'Point', coordinates: [destination.lng, destination.lat] }
+            }}>
+              <Layer 
+                id="final-pulse" 
+                type="circle" 
+                paint={{ 
+                  'circle-radius': 40, 
+                  'circle-color': '#fbbf24', 
+                  'circle-opacity': 0.2,
+                  'circle-stroke-width': 2,
+                  'circle-stroke-color': '#fbbf24'
+                }} 
+              />
+            </Source>
+          )}
+          {route.length > 0 && (
+            <Source id="nav-route" type="geojson" data={{
+              type: 'Feature', geometry: { type: 'LineString', coordinates: route.map(([lat, lng]) => [lng, lat]) }
+            }}>
+              <Layer id="route-line-bg" type="line" paint={{ 'line-color': '#2563eb', 'line-width': 12, 'line-opacity': 0.3 }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+              <Layer id="route-line-main" type="line" paint={{ 'line-color': '#3b82f6', 'line-width': 8 }} layout={{ 'line-join': 'round', 'line-cap': 'round' }} />
+            </Source>
+          )}
+          {displayPos && (
+             <Marker longitude={displayPos.lng} latitude={displayPos.lat} anchor="center">
+                <DriverMarkerPin bearing={bearing} />
              </Marker>
           )}
           {destination && (
              <Marker longitude={destination.lng} latitude={destination.lat} anchor="bottom">
-                <DestinationPin placeType={destination.placeType} />
+                <DestinationPin placeType={destinationData?.place_type} />
              </Marker>
           )}
         </MapboxMap>
       </div>
 
-      {/* ── FLOATING TOP CONTROLS ── */}
-      <div className="absolute top-4 inset-x-4 z-10 flex flex-col gap-3 max-w-xl mx-auto pointer-events-none">
+      {/* ── TOP NAV UI ── */}
+      <div className="absolute top-6 inset-x-4 z-20 pointer-events-none">
         {navigating ? (
-          <div className="flex flex-col gap-3 pointer-events-auto">
-             <NextManeuverCard step={routeInfo?.steps?.[currentStep]} distanceAhead={0} />
+          <div className="mx-auto max-w-xl rounded-3xl bg-stone-900/95 p-6 shadow-2xl pointer-events-auto border border-white/10 backdrop-blur-3xl animate-in slide-in-from-top-4">
+             <div className="flex items-center gap-6">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-600 shadow-xl shadow-blue-600/20">
+                  {currentStepData?.maneuver_modifier?.includes('left') ? <ArrowUpLeft size={48} className="text-white" /> :
+                   currentStepData?.maneuver_modifier?.includes('right') ? <ArrowUpRight size={48} className="text-white" /> :
+                   <ArrowUp size={48} className="text-white" />}
+                </div>
+                <div className="flex-1">
+                   <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-blue-400 uppercase tracking-widest">
+                        {isNearFinal ? 'Final Approach' : `${Math.round(currentStepData?.distance || 0)}m`}
+                      </span>
+                   </div>
+                   <h2 className="text-3xl font-black text-white leading-none tracking-tighter mt-1">
+                     {currentStepData?.instruction || 'Continue straight'}
+                   </h2>
+                </div>
+             </div>
+             {recalculating && (
+               <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-orange-500/10 py-2 border border-orange-500/20">
+                  <RotateCcw size={16} className="animate-spin text-orange-400" />
+                  <span className="text-xs font-black text-orange-400 uppercase tracking-widest">Off-Route • Rerouting...</span>
+               </div>
+             )}
           </div>
         ) : (
-          <div className="flex gap-2 pointer-events-auto">
-            <input
-              value={code}
-              onChange={e => setCode(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && searchCode()}
-              placeholder="Search Destination Code..."
-              className="flex-1 rounded-[1.5rem] border border-white/20 bg-stone-950/80 px-5 py-4 font-bold text-white shadow-xl backdrop-blur-xl outline-none placeholder:text-stone-400 focus:border-amber-400/50"
-            />
-            <button
-              onClick={searchCode}
-              disabled={searchLoading || !code.trim()}
-              className="flex items-center justify-center rounded-[1.5rem] bg-amber-400 px-5 py-4 font-black text-stone-950 shadow-xl transition hover:bg-amber-300 disabled:opacity-50"
-            >
-              {searchLoading ? <span className="animate-spin text-xl">⌛</span> : <Search size={24} />}
+          <div className="mx-auto max-w-xl flex gap-3 pointer-events-auto">
+            <button onClick={() => navigate(-1)} className="h-14 w-14 flex items-center justify-center rounded-2xl bg-stone-900 border border-white/10 text-white shadow-xl">
+              <ArrowLeft size={24} />
             </button>
+            <div className="relative flex-1">
+              <input 
+                value={code} 
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                placeholder="PPOINNT Destination" 
+                className="h-14 w-full rounded-2xl border border-white/10 bg-stone-900 px-6 font-black text-white outline-none focus:border-blue-500 shadow-xl"
+              />
+            </div>
           </div>
-        )}
-
-        {searchError && !navigating && (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/80 p-3 text-sm font-semibold text-white shadow-lg backdrop-blur pointer-events-auto flex items-center gap-2">
-            <AlertTriangle size={16} /> {searchError}
-          </div>
-        )}
-        {locationError && !navigating && (
-           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/80 p-3 text-sm font-semibold text-stone-900 shadow-lg backdrop-blur pointer-events-auto flex items-center gap-2">
-             <AlertTriangle size={16} /> {locationError}
-           </div>
         )}
       </div>
 
-      {/* ── INTELLIGENCE ALERTS & RECALCULATING OVERLAY ── */}
-      <div className="absolute top-24 inset-x-4 z-10 flex flex-col gap-2 max-w-xl mx-auto pointer-events-none">
-        {isRecalculating && (
-           <div className="flex items-center gap-3 rounded-2xl border border-blue-400/30 bg-blue-500/80 px-4 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md pointer-events-auto">
-             <span className="animate-spin">↻</span> Rerouting to a better path...
-           </div>
-        )}
-        {navigating && routeConfidence && <div className="pointer-events-auto"><ConfidenceBadge confidence={routeConfidence} /></div>}
-        {navigating && africaHint && <div className="pointer-events-auto"><AfricaHintBanner hint={africaHint} /></div>}
-        {navigating && deviationCount > 0 && (
-           <div className="flex items-center gap-2 rounded-2xl border border-purple-400/30 bg-purple-500/80 px-4 py-2 text-xs font-bold text-white shadow-lg pointer-events-auto">
-             Learning new route pattern ({deviationCount} reroute{deviationCount > 1 ? 's' : ''})
-           </div>
-        )}
-      </div>
-
-      {/* ── FLOATING RIGHT CONTROLS ── */}
-      <div className="absolute right-4 bottom-56 z-10 flex flex-col gap-3 pointer-events-none">
+      {/* ── RIGHT CONTROLS ── */}
+      <div className="absolute right-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-4">
         {navigating && (
           <>
-            <button
-              onClick={() => setVoiceEnabled((v) => !v)}
-              className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-stone-950/80 text-white shadow-xl backdrop-blur-xl hover:bg-stone-900 pointer-events-auto transition"
+            <button 
+              onClick={() => setVoiceEnabled(!voiceEnabled)}
+              className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xl transition-all ${voiceEnabled ? 'bg-amber-400 text-stone-950' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}
             >
-              {voiceEnabled ? <Volume2 size={24} /> : <VolumeX size={24} className="text-stone-500" />}
+              {voiceEnabled ? <Volume2 size={28} /> : <VolumeX size={28} />}
             </button>
             {!autoFollow && (
-              <button
+              <button 
                 onClick={() => setAutoFollow(true)}
-                className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl border border-amber-400/50 bg-amber-400/90 text-stone-950 shadow-xl backdrop-blur-xl hover:bg-amber-400 pointer-events-auto transition animate-pulse"
-                title="Recenter"
+                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-2xl animate-pulse"
               >
-                <Navigation2 size={24} />
+                <LocateFixed size={32} />
               </button>
             )}
           </>
         )}
-        {!navigating && (
-          <button
-            onClick={startGPS}
-            className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-stone-950/80 text-amber-400 shadow-xl backdrop-blur-xl hover:bg-stone-900 pointer-events-auto transition"
-            title="Locate Me"
-          >
-            <LocateFixed size={24} />
-          </button>
-        )}
       </div>
 
-      {/* ── BOTTOM ACTION PANEL ── */}
-      <div className="absolute inset-x-4 bottom-8 z-10 mx-auto max-w-xl flex flex-col gap-3 transition-transform duration-300 pointer-events-none">
-        
-        {/* Destination Pre-Navigation Card */}
-        {destinationData && !navigating && (
-          <div className="rounded-[1.75rem] border border-white/20 bg-stone-950/80 p-5 shadow-2xl backdrop-blur-xl pointer-events-auto">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.3em] text-amber-400">Destination</p>
-                <h2 className="mt-1 text-4xl font-black text-white">{destinationData.code}</h2>
-                <p className="text-sm text-stone-400 mt-1">{destinationData.city}, {destinationData.state}</p>
-              </div>
-              <button onClick={() => setTransportMode('motorcycle')} className={`p-3 rounded-2xl transition ${transportMode === 'motorcycle' ? 'bg-amber-400 text-stone-950' : 'bg-white/10 text-white'}`}><Zap size={24} /></button>
-              <button onClick={() => setTransportMode('driving-car')} className={`p-3 rounded-2xl transition ${transportMode === 'driving-car' ? 'bg-amber-400 text-stone-950' : 'bg-white/10 text-white'}`}><Car size={24} /></button>
-            </div>
-            
-            <button
-              onClick={startNavigation}
-              disabled={routeLoading || !route}
-              className="mt-5 flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 py-4 text-xl font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300 disabled:opacity-50"
-            >
-              <Navigation size={24} /> {routeLoading ? 'Calculating Route...' : 'Start Driving'}
-            </button>
-          </div>
-        )}
+        {/* ── LOW NETWORK BANNER ── */}
+      {isLowNetwork && (
+        <div className="absolute top-[140px] inset-x-8 z-30 animate-in slide-in-from-top-2">
+           <div className="mx-auto max-w-sm rounded-full bg-orange-500 p-2 px-4 shadow-xl flex items-center justify-center gap-2">
+              <Zap size={14} className="text-white animate-pulse" />
+              <span className="text-[10px] font-black uppercase text-white tracking-widest">Low signal • Offline Nav active</span>
+           </div>
+        </div>
+      )}
 
-        {/* Live Navigation Cards */}
-        {navigating && (
-          <div className="space-y-3 pointer-events-auto">
-            {arrived && (
-              <div className="flex items-center gap-4 rounded-[1.75rem] border border-emerald-400/30 bg-emerald-500/90 p-6 shadow-2xl backdrop-blur-xl">
-                <CheckCircle2 size={40} className="text-white" />
-                <div>
-                  <p className="text-2xl font-black text-white">You have arrived</p>
-                  <p className="text-sm font-semibold text-emerald-100">{destinationData?.code}</p>
-                </div>
-              </div>
-            )}
-            <div className="rounded-[1.75rem] border border-white/20 bg-stone-950/90 p-4 shadow-2xl backdrop-blur-xl">
-               <RouteInfoBar routeInfo={routeInfo} remainingStep={currentStep} />
-               <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={() => { setNavigating(false); completeIntelligenceSession('cancelled'); }}
-                    className="flex-1 rounded-2xl bg-red-500/20 py-3 font-bold text-red-400 hover:bg-red-500/30 transition shadow-lg"
-                  >
-                    End Navigation
-                  </button>
-                  <div className="flex items-center overflow-hidden rounded-2xl bg-stone-800 pointer-events-auto w-fit px-1">
-                     <MapViewToggle viewMode={navViewMode} onChange={setNavViewMode} theme="dark" />
+      {/* ── BOTTOM NAV UI ── */}
+      <div className="absolute bottom-10 right-4 lg:right-10 z-20 pointer-events-none">
+        {arrived ? (
+          <div className="max-w-[320px] rounded-[2.5rem] bg-emerald-500 p-6 text-center shadow-3xl pointer-events-auto border-b-4 border-emerald-700 animate-in slide-in-from-right-10">
+             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg">
+               <CheckCircle2 size={32} />
+             </div>
+             <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Goal Reached!</h2>
+             <p className="mt-1 text-xs font-black text-emerald-100 uppercase tracking-[0.2em]">{destinationData?.code}</p>
+             
+             <div className="mt-6 flex flex-col gap-2">
+                <button 
+                  onClick={() => {
+                    const text = encodeURIComponent(`I have arrived at PPOINNT: ${destinationData?.code}`);
+                    window.open(`https://wa.me/?text=${text}`, '_blank');
+                  }}
+                  className="w-full rounded-2xl bg-[#25D366] py-4 text-sm font-black text-white shadow-lg active:scale-95 transition"
+                >
+                  WhatsApp Arrival
+                </button>
+                <button 
+                  onClick={() => {
+                    setNavigating(false);
+                    setArrived(false);
+                    setDestination(null);
+                    setDestinationData(null);
+                    navigate('/');
+                  }} 
+                  className="w-full rounded-2xl bg-black/20 py-3 text-xs font-black text-white hover:bg-black/30 transition"
+                >
+                  CLOSE TRIP
+                </button>
+             </div>
+          </div>
+        ) : navigating ? (
+          <div className="mx-auto max-w-xl rounded-3xl bg-stone-900/90 p-6 flex flex-col gap-4 border border-white/10 shadow-3xl backdrop-blur-xl pointer-events-auto overflow-hidden">
+             
+             {isNearFinal && (destinationData?.landmark || destinationData?.description) && (
+               <div className="rounded-2xl bg-amber-400 p-4 animate-in zoom-in-95">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle size={14} className="text-stone-950" />
+                    <p className="text-[10px] font-black text-stone-950 uppercase tracking-widest">Human Instruction</p>
                   </div>
+                  <p className="text-lg font-black text-stone-950 leading-tight">
+                    {destinationData.landmark && <span>🚩 Near: {destinationData.landmark}</span>}
+                    {destinationData.description && <span className="block mt-1 italic opacity-80">"{destinationData.description}"</span>}
+                  </p>
                </div>
-            </div>
+             )}
+
+             <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-3xl font-black text-white">
+                    {Math.ceil((routeInfo?.duration || 0) / 60)} min
+                  </span>
+                  <span className="text-sm font-bold text-stone-500">
+                    {routeInfo?.distance_km} km • ETA {new Date(Date.now() + (routeInfo?.duration || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <button onClick={() => setNavigating(false)} className="h-14 px-8 rounded-2xl bg-red-600 font-black text-white shadow-lg active:scale-95 transition">
+                  CANCEL
+                </button>
+             </div>
+          </div>
+        ) : destination && (
+          <div className="mx-auto max-w-xl rounded-[2.5rem] bg-white p-8 shadow-2xl pointer-events-auto border border-stone-200">
+             <div className="flex items-center justify-between mb-8">
+                <div>
+                   <div className="flex items-center gap-2 mb-1">
+                      <div className={`h-2 w-2 rounded-full ${destinationData?.confidence_score > 80 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">
+                        {destinationData?.confidence_score > 80 ? 'High Confidence' : 'Medium Precision'}
+                      </p>
+                   </div>
+                   <h1 className="text-4xl font-black text-stone-950 leading-none tracking-tighter italic">{destinationData?.code}</h1>
+                   <p className="text-sm font-bold text-stone-500 mt-1 uppercase tracking-widest">{destinationData?.place_type}</p>
+                </div>
+                <div className="text-right">
+                   <p className="text-2xl font-black text-stone-950">{routeInfo?.distance_km} km</p>
+                   <p className="text-sm font-bold text-stone-500">~ {Math.ceil((routeInfo?.duration || 0) / 60)} mins</p>
+                </div>
+             </div>
+             <button 
+                onClick={() => setNavigating(true)}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-4 rounded-3xl bg-blue-600 py-6 font-black text-white text-2xl shadow-xl hover:bg-blue-500 active:scale-95 disabled:opacity-50"
+             >
+                <Navigation size={32} />
+                {loading ? 'CALCULATING...' : 'START'}
+             </button>
           </div>
         )}
       </div>
 
+      {/* Error Fallback */}
+      {recalculating && !navigating && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-stone-900/80 backdrop-blur-md">
+            <div className="text-center">
+               <RotateCcw size={48} className="mx-auto animate-spin text-blue-500 mb-4" />
+               <p className="font-black text-white text-xl">LOCKING ON SATELLITES...</p>
+            </div>
+          </div>
+      )}
     </div>
   );
 }

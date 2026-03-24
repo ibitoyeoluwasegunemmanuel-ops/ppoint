@@ -14,6 +14,8 @@ const addresses = [];
 const businesses = [];
 const agents = [];
 const nationalAddresses = [];
+const publicUsage = new Map(); // Tracks PPOINNT generation count per identifier (IP or guestId)
+const withdrawals = [];
 
 const roads = [
   { id: 1, road_name: 'Ikorodu Road', surface_type: 'asphalt', vehicle_access: 'all', one_way: false, speed_limit: 60, geometry: [[6.596, 3.342], [6.598, 3.345], [6.600, 3.348]] },
@@ -152,11 +154,16 @@ const sanitizeAgent = (agent) => {
     return null;
   }
 
-  const mappedAddresses = addresses.filter((address) => address.created_source === 'agent' && address.agent_id === agent.id);
+  const mappedAddresses = addresses.filter((address) => (address.created_source === 'agent' || address.agent_id === agent.id));
+  const usedCount = mappedAddresses.reduce((sum, addr) => sum + (addr.usage_count || 0), 0);
+  
   return {
     ...agent,
     agent_code: formatAgentCode(agent.id),
     total_addresses: mappedAddresses.length,
+    ppoints_used_count: usedCount,
+    earnings_balance: agent.earnings_balance || 0,
+    territory: agent.territory || 'Unassigned',
     pending_addresses: mappedAddresses.filter((address) => address.moderation_status === 'pending').length,
     approved_addresses: mappedAddresses.filter((address) => address.moderation_status === 'approved').length,
   };
@@ -455,6 +462,13 @@ export const inMemoryStore = {
 
     addresses.push(address);
     syncNationalAddress(address);
+
+    // Territory Logic: If an address is created in an agent's territory, they earn a base commission
+    const territoryAgent = agents.find(a => address.city && a.territory && a.territory.toLowerCase().includes(address.city.toLowerCase()));
+    if (territoryAgent) {
+       territoryAgent.earnings_balance = (territoryAgent.earnings_balance || 0) + 100; // ₦100 for territory capture
+    }
+
     return sanitizeAddress(address);
   },
 
@@ -478,9 +492,12 @@ export const inMemoryStore = {
   },
 
   getAdminStats() {
+    const totalRev = addresses.length * 50 + agents.reduce((s, a) => s + (a.earnings_balance || 0), 0);
     return {
       totalAddresses: addresses.length,
       activeCities: cities.filter((city) => city.is_active).length,
+      totalRevenue: totalRev,
+      totalAgents: agents.length,
       coverage: {
         continents: continents.length,
         countries: countries.length,
@@ -921,6 +938,7 @@ export const inMemoryStore = {
       state,
       city,
       territory,
+      earnings_balance: 0,
       status: 'active',
       created_at: new Date().toISOString(),
     };
@@ -951,7 +969,42 @@ export const inMemoryStore = {
     return {
       agent,
       addresses: mappedAddresses,
+      totalEarned: agent.earnings_balance,
+      ppointsUsed: agent.ppoints_used_count,
     };
+  },
+
+  checkPublicUsage(identifier) {
+    const count = publicUsage.get(identifier) || 0;
+    return {
+      count,
+      isExceeded: count >= 3,
+      remaining: Math.max(0, 3 - count)
+    };
+  },
+
+  incrementPublicUsage(identifier) {
+    const count = publicUsage.get(identifier) || 0;
+    publicUsage.set(identifier, count + 1);
+    return count + 1;
+  },
+
+  requestWithdrawal(agentId, amount) {
+    const agent = agents.find(a => a.id === Number(agentId));
+    if (!agent || (agent.earnings_balance || 0) < amount) {
+      throw new Error('Insufficient balance or agent not found');
+    }
+    
+    agent.earnings_balance -= amount;
+    const withdrawal = {
+      id: withdrawals.length + 1,
+      agent_id: agentId,
+      amount,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+    withdrawals.push(withdrawal);
+    return withdrawal;
   },
 
   getNationalAddresses(query = '') {
@@ -1185,5 +1238,15 @@ export const inMemoryStore = {
       ...staff,
       region_name: resolveRegionName(staff.region_level, staff.region_id)
     };
+  },
+
+  getPublicUsageCount(identifier) {
+    return publicUsage.get(identifier) || 0;
+  },
+
+  recordPublicUsage(identifier) {
+    const count = (publicUsage.get(identifier) || 0) + 1;
+    publicUsage.set(identifier, count);
+    return count;
   }
 };

@@ -86,7 +86,7 @@ export const startServer = async () => {
     await initDatabase();
   }
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`PPOINT server running on port ${PORT}`);
   });
 };

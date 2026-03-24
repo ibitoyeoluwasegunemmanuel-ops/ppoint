@@ -238,6 +238,8 @@ class AddressService {
       geocodingProviders: reverseGeocoding?.providers || [],
       communityName: resolvedCommunityName,
       streetName: resolvedStreetName,
+      landmarkProvided: Boolean(options.landmark),
+      manualPin: Boolean(options.manualPin !== false), // assume manual pin unless specified
     });
     const resolvedEntranceLabel = options.entranceLabel || selectedNavigationPoint?.label || null;
     const resolvedEntranceLatitude = options.entranceLatitude ?? selectedNavigationPoint?.latitude ?? osmEnrichment?.buildingEntrancePoint?.latitude ?? null;
@@ -387,7 +389,7 @@ class AddressService {
 
   static async getAddressInfo(code) {
     const address = await Address.findByCode(code);
-    if (!address || address.is_active === false) {
+    if (!address) {
       throw new Error('Address not found');
     }
 
@@ -409,33 +411,13 @@ class AddressService {
     const exactAddress = await Address.findByCode(normalizedQuery).catch(() => null);
     const results = exactAddress ? [exactAddress] : await Address.search(normalizedQuery);
     return results.map((item) => ({
+      ...item,
       id: item.id,
       code: item.ppoint_code || item.code,
       ppoint_code: item.ppoint_code || item.code,
-      country: item.country,
-      state: item.state,
-      city: item.city,
-      district: item.district || null,
-      building_name: item.building_name || null,
-      house_number: item.house_number || null,
-      street_name: item.street_name || null,
-      landmark: item.landmark || null,
-      street_description: item.street_description || item.description || null,
-      description: item.description || null,
-      phone_number: item.phone_number || null,
-      place_type: item.place_type || null,
-      custom_place_type: item.custom_place_type || null,
       display_place_type: item.custom_place_type || item.place_type || null,
       address_metadata: item.address_metadata || {},
       structured_address_line: structuredAddressLine(item.house_number, item.street_name),
-      address_type: item.address_type || 'community',
-      status: item.address_status || item.moderation_status || 'active',
-      created_by: item.created_by || 'Community',
-      moderation_status: item.moderation_status || 'active',
-      latitude: Number(item.latitude),
-      longitude: Number(item.longitude),
-      coordinates: `${Number(item.latitude)},${Number(item.longitude)}`,
-      created_at: item.created_at,
       is_active: item.is_active !== false,
       ...getAddressIntelligence(item),
     }));

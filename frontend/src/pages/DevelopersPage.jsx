@@ -32,8 +32,8 @@ const paymentMethods = [
   { value: 'flutterwave', label: 'Flutterwave (optional later)' },
 ];
 
-const inputClassName = 'w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-900 outline-none';
-const selectClassName = 'w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-stone-900 outline-none';
+const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500 focus:border-amber-400/50 transition-all focus:bg-white/[0.08]';
+const selectClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-400/50 transition-all';
 
 const formatMonthLabel = (isoMonth) => {
   if (!isoMonth) {
@@ -356,78 +356,76 @@ export default function DevelopersPage() {
       {!dashboard ? (
         <>
           <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-[2rem] border border-white/10 bg-white/6 p-8 backdrop-blur-xl">
-              <p className="text-sm uppercase tracking-[0.3em] text-sky-300">Developers</p>
-              <h1 className="mt-3 text-4xl font-black text-white">Build on PPOINNT Africa digital addressing.</h1>
-              <p className="mt-4 max-w-2xl text-base leading-8 text-stone-200">
-                Register your company, choose a subscription plan, obtain an API key, search PPOINNT codes, and integrate address generation into your products.
+            <div className="rounded-[2.5rem] border border-white/10 bg-white/5 p-10 backdrop-blur-2xl shadow-3xl animate-in slide-in-from-left-5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-400 mb-6">
+                <FileText size={24} />
+              </div>
+              <p className="text-xs font-black uppercase tracking-[0.4em] text-amber-400/60 mb-2">PPOINNT API GATEWAY</p>
+              <h1 className="text-5xl font-black text-white italic tracking-tighter leading-[0.9]">The Infrastructure for African Addresses.</h1>
+              <p className="mt-6 text-lg leading-relaxed text-stone-400 font-medium">
+                Build the next generation of logistics, e-commerce, and emergency services using Africa's most precise addressing engine.
               </p>
-              <div className="mt-8 grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <KeyRound className="text-amber-300" />
-                  <p className="mt-3 font-semibold text-white">API key access</p>
-                  <p className="mt-2 text-sm text-stone-300">Generate and rotate production keys for address services.</p>
+              
+              <div className="mt-12 grid gap-6 md:grid-cols-3">
+                <div className="group rounded-3xl border border-white/5 bg-white/5 p-6 hover:border-amber-400/30 transition-all">
+                  <KeyRound size={20} className="text-amber-400 mb-4" />
+                  <p className="font-black text-white text-sm tracking-tight">API Key Access</p>
+                  <p className="mt-2 text-[11px] font-bold text-stone-500 leading-normal uppercase tracking-widest leading-relaxed">Rotate keys instantly for secure production deployments.</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <BarChart3 className="text-sky-300" />
-                  <p className="mt-3 font-semibold text-white">Usage tracking</p>
-                  <p className="mt-2 text-sm text-stone-300">Monitor request volume, plan limits, and remaining requests every month.</p>
+                <div className="group rounded-3xl border border-white/5 bg-white/5 p-6 hover:border-sky-400/30 transition-all">
+                  <BarChart3 size={20} className="text-sky-400 mb-4" />
+                  <p className="font-black text-white text-sm tracking-tight">Real-time Metrics</p>
+                  <p className="mt-2 text-[11px] font-bold text-stone-500 uppercase tracking-widest leading-relaxed">Monitor request volume and latency thresholds on your dashboard.</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <FileText className="text-emerald-300" />
-                  <p className="mt-3 font-semibold text-white">Search-ready docs</p>
-                  <p className="mt-2 text-sm text-stone-300">Use PPOINNT search endpoints immediately with your developer key.</p>
+                <div className="group rounded-3xl border border-white/5 bg-white/5 p-6 hover:border-emerald-400/30 transition-all">
+                  <FileText size={20} className="text-emerald-400 mb-4" />
+                  <p className="font-black text-white text-sm tracking-tight">Rapid Docs</p>
+                  <p className="mt-2 text-[11px] font-bold text-stone-500 uppercase tracking-widest leading-relaxed">Resolve codes and plan routes with &lt;100ms average response time.</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-white/10 bg-white p-8 text-stone-900 shadow-xl shadow-black/20">
-              <div className="flex gap-3">
-                <button onClick={() => setMode('register')} className={`rounded-full px-4 py-2 text-sm font-semibold ${mode === 'register' ? 'bg-stone-950 text-white' : 'bg-stone-100 text-stone-700'}`}>Create account</button>
-                <button onClick={() => setMode('login')} className={`rounded-full px-4 py-2 text-sm font-semibold ${mode === 'login' ? 'bg-stone-950 text-white' : 'bg-stone-100 text-stone-700'}`}>Login</button>
+            <div className="rounded-[3rem] border border-white/10 bg-stone-950 p-10 shadow-3xl animate-in slide-in-from-right-5">
+              <div className="flex p-1 bg-white/5 rounded-full mb-10 w-fit">
+                <button onClick={() => setMode('register')} className={`rounded-full px-6 py-2.5 text-xs font-black uppercase tracking-widest transition-all ${mode === 'register' ? 'bg-amber-400 text-stone-950 shadow-lg shadow-amber-400/20' : 'text-stone-400 hover:text-white'}`}>Create account</button>
+                <button onClick={() => setMode('login')} className={`rounded-full px-6 py-2.5 text-xs font-black uppercase tracking-widest transition-all ${mode === 'login' ? 'bg-amber-400 text-stone-950 shadow-lg shadow-amber-400/20' : 'text-stone-400 hover:text-white'}`}>Login</button>
               </div>
 
-              {error && <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
-              {notice && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{notice}</div>}
+              {error && <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 p-5 text-xs font-bold text-red-200 animate-in shake-1 leading-relaxed">{error}</div>}
+              {notice && <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5 text-xs font-bold text-emerald-100 animate-in fade-in">{notice}</div>}
 
               {mode === 'register' ? (
                 <form onSubmit={submitRegistration} className="mt-6 space-y-4">
-                  <input value={registerForm.companyName} onChange={(event) => setRegisterForm({ ...registerForm, companyName: event.target.value })} className={inputClassName} placeholder="Company Name" />
-                  <input value={registerForm.website} onChange={(event) => setRegisterForm({ ...registerForm, website: event.target.value })} className={inputClassName} placeholder="Website" />
-                  <input value={registerForm.email} onChange={(event) => setRegisterForm({ ...registerForm, email: event.target.value })} className={inputClassName} placeholder="Email" />
-                  <input type="password" value={registerForm.password} onChange={(event) => setRegisterForm({ ...registerForm, password: event.target.value })} className={inputClassName} placeholder="Password" />
+                  <input value={registerForm.companyName} onChange={(event) => setRegisterForm({ ...registerForm, companyName: event.target.value })} className={inputClassName} placeholder="Entity / Company Name" />
+                  <input value={registerForm.website} onChange={(event) => setRegisterForm({ ...registerForm, website: event.target.value })} className={inputClassName} placeholder="Corporate Website (e.g. ppoinnt.africa)" />
+                  <input value={registerForm.email} onChange={(event) => setRegisterForm({ ...registerForm, email: event.target.value })} className={inputClassName} placeholder="Engineering Contact Email" />
+                  <input type="password" value={registerForm.password} onChange={(event) => setRegisterForm({ ...registerForm, password: event.target.value })} className={inputClassName} placeholder="Access Password" />
                   <div className="grid gap-4 md:grid-cols-2">
-                    <select value={registerForm.planSlug} onChange={(event) => setRegisterForm({ ...registerForm, planSlug: event.target.value })} className={selectClassName} disabled={plansLoading || !plans.length}>
-                      <option value="">{plansLoading ? 'Loading plans...' : 'Select plan'}</option>
-                      {plans.map((plan) => <option key={plan.slug || plan.name} value={plan.slug}>{plan.name} • {formatLimitLabel(plan.request_limit ?? plan.limit ?? null)}</option>)}
+                    <select value={registerForm.planSlug} onChange={(event) => setRegisterForm({ ...registerForm, planSlug: event.target.value })} className={`${selectClassName} bg-stone-900`} disabled={plansLoading || !plans.length}>
+                      <option value="" className="bg-stone-900">Select API Tier</option>
+                      {plans.map((plan) => <option key={plan.slug || plan.name} value={plan.slug} className="bg-stone-900 text-white font-bold">{plan.name} • {formatLimitLabel(plan.request_limit ?? plan.limit ?? null)}</option>)}
                     </select>
-                    <select value={registerForm.billingCountry} onChange={(event) => setRegisterForm({ ...registerForm, billingCountry: event.target.value })} className={selectClassName} disabled={!countries.length}>
-                      <option value="">Select country</option>
-                      {countries.map((country) => <option key={country.id} value={country.code}>{country.name}</option>)}
+                    <select value={registerForm.billingCountry} onChange={(event) => setRegisterForm({ ...registerForm, billingCountry: event.target.value })} className={`${selectClassName} bg-stone-900`} disabled={!countries.length}>
+                      <option value="" className="bg-stone-900">Billing Region</option>
+                      {countries.map((country) => <option key={country.id} value={country.code} className="bg-stone-900 text-white font-bold">{country.name}</option>)}
                     </select>
                   </div>
-                  <button disabled={loading} className="w-full rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-50">{loading ? 'Processing...' : 'Create Developer Account'}</button>
+                  <button disabled={loading} className="w-full rounded-2xl bg-white py-4 font-black text-stone-950 hover:bg-stone-200 transition active:scale-95 shadow-xl shadow-white/5 uppercase tracking-[0.2em] text-[10px] mt-4">PROVISION API ACCOUNT</button>
                 </form>
               ) : (
                 <>
                   <form onSubmit={submitLogin} className="mt-6 space-y-4">
-                    <input value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} className={inputClassName} placeholder="Email" />
-                    <input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} className={inputClassName} placeholder="Password" />
-                    <button disabled={loading} className="w-full rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-50">{loading ? 'Signing in...' : 'Login to Developer Dashboard'}</button>
+                    <input value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} className={inputClassName} placeholder="Registered Email" />
+                    <input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} className={inputClassName} placeholder="Credentials / Password" />
+                    <button disabled={loading} className="w-full rounded-2xl bg-amber-400 py-4 font-black text-stone-950 hover:bg-amber-300 transition active:scale-95 shadow-xl shadow-amber-400/10 uppercase tracking-[0.2em] text-[10px] mt-4">ACCESS CONSOLE</button>
                   </form>
-                  <button onClick={() => setShowForgotPassword((current) => !current)} className="mt-4 text-sm font-semibold text-amber-700 underline underline-offset-4">Forgot Password?</button>
+                  <button onClick={() => setShowForgotPassword((current) => !current)} className="mt-6 text-[10px] font-black uppercase text-stone-500 tracking-widest hover:text-white transition w-full text-center">Recover Credentials?</button>
                   {showForgotPassword && (
-                    <div className="mt-6 rounded-[1.5rem] border border-stone-200 bg-stone-50 p-6">
+                    <div className="mt-10 rounded-[2rem] border border-white/5 bg-white/5 p-8 border-dashed animate-in slide-in-from-top-4">
                       <form onSubmit={submitForgotPassword} className="space-y-4">
-                        <h2 className="text-lg font-bold text-stone-950">Developer Forgot Password</h2>
-                        <input value={forgotPasswordEmail} onChange={(event) => setForgotPasswordEmail(event.target.value)} className={inputClassName} placeholder="Developer email" />
-                        <button disabled={loading} className="rounded-2xl bg-stone-950 px-5 py-3 font-semibold text-white disabled:opacity-50">Send Reset Link</button>
-                      </form>
-                      <form onSubmit={submitResetPassword} className="mt-6 space-y-4">
-                        <h3 className="text-base font-bold text-stone-950">Reset Password</h3>
-                        <input value={resetToken} onChange={(event) => setResetToken(event.target.value)} className={inputClassName} placeholder="Reset token" />
-                        <input type="password" value={resetPasswordValue} onChange={(event) => setResetPasswordValue(event.target.value)} className={inputClassName} placeholder="New password" />
-                        <button disabled={loading} className="rounded-2xl bg-emerald-600 px-5 py-3 font-semibold text-white disabled:opacity-50">Set New Password</button>
+                        <h2 className="text-xs font-black text-white uppercase tracking-widest text-center mb-6">Password Recovery</h2>
+                        <input value={forgotPasswordEmail} onChange={(event) => setForgotPasswordEmail(event.target.value)} className={inputClassName} placeholder="Registered address" />
+                        <button disabled={loading} className="w-full rounded-2xl bg-white/10 border border-white/10 py-3 text-xs font-black text-white hover:bg-white/20 transition uppercase tracking-widest">SEND RESET LINK</button>
                       </form>
                     </div>
                   )}

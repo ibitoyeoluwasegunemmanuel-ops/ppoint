@@ -4,8 +4,8 @@ import { createApiKey, createResetToken, createSessionToken, hashPassword, maskA
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 const now = () => new Date().toISOString();
 const passwordResetTokens = [];
-const PRIMARY_ADMIN_EMAIL = 'admin@ppooint.com';
-const PRIMARY_ADMIN_PASSWORD = 'PPOINNT@Admin123';
+const PRIMARY_ADMIN_EMAIL = 'admin@ppoint.africa';
+const PRIMARY_ADMIN_PASSWORD = 'Admin@1234';
 
 const rolePermissions = {
   'Super Admin': ['overview', 'addresses', 'moderation', 'businesses', 'agents', 'developers', 'usage', 'plans', 'payments', 'regions', 'registry', 'dispatch', 'settings'],
@@ -310,7 +310,14 @@ export const platformStore = {
   authenticateAdmin(email, password) {
     this.ensureDefaultAdmin();
     const admin = adminUsers.find((item) => item.email.toLowerCase() === String(email).toLowerCase());
-    if (!admin || !verifyPassword(password, admin.password_hash)) {
+    
+    if (!admin) {
+      console.warn(`[STORE DEBUG] Admin not found for: ${email}. Available emails: ${adminUsers.map(u => u.email).join(', ')}`);
+      return null;
+    }
+
+    if (!verifyPassword(password, admin.password_hash)) {
+      console.warn(`[STORE DEBUG] Password mismatch for: ${email}`);
       return null;
     }
 

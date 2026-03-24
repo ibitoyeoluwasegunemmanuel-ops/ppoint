@@ -122,6 +122,8 @@ export const calculateAddressConfidence = ({
   geocodingProviders,
   communityName,
   streetName,
+  landmarkProvided = false,
+  manualPin = true,
 }) => {
   const breakdown = {
     gps_accuracy: scoreGpsAccuracy(gpsAccuracy),
@@ -129,9 +131,11 @@ export const calculateAddressConfidence = ({
     road_proximity: scoreRoadProximity(roadProximity),
     entrance_detection: entranceDetected ? ENTRANCE_WEIGHT : 0,
     multi_provider_geocoding: scoreGeocodingAgreement(geocodingProviders, communityName, streetName),
+    human_verification: (manualPin ? 15 : 0) + (landmarkProvided ? 10 : 0),
   };
 
-  const score = Math.max(0, Math.min(100, Math.round(Object.values(breakdown).reduce((sum, value) => sum + value, 0))));
+  const rawScore = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
+  const score = Math.max(0, Math.min(100, Math.round(rawScore)));
   const level = resolveConfidenceLevel(score);
 
   return {

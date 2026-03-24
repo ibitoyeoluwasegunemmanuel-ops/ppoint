@@ -1,681 +1,540 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import MapboxMap, { Marker } from '../components/MapboxMap';
-import { ArrowRight, Building2, Check, Copy, LocateFixed, MapPinned, Navigation, Search, Share2, Smartphone, Truck } from 'lucide-react';
+import { 
+  Search, MapPin, Navigation, Share2, 
+  Layers, LocateFixed, X, Check, Copy,
+  ArrowRight, ShieldCheck, Zap
+} from 'lucide-react';
 import api from '../services/api';
 import { PLACE_TYPES } from '../constants/placeTypes';
 
+// ─── Design System ───────────────────────────────────────────────────────────
 
-const storageKey = 'ppoint_saved_addresses';
-const initialAddressForm = {
-  placeType: '',
-  customPlaceType: '',
-  buildingName: '',
-  houseNumber: '',
-  landmark: '',
-  district: '',
-  streetDescription: '',
-  phoneNumber: '',
-};
-const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500';
-
-const placeTypeDescriptions = {
-  House: 'Homes, apartments, and family compounds',
-  Shop: 'Retail spaces, kiosks, and stalls',
-  Office: 'Offices, studios, and workspaces',
-  School: 'Schools, campuses, and training centers',
-  Hospital: 'Hospitals, clinics, and care centers',
-  'Estate Gate': 'Residential estates and secured compounds',
-  Warehouse: 'Storage, logistics, and industrial spaces',
-  Hotel: 'Hotels, lodges, and guest houses',
-  'Police Station': 'Police posts and security formations',
-  Church: 'Church buildings and worship centers',
-  Mosque: 'Mosques and prayer grounds',
-  Barracks: 'Military and paramilitary compounds',
-  'Public Building': 'Public service and civic buildings',
-  'Government Office': 'Government ministries and agencies',
-  Market: 'Open markets and commercial hubs',
-  Other: 'Something else not listed here',
+const SCREENS = {
+  HOME: 'home',
+  GENERATING: 'generating',
+  RESULT: 'result'
 };
 
-const confidenceTone = {
-  high: 'border-emerald-300/30 bg-emerald-500/10 text-emerald-100',
-  medium: 'border-amber-300/30 bg-amber-500/10 text-amber-100',
-  low: 'border-red-300/30 bg-red-500/10 text-red-100',
-};
-
-const readSavedAddresses = () => {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey) || '[]');
-  } catch {
-    return [];
-  }
-};
-
-const getAddressSettings = (publicConfig) => ({
-  requireBuildingName: publicConfig?.address_settings?.require_building_name !== false,
-  showLandmark: publicConfig?.address_settings?.show_landmark !== false,
-  showStreetDescription: publicConfig?.address_settings?.show_street_description !== false,
-  showPhoneNumber: publicConfig?.address_settings?.show_phone_number !== false,
-  enableHouseNumber: publicConfig?.address_settings?.enable_house_number !== false,
-  enableDistrict: publicConfig?.address_settings?.enable_district !== false,
-  quickCreateTargetSeconds: Number(publicConfig?.address_settings?.quick_create_target_seconds || 5),
-});
-
-const resolveCommunityApiUrl = (path) => {
-  if (typeof window === 'undefined') {
-    return path;
-  }
-
-  const { hostname, origin } = window.location;
-  if (hostname === 'ppoint.online' || hostname === 'www.ppoint.online' || hostname.endsWith('.vercel.app')) {
-    return `${origin}/api${path}`;
-  }
-
-  return path;
-};
-
-// DraggableSelectionMarker is now handled via Mapbox Marker drag events
-function DraggablePin({ position, onChange }) {
-  if (!position) return null;
+function GlassCard({ children, className = '' }) {
   return (
-    <Marker
-      longitude={position[1]}
-      latitude={position[0]}
-      anchor="bottom"
-      draggable
-      onDragEnd={(e) => {
-        const { lng, lat } = e.lngLat;
-        onChange([lat, lng]);
-      }}
-    >
-      <div style={{ fontSize: 30, lineHeight: 1, filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.5))' }}>📍</div>
-    </Marker>
-  );
-}
-
-function PlaceTypePicker({ value, customValue, onChange, onCustomChange, tone = 'dark' }) {
-  const theme = tone === 'light'
-    ? {
-        wrapper: 'rounded-[1.5rem] border border-stone-200 bg-stone-50 p-4',
-        label: 'text-stone-700',
-        helper: 'text-stone-500',
-        select: 'border-stone-200 bg-white text-stone-900',
-        customInput: 'border-stone-200 bg-white text-stone-900 placeholder:text-stone-400',
-      }
-    : {
-        wrapper: 'rounded-[1.5rem] border border-white/10 bg-black/20 p-4',
-        label: 'text-stone-200',
-        helper: 'text-stone-400',
-        select: 'border-white/10 bg-white/5 text-stone-100',
-        customInput: 'border-white/10 bg-white/5 text-white placeholder:text-stone-500',
-      };
-
-  const PLACE_OPTIONS = [
-    { type: 'House', icon: '🏠' },
-    { type: 'Shop', icon: '🛍' },
-    { type: 'Office', icon: '🏢' },
-    { type: 'School', icon: '🎓' },
-    { type: 'Hospital', icon: '🏥' },
-    { type: 'Hotel', icon: '🏨' },
-    { type: 'Police Station', icon: '🚓' },
-    { type: 'Church', icon: '⛪' },
-    { type: 'Mosque', icon: '🕌' },
-    { type: 'Warehouse', icon: '📦' },
-    { type: 'Market', icon: '🛒' },
-    { type: 'Government Office', icon: '🏛' },
-    { type: 'Estate Gate', icon: '🚪' },
-    { type: 'Barracks', icon: '🪖' },
-    { type: 'Public Building', icon: '🏛' },
-    { type: 'Other', icon: '📍' },
-  ];
-
-  return (
-    <div className={`${theme.wrapper} space-y-4`}>
-      <div>
-        <label className={`text-sm font-semibold uppercase tracking-[0.25em] block ${theme.label}`}>Place Type</label>
-        <p className={`mt-1 text-sm ${theme.helper}`}>Select the location type that matches this pin.</p>
-      </div>
-
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`w-full appearance-none rounded-2xl border px-4 py-4 text-base font-medium outline-none transition focus:ring-2 focus:ring-amber-400/50 ${theme.select}`}
-        >
-          <option value="" disabled>Select a place type...</option>
-          {PLACE_OPTIONS.map((opt) => (
-            <option key={opt.type} value={opt.type}>
-              {opt.icon} {opt.type}
-            </option>
-          ))}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
-          <svg className={`h-5 w-5 ${tone === 'light' ? 'text-stone-400' : 'text-stone-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-
-      {value === 'Other' && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-          <input
-            value={customValue}
-            onChange={(event) => onCustomChange(event.target.value)}
-            className={`w-full rounded-2xl border px-4 py-3 outline-none ${theme.customInput}`}
-            placeholder="Enter custom place type (e.g. Workshop)"
-            autoFocus
-          />
-        </div>
-      )}
+    <div className={`glass-card rounded-[2.5rem] p-8 ${className}`}>
+      {children}
     </div>
   );
 }
 
-function BottomSheet({ isOpen, children }) {
+function PrimaryButton({ children, onClick, variant = 'primary', className = '', disabled = false }) {
+  const base = "flex items-center justify-center gap-2 rounded-2xl px-6 py-4 font-black transition-all active:scale-95 disabled:opacity-50";
+  const variants = {
+    primary: "bg-amber-400 text-stone-950 hover:bg-amber-300 shadow-xl shadow-amber-400/20",
+    secondary: "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+  };
   return (
-    <>
-      {/* Overlay */}
-      <div className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} />
-      
-      {/* Sheet */}
-      <div className={`fixed inset-x-0 bottom-0 z-50 transform rounded-t-[2.5rem] border-t border-white/10 bg-stone-950 p-6 pb-12 shadow-[0_-20px_40px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-spring ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
-        <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-white/20" />
-        {children}
-      </div>
-    </>
+    <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>
+      {children}
+    </button>
   );
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function HomePage() {
-      // Detects the user's current location using the browser geolocation API
-      const detectLocation = () => {
-        if (!navigator.geolocation) {
-          setError('Geolocation is not supported by your browser.');
-          return;
-        }
-        setLoading(true);
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            setPosition([position.coords.latitude, position.coords.longitude]);
-            setSelectedPosition([position.coords.latitude, position.coords.longitude]);
-            setLoading(false);
-            setError('');
-          },
-          (err) => {
-            setError('Unable to retrieve your location.');
-            setLoading(false);
-          }
-        );
-      };
-    // Handles updating the place type and resets customPlaceType if needed
-    const updatePlaceType = (nextType) => {
-      setAddressForm((current) => ({
-        ...current,
-        placeType: nextType,
-        customPlaceType: nextType === 'Other' ? current.customPlaceType : '',
-      }));
-    };
+  const navigate = useNavigate();
+  
+  const [currentScreen, setCurrentScreen] = useState(SCREENS.HOME);
   const [position, setPosition] = useState([6.5244, 3.3792]);
   const [selectedPosition, setSelectedPosition] = useState(null);
-  const [draftAddress, setDraftAddress] = useState(null);
-  const [searchResult, setSearchResult] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
-  const [addressForm, setAddressForm] = useState(initialAddressForm);
-  const [copyState, setCopyState] = useState('');
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  const [step, setStep] = useState(1);
+  
+  // PPOINNT Creation States
+  const [placeType, setPlaceType] = useState(PLACE_TYPES[0]); // Default to 'House'
+  const [buildingName, setBuildingName] = useState('');
+  const [landmark, setLandmark] = useState('');
+  const [note, setNote] = useState(''); // Formerly extraDirections
+  
   const [loading, setLoading] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [publicConfig, setPublicConfig] = useState(null);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
-  const [gpsAccuracy, setGpsAccuracy] = useState(null);
-  const [selectedNavigationKey, setSelectedNavigationKey] = useState('');
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null); // Renamed from draftAddress
+  const [notice, setNotice] = useState(''); // For success messages like "Copied!"
+  const [showGuidance, setShowGuidance] = useState(true);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  
+  // Payment States
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
-  const activeAddress = draftAddress || searchResult;
-  const navigationPoints = Array.isArray(draftAddress?.navigation_points) ? draftAddress.navigation_points : [];
-  const selectedNavigationPoint = navigationPoints.find((point) => point.key === selectedNavigationKey)
-    || navigationPoints.find((point) => point.key === draftAddress?.selected_navigation_point)
-    || navigationPoints[0]
-    || null;
-  const activePosition = searchResult
-    ? [Number(searchResult.latitude), Number(searchResult.longitude)]
-    : (selectedPosition || position);
-  const shareUrl = activeAddress ? `${window.location.origin}/${activeAddress.code}` : '';
-  const addressSettings = getAddressSettings(publicConfig);
-  const deliveryMessage = activeAddress ? [
-    'My PPOINNT delivery address:',
-    '',
-    activeAddress.code,
-    [activeAddress.building_name || activeAddress.community_name || activeAddress.landmark, activeAddress.city, activeAddress.state].filter(Boolean).join(', '),
-    activeAddress.entrance_label ? `Access point: ${activeAddress.entrance_label}` : null,
-    '',
-    'Open location:',
-    shareUrl || `https://ppoint.online/${activeAddress.code}`,
-  ].filter(v => v !== null).join('\n') : '';
-  const shareCardText = activeAddress ? [
-    'My PPOINNT Address',
-    '',
-    activeAddress.code,
-    '',
-    [activeAddress.house_number, activeAddress.building_name || activeAddress.landmark || 'Community mapped address'].filter(Boolean).join(' '),
-    activeAddress.structured_address_line || null,
-    activeAddress.entrance_label ? `Access Point: ${activeAddress.entrance_label}` : null,
-    `${activeAddress.city}, ${activeAddress.state}`,
-    shareUrl,
-  ].filter(Boolean).join('\n') : '';
-
+  // Repeating Guidance Logic: Fade in (1s), Stay (4s), Repeat gap (10s)
   useEffect(() => {
-    api.get('/platform/system/public-config')
-      .then((response) => setPublicConfig(response.data.data || null))
-      .catch(() => setPublicConfig(null));
-  }, []);
-
-  useEffect(() => {
-    if (!draftAddress) {
-      setSelectedNavigationKey('');
+    if (hasInteracted) {
+      setShowGuidance(false);
       return;
     }
-    setSelectedNavigationKey(draftAddress.selected_navigation_point || draftAddress.navigation_points?.[0]?.key || '');
-  }, [draftAddress]);
+    const interval = setInterval(() => {
+      if (!hasInteracted && !selectedPosition) { // Only show if no pin is placed
+        setShowGuidance(true);
+        setTimeout(() => setShowGuidance(false), 5000); // 1s fade + 4s stay
+      }
+    }, 15000); // 5s active + 10s gap
+    return () => clearInterval(interval);
+  }, [hasInteracted, selectedPosition]);
 
-  const generateCommunityAddress = async () => {
-    if (!selectedPosition) return;
+  const mapRef = useRef(null);
+
+  // ─── Core Logic ─────────────────────────────────────────────────────────────
+
+  const detectLocation = () => {
     setLoading(true);
     setError('');
-    setNotice('');
+    
+    if (!navigator.geolocation) {
+      setError('Geolocation not supported');
+      setLoading(false);
+      return;
+    }
 
-    try {
-      const response = await api.post('/platform/community/addresses/generate', {
-        latitude: selectedPosition[0],
-        longitude: selectedPosition[1]
-      });
-      const nextAddress = response.data.data;
-      setDraftAddress(nextAddress);
-      
-      const nextLat = Number(nextAddress.latitude);
-      const nextLng = Number(nextAddress.longitude);
-      if (!isNaN(nextLat) && !isNaN(nextLng)) {
-        setSelectedPosition([nextLat, nextLng]);
-        setPosition([nextLat, nextLng]);
-      }
-      
-      setNotice('PPOINNT code generated. Please review and save beneath the map to activate it.');
-      setStep(2);
-    } catch (requestError) {
-      try {
-        const fallbackResponse = await api.post(resolveCommunityApiUrl('/platform/community/addresses/generate'), {
-          latitude: selectedPosition[0],
-          longitude: selectedPosition[1]
-        });
-        const nextAddress = fallbackResponse.data.data;
-        setDraftAddress(nextAddress);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const newPos = { lat, lng };
+        setPosition([lat, lng]);
+        setSelectedPosition(newPos);
         
-        const nextLat = Number(nextAddress.latitude);
-        const nextLng = Number(nextAddress.longitude);
-        if (!isNaN(nextLat) && !isNaN(nextLng)) {
-          setSelectedPosition([nextLat, nextLng]);
-          setPosition([nextLat, nextLng]);
+        // Auto-scroll map to location
+        if (mapRef.current) {
+          mapRef.current.flyTo(lng, lat, 17);
         }
         
-        setNotice('PPOINNT code generated. Please review and save beneath the map to activate it.');
-        setStep(2);
-      } catch (fallbackError) {
-        setError(fallbackError.response?.data?.message || requestError.response?.data?.error || 'Failed to generate community address.');
+        setLoading(false);
+        setHasInteracted(true);
+      },
+      (err) => {
+        setError('Location permission denied. Please enable GPS.');
+        setLoading(false);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
+  const generatePpoint = async () => {
+    if (!selectedPosition) {
+      setError('Select a location first');
+      return;
+    }
+    if (!placeType) {
+      setError('Please select a Place Type');
+      return;
+    }
+
+    setLoading(true);
+    setError(''); // Clear previous errors
+    try {
+      const response = await api.post('/platform/community/addresses/generate', {
+        latitude: selectedPosition.lat,
+        longitude: selectedPosition.lng,
+        placeType: placeType,
+        customPlaceType: placeType === 'Other' ? note : null,
+        buildingName,
+      });
+
+      setResult(response.data.data);
+      setCurrentScreen(SCREENS.RESULT); // Move to Result screen
+      setHasInteracted(true);
+    } catch (err) {
+      if (err.response?.status === 402) {
+        setShowPaymentModal(true);
+      } else {
+        setError(err.response?.data?.message || 'Failed to generate PPOINNT. Please try again.');
+        setCurrentScreen(SCREENS.HOME);
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const saveCommunityAddress = async () => {
-    if (!draftAddress?.id) {
-      setError('Generate a PPOINNT code before saving address details.');
-      return;
+  const processPayment = async () => {
+    setPaymentLoading(true);
+    try {
+      // Simulate Payment Verification (e.g. Paystack/Flutterwave)
+      await api.post('/payments/verify-ppoint-fee', { reference: 'PAY-' + Date.now() });
+      setShowPaymentModal(false);
+      // Retry generation as paid
+      await generatePpointAsPaid();
+    } catch (err) {
+      setError('Payment verification failed. Please try again.');
+    } finally {
+      setPaymentLoading(false);
     }
+  };
 
-    if (addressSettings.requireBuildingName && !addressForm.buildingName.trim()) {
-      setError('Building / Place Name is required.');
-      return;
+  const generatePpointAsPaid = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post('/platform/community/addresses/generate', {
+        latitude: selectedPosition.lat,
+        longitude: selectedPosition.lng,
+        placeType,
+        customPlaceType: placeType === 'Other' ? note : null,
+        buildingName,
+        isPaid: true // Tell backend payment is done
+      });
+      setResult(response.data.data);
+      setCurrentScreen(SCREENS.RESULT);
+    } catch (err) {
+      setError(err.response?.data?.message || 'PPOINNT generation failed even after payment.');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (!addressForm.placeType) {
-      setError('Select a place type before saving the PPOINNT address.');
-      return;
-    }
-
-    if (addressForm.placeType === 'Other' && !addressForm.customPlaceType.trim()) {
-      setError('Enter the custom place type when selecting Other.');
-      return;
-    }
-
-    setSaving(true);
+  const updatePpoint = async () => {
+    if (!result?.code) return;
+    setLoading(true);
     setError('');
-    setNotice('');
+    try {
+      const response = await api.put(`/addresses/${result.code}`, { // Assuming a PUT endpoint for updates
+        landmark,
+        description: note, // Using 'description' for Note
+      });
+      setResult(response.data.data); // Update result with new data
+      setNotice('PPOINNT improved with extra details!');
+    } catch (err) {
+      setError('Optional update failed, but your PPOINNT is still valid.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const payload = {
-      code: draftAddress.code,
-      ppoint_code: draftAddress.ppoint_code || draftAddress.code,
-      latitude: draftAddress.latitude,
-      longitude: draftAddress.longitude,
-      placeType: addressForm.placeType,
-      customPlaceType: addressForm.customPlaceType,
-      buildingName: addressForm.buildingName,
-      houseNumber: addressForm.houseNumber || draftAddress.house_number || '',
-      streetName: draftAddress.street_name || '',
-      communityName: draftAddress.community_name || '',
-      landmark: addressForm.landmark,
-      district: addressForm.district,
-      buildingPolygonId: draftAddress.building_polygon_id || draftAddress.address_metadata?.building_id || '',
-      streetDescription: addressForm.streetDescription,
-      phoneNumber: addressForm.phoneNumber,
-      entranceLabel: selectedNavigationPoint?.label || draftAddress.entrance_label || null,
-      entranceLatitude: selectedNavigationPoint?.latitude ?? draftAddress.entrance_latitude ?? null,
-      entranceLongitude: selectedNavigationPoint?.longitude ?? draftAddress.entrance_longitude ?? null,
-      confidenceScore: draftAddress.confidence_score || 0,
-      addressMetadata: {
-        ...(draftAddress.address_metadata || {}),
-        selected_navigation_point: selectedNavigationPoint?.key || draftAddress.selected_navigation_point || null,
-        navigation_points: draftAddress.navigation_points || draftAddress.address_metadata?.navigation_points || [],
-      },
-      createdBy: 'Community',
-      createdSource: 'community',
-    };
+  const shareToWhatsapp = (code) => {
+    const text = encodeURIComponent(`📍 PPOINNT Delivery Address:\nCode: ${code}\nLocation: ${result?.city || ''}\n\nLink: ${window.location.origin}/${code}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setLoading(true);
+    setError('');
 
     try {
-      const response = await api.patch(`/platform/community/addresses/${draftAddress.id}/details`, payload);
-      const nextAddress = response.data.data;
-      setDraftAddress(nextAddress);
-      const nextSaved = [
-        { label: nextAddress.building_name || nextAddress.code, ...nextAddress },
-        ...savedAddresses.filter((item) => item.code !== nextAddress.code),
-      ];
-      setSavedAddresses(nextSaved);
-      setShowMoreDetails(false);
-      localStorage.setItem(storageKey, JSON.stringify(nextSaved));
-      setNotice('Community address saved and activated. It is ready for delivery, navigation, and sharing.');
-      setStep(4);
-    } catch (requestError) {
-      try {
-        const fallbackResponse = await api.patch(resolveCommunityApiUrl(`/platform/community/addresses/${draftAddress.id}/details`), payload);
-        const nextAddress = fallbackResponse.data.data;
-        const nextSaved = [
-          { label: nextAddress.building_name || nextAddress.code, ...nextAddress },
-          ...savedAddresses.filter((item) => item.code !== nextAddress.code),
-        ];
-        setDraftAddress(nextAddress);
-        setSavedAddresses(nextSaved);
-        setShowMoreDetails(false);
-        localStorage.setItem(storageKey, JSON.stringify(nextSaved));
-        setNotice('Community address saved and activated. It is ready for delivery, navigation, and sharing.');
-        setStep(4);
-      } catch (fallbackError) {
-        setError(fallbackError.response?.data?.message || requestError.response?.data?.message || 'Failed to save community address.');
+      const response = await api.get('/address/search', { params: { code: searchQuery.trim().toUpperCase() } });
+      const foundAddress = response.data.data;
+      setResult(foundAddress);
+      setSelectedPosition({ lat: Number(foundAddress.latitude), lng: Number(foundAddress.longitude) });
+      setPosition([Number(foundAddress.latitude), Number(foundAddress.longitude)]);
+      
+      if (mapRef.current) {
+        mapRef.current.flyTo(Number(foundAddress.longitude), Number(foundAddress.latitude), 18);
       }
+      
+      setCurrentScreen(SCREENS.RESULT);
+      setHasInteracted(true);
+    } catch (err) {
+      setError('PPOINNT code not found or invalid');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  const handleSearch = async (event) => {
-    event.preventDefault();
-    const normalizedCode = searchQuery.trim().toUpperCase();
-    if (!normalizedCode) {
-      return;
-    }
+  // ─── Render Functions ──────────────────────────────────────────────────────
 
-    setSearching(true);
-    setError('');
-    setNotice('');
+  const renderHomeScreen = () => {
+    if (selectedPosition && !result) { // Only show initial capture if a pin is placed and no result yet
+      return (
+        <div className="absolute left-8 bottom-24 z-10 w-full max-w-[300px] animate-in slide-in-from-left-5 duration-500">
+          <GlassCard className="p-6 border border-white/10 shadow-3xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-black text-white italic tracking-tighter">NEW PPOINNT</h2>
+              <button onClick={() => setSelectedPosition(null)} className="text-stone-500 hover:text-white"><X size={16} /></button>
+            </div>
+    
+            <div className="space-y-3">
+              <div className="relative">
+                <select
+                  value={placeType}
+                  onChange={(e) => setPlaceType(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-white outline-none focus:border-amber-400"
+                >
+                  {PLACE_TYPES.map(type => (
+                    <option key={type} value={type} className="bg-stone-900 font-bold">{type}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-500">
+                  <Layers size={12} />
+                </div>
+              </div>
 
-    try {
-      const response = await api.get('/address/search', { params: { code: normalizedCode } });
-      const nextResult = response.data.data;
-      setSearchResult(nextResult);
-      setDraftAddress(null);
-      setSelectedNavigationKey(nextResult.selected_navigation_point || nextResult.navigation_points?.[0]?.key || '');
-      setSelectedPosition([Number(nextResult.latitude), Number(nextResult.longitude)]);
-      setPosition([Number(nextResult.latitude), Number(nextResult.longitude)]);
-      setNotice('PPOINNT address found.');
-      setStep(4);
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'PPOINNT code not found.');
-      setSearchResult(null);
-    } finally {
-      setSearching(false);
+              {placeType === 'Other' && (
+                <input 
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="Enter Place Type (e.g. Cinema)"
+                  className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50 animate-in zoom-in-95"
+                />
+              )}
+    
+              <input 
+                type="text"
+                value={buildingName}
+                onChange={(e) => setBuildingName(e.target.value)}
+                placeholder="Building Name (Optional)"
+                className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
+              />
+            </div>
+    
+            <PrimaryButton 
+              onClick={generatePpoint}
+              disabled={loading || !placeType}
+              className="w-full mt-4 py-3 text-xs shadow-none border-t border-white/5 rounded-2xl"
+            >
+              {loading ? <Zap size={18} className="animate-spin" /> : <Layers size={18} />}
+              {loading ? 'GENERATING...' : 'GENERATE PPOINNT'}
+            </PrimaryButton>
+    
+            {error && <p className="mt-3 text-[10px] font-bold text-red-500">{error}</p>}
+          </GlassCard>
+        </div>
+      );
     }
+    return null;
   };
 
-  const copyValue = async (value, type) => {
-    if (!value) {
-      return;
-    }
-
-    await navigator.clipboard.writeText(value);
-    setCopyState(type);
-  };
-
-  const sendToDriver = () => {
-    if (!deliveryMessage) {
-      return;
-    }
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(deliveryMessage)}`, '_blank', 'noopener,noreferrer');
-  };
-
-  const sendBySms = () => {
-    if (!deliveryMessage) {
-      return;
-    }
-
-    window.open(`sms:?body=${encodeURIComponent(deliveryMessage)}`, '_self');
-  };
-
-  const removeSavedAddress = (code) => {
-    const nextSaved = savedAddresses.filter((item) => item.code !== code);
-    setSavedAddresses(nextSaved);
-    localStorage.setItem(storageKey, JSON.stringify(nextSaved));
-  };
-
-  // ─── Render Sub-Components (Modals & Overlays) ──────────────────────────
-
-  // Bottom Sheet Container
-  const BottomSheet = ({ children, isOpen, onClose }) => (
-    <div className={`fixed inset-x-0 bottom-0 z-50 transform transition-transform duration-300 ease-out ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
-      <div className="absolute inset-x-0 top-0 h-10 w-full -translate-y-full bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
-      <div className="rounded-t-3xl border-t border-white/20 bg-stone-950/90 p-6 shadow-2xl backdrop-blur-2xl sm:p-8 sm:pb-12 max-w-2xl mx-auto">
-        <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-white/20" />
-        {children}
+  const renderGeneratingScreen = () => (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-2xl">
+      <div className="text-center">
+        <div className="mx-auto h-24 w-24 relative mb-6">
+           <div className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
+           <div className="relative h-24 w-24 animate-spin rounded-full border-[6px] border-amber-400 border-t-transparent shadow-[0_0_50px_hsla(38,92%,50%,0.4)]" />
+        </div>
+        <h3 className="text-4xl font-black text-white italic tracking-tighter">CALIBRATING GRID...</h3>
+        <p className="mt-2 font-bold text-stone-400 uppercase tracking-widest text-sm">Synchronizing hex-coordinates to network</p>
       </div>
     </div>
   );
 
+  const renderResultScreen = () => (
+    <div className="absolute left-8 bottom-24 z-20 w-full max-w-[350px] animate-in slide-in-from-left-5 duration-700">
+      <GlassCard className="p-6 border-t-4 border-emerald-500">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+             <ShieldCheck size={14} /> Verified Active
+          </div>
+          <button onClick={() => { setCurrentScreen(SCREENS.HOME); setResult(null); setSelectedPosition(null); setLandmark(''); setNote(''); setBuildingName(''); setPlaceType(PLACE_TYPES[0]); }} className="text-stone-500 hover:text-white transition"><X size={18} /></button>
+        </div>
+        
+        <div className="flex items-center gap-3 mb-6">
+           <h2 className="text-4xl font-black text-white tracking-tighter italic">{result?.code}</h2>
+           <button 
+             onClick={async () => { await navigator.clipboard.writeText(result.code); setNotice('Code copied!'); setTimeout(()=>setNotice(''), 2000); }} 
+             className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-stone-400 hover:bg-white/10"
+           >
+              {notice === 'Code copied!' ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
+           </button>
+        </div>
+
+        <div className="space-y-2 mb-6 text-white/90">
+           <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
+              <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Location</p>
+              <p className="text-xs font-bold flex items-center gap-2"><MapPin size={12} className="text-amber-400"/> {result?.city}, {result?.state}</p>
+           </div>
+           <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
+              <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Category</p>
+              <p className="text-xs font-bold flex items-center gap-2 uppercase"><Layers size={12} className="text-amber-400"/> {result?.display_place_type || result?.place_type}</p>
+           </div>
+           {result?.buildingName && (
+             <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
+                <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Building</p>
+                <p className="text-xs font-bold flex items-center gap-2">{result.buildingName}</p>
+             </div>
+           )}
+        </div>
+
+        {/* Enrichment Phase */}
+        <div className="mt-6 space-y-3 pt-4 border-t border-white/5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Boost Accuracy (Optional)</p>
+          
+          <input 
+            placeholder="Landmark (e.g. Near Big Gate)"
+            value={landmark}
+            onChange={e => setLandmark(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50"
+          />
+          
+          <textarea 
+            placeholder="Note / Door description"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows="2"
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50 resize-none"
+          />
+
+          <PrimaryButton 
+            onClick={updatePpoint}
+            disabled={loading}
+            className="w-full py-3 text-xs shadow-none border-t border-white/5 rounded-2xl"
+          >
+            {loading ? 'SAVING...' : 'SAVE ENRICHMENT'}
+          </PrimaryButton>
+          {notice === 'PPOINNT improved with extra details!' && <p className="mt-2 text-[10px] font-bold text-emerald-400">{notice}</p>}
+          {error && <p className="mt-2 text-[10px] font-bold text-red-500">{error}</p>}
+        </div>
+
+        <div className="mt-6 flex gap-2">
+          <button 
+            onClick={() => shareToWhatsapp(result?.code)}
+            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25D366] text-white shadow-lg hover:scale-105 transition active:scale-95"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+            </svg>
+          </button>
+          <PrimaryButton 
+            onClick={() => navigate(`/drivers?code=${result?.code}`)}
+            className="flex-1 py-3 text-xs shadow-lg shadow-blue-600/20"
+          >
+            <Navigation size={14} /> NAVIGATE
+          </PrimaryButton>
+        </div>
+      </GlassCard>
+    </div>
+  );
+
   return (
-    <div className="relative w-full h-full flex flex-col bg-stone-900 overflow-hidden">
-      {/* ─── FULL SCREEN MAP ─── */}
+    <div className="relative h-screen w-full flex flex-col bg-stone-950 overflow-hidden font-sans">
+      
+      {/* ── FLOATING GUIDANCE ── */}
+      {showGuidance && currentScreen === SCREENS.HOME && !selectedPosition && (
+        <div className="absolute top-24 inset-x-0 z-50 flex justify-center px-4 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-1000">
+           <div className="flex items-center gap-3 rounded-full bg-white/10 border border-white/20 p-2 px-6 backdrop-blur-2xl shadow-2xl pointer-events-auto">
+              <p className="text-[11px] font-black text-white italic tracking-tighter">
+                For best accuracy, stand at your entrance or move the pin
+              </p>
+           </div>
+        </div>
+      )}
+
+      {/* ── MAP CONTAINER ── */}
       <div className="absolute inset-0 z-0">
         <MapboxMap
+          ref={mapRef}
           center={[position[1], position[0]]}
           zoom={15}
-          defaultViewMode="hybrid"
-          defaultTheme="dark"
-          showViewToggle={false}
+          defaultViewMode="hybrid" // High-contrast design for Hybrid
           onClick={(lat, lng) => {
-            if (step !== 1) return;
-            setSelectedPosition([lat, lng]);
-            setPosition([lat, lng]);
-            setDraftAddress(null);
-            setError('');
+            if (currentScreen === SCREENS.HOME) {
+              setSelectedPosition({ lat, lng });
+              setPosition([lat, lng]);
+              setHasInteracted(true);
+            }
           }}
           style={{ height: '100%', width: '100%' }}
         >
-          <DraggablePin
-            position={selectedPosition}
-            onChange={(nextPosition) => {
-              setSelectedPosition(nextPosition);
-              setPosition(nextPosition);
-              setDraftAddress(null);
-            }}
-          />
-          {searchResult && (
-            <Marker longitude={Number(searchResult.longitude)} latitude={Number(searchResult.latitude)} anchor="bottom">
-              <div style={{ fontSize: 32, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))' }}>📍</div>
+          {selectedPosition && (
+            <Marker 
+              longitude={selectedPosition.lng} 
+              latitude={selectedPosition.lat} 
+              anchor="bottom"
+              draggable
+              onDragEnd={(evt) => {
+                const { lng, lat } = evt.lngLat;
+                setSelectedPosition({ lat, lng });
+              }}
+            >
+              <div className="relative group flex items-center justify-center h-8 w-8 cursor-move transition-transform active:scale-125">
+                 {/* Precision Shadow & Pulse */}
+                 <div className="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-20" />
+                 <div className="absolute h-full w-full rounded-full bg-black/40 blur-[4px] translate-y-2 scale-x-75" />
+                 
+                 {/* Surgical Pin Body */}
+                 <div className="relative h-full w-full flex items-center justify-center rounded-full border-2 border-white bg-amber-500 shadow-xl overflow-hidden">
+                   {/* Center Dot for Precision */}
+                   <div className="h-2 w-2 rounded-full bg-stone-950 border border-white/50" />
+                 </div>
+              </div>
             </Marker>
           )}
         </MapboxMap>
       </div>
 
-      {/* ─── FLOATING TOP CONTROLS ─── */}
-      <div className="absolute top-4 inset-x-4 z-10 flex flex-col gap-3 max-w-xl mx-auto pointer-events-none">
-        {/* Search Bar */}
-        <form onSubmit={(e) => { handleSearch(e); if (searchQuery) setStep(4); }} className="relative pointer-events-auto">
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search PPOINNT Code..."
-            className="w-full rounded-[1.5rem] border border-white/20 bg-stone-950/80 px-5 py-4 pl-12 font-bold text-white shadow-xl backdrop-blur-xl outline-none placeholder:text-stone-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20"
-          />
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={20} />
-          {searching && <span className="absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-amber-400">⌛</span>}
-        </form>
+      {/* ── SEARCH BAR ── */}
+      {currentScreen !== SCREENS.GENERATING && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 w-full max-w-[400px] px-4">
+          <form onSubmit={handleSearch} className="relative group">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search PPOINNT..."
+              className="w-full rounded-2xl border border-white/10 bg-black/40 px-12 py-4 font-black text-white shadow-2xl backdrop-blur-xl outline-none focus:border-amber-400/50 transition-all text-sm"
+            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400" size={18} />
+            {loading && <div className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />}
+          </form>
+        </div>
+      )}
 
-        {error && <div className="rounded-2xl border border-red-500/30 bg-red-500/80 p-3 text-sm font-semibold text-white shadow-lg backdrop-blur pointer-events-auto">{error}</div>}
-        {notice && <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/80 p-3 text-sm font-semibold text-white shadow-lg backdrop-blur pointer-events-auto">{notice}</div>}
-      </div>
-
-      {/* ─── FLOATING RIGHT CONTROLS ─── */}
-      <div className="absolute right-4 bottom-40 z-10 flex flex-col gap-3 pointer-events-none">
-        <button
+      {/* ── FLOATING TARGET BUTTON ── */}
+      {currentScreen === SCREENS.HOME && (
+        <button 
           onClick={detectLocation}
-          className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-stone-950/80 text-amber-400 shadow-xl backdrop-blur-xl hover:bg-stone-900 pointer-events-auto transition"
-          title="Locate Me"
+          className={`absolute right-6 bottom-[120px] z-20 flex h-14 w-14 items-center justify-center rounded-2xl shadow-3xl transition-all active:scale-90 ${loading ? 'bg-amber-400 animate-pulse' : 'bg-stone-900 border border-white/10 text-amber-400 hover:bg-stone-800'}`}
         >
-          {loading ? <span className="animate-spin">↻</span> : <LocateFixed size={24} />}
+          <LocateFixed size={28} />
         </button>
+      )}
+
+      {/* ── UI OVERLAYS ── */}
+      {currentScreen === SCREENS.HOME && renderHomeScreen()}
+      {currentScreen === SCREENS.GENERATING && renderGeneratingScreen()}
+      {currentScreen === SCREENS.RESULT && renderResultScreen()}
+
+      {/* ── BRANDING ── */}
+      <div className="absolute top-2 left-6 z-10 select-none grayscale opacity-30 pointer-events-none">
+         <span className="text-6xl font-black italic tracking-tighter text-white">PPOINT</span>
       </div>
 
-      {/* ─── STEP 1: BOTTOM ACTION PANEL ─── */}
-      <div className={`absolute inset-x-4 bottom-8 z-10 mx-auto max-w-xl transition-all duration-300 ${step === 1 ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-8 opacity-0 pointer-events-none'}`}>
-        <div className="relative rounded-[1.75rem] border border-white/20 bg-stone-950/80 p-4 shadow-2xl backdrop-blur-xl">
-          {isBottomSheetExpanded ? (
-            <div className="space-y-4 pt-2">
-              <div 
-                className="absolute left-1/2 top-4 h-1.5 w-12 -translate-x-1/2 cursor-pointer rounded-full bg-white/20 hover:bg-white/30"
-                onClick={() => setIsBottomSheetExpanded(false)}
-              />
-              <div className="pt-4 flex flex-col gap-2">
-                <label className="text-sm font-semibold text-stone-400">Select Place Type</label>
-                <select
-                  value={addressForm.placeType}
-                  onChange={(e) => updatePlaceType(e.target.value)}
-                  className="w-full rounded-[1.25rem] border border-white/20 bg-stone-900 px-4 py-3 text-white shadow-xl outline-none focus:border-amber-400/50"
-                >
-                  <option value="" disabled>Select a type...</option>
-                  {PLACE_TYPES.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-                {addressForm.placeType === 'Other' && (
-                   <input
-                     value={addressForm.customPlaceType || ''}
-                     onChange={(e) => setAddressForm((c) => ({ ...c, customPlaceType: e.target.value }))}
-                     placeholder="Specify custom place type..."
-                     className="mt-2 w-full rounded-[1.25rem] border border-white/20 bg-stone-900 px-4 py-3 text-white shadow-xl outline-none focus:border-amber-400/50"
-                   />
-                )}
+      {/* ── PAYMENT MODAL ── */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-stone-950/40 backdrop-blur-xl p-4">
+           <div className="w-full max-w-sm rounded-[2.5rem] bg-stone-900 border border-white/10 p-8 shadow-3xl animate-in slide-in-from-bottom-5">
+              <div className="flex justify-center mb-6">
+                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-400 text-stone-950 shadow-xl shadow-amber-400/20">
+                    <DollarSign size={32} />
+                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <button
-                  onClick={detectLocation}
-                  disabled={loading}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-white/10 px-4 py-4 font-bold text-white hover:bg-white/20 transition disabled:opacity-50"
-                >
-                  <LocateFixed size={20} /> Locat{loading ? 'ing...' : 'e Me'}
-                </button>
-                <button
-                  onClick={() => { setIsBottomSheetExpanded(false); generateCommunityAddress(); }}
-                  disabled={loading || !selectedPosition}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-4 font-black text-stone-950 hover:bg-amber-300 transition shadow-lg shadow-amber-400/20 disabled:opacity-50"
-                >
-                  <MapPinned size={20} /> Generate
-                </button>
+              <h2 className="text-3xl font-black text-white italic tracking-tighter text-center">LIMIT REACHED</h2>
+              <p className="mt-4 text-center text-sm font-bold text-stone-400 leading-relaxed uppercase tracking-widest">
+                First 3 PPOINNTs are free. To generate this new precision code, a small fee of <span className="text-amber-400">₦50</span> applies.
+              </p>
+              
+              <div className="mt-8 space-y-3">
+                 <PrimaryButton 
+                   onClick={processPayment}
+                   disabled={paymentLoading}
+                   className="w-full"
+                 >
+                   {paymentLoading ? 'PROCESSING...' : 'PAY ₦50 & GENERATE'}
+                 </PrimaryButton>
+                 <button 
+                   onClick={() => setShowPaymentModal(false)}
+                   className="w-full py-3 text-[10px] font-black uppercase text-stone-500 hover:text-white"
+                 >
+                   CANCEL
+                 </button>
               </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsBottomSheetExpanded(true)}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-4 py-4 font-black text-stone-950 shadow-lg shadow-amber-400/20 transition hover:bg-amber-300"
-            >
-              <MapPinned size={22} /> Generate PPOINNT Address
-            </button>
-          )}
+           </div>
         </div>
-      </div>
-
-      {/* ─── STEP 2: PPOINNT GENERATED MODAL ─── */}
-      <BottomSheet isOpen={step === 2 && draftAddress}>
-        <p className="text-sm font-black uppercase tracking-[0.3em] text-stone-400">New PPOINNT Code</p>
-        <h2 className="mt-2 text-6xl font-black text-amber-400">{draftAddress?.code}</h2>
-        <div className="mt-4 flex flex-col gap-1 text-lg font-semibold text-stone-200">
-          <p>{draftAddress?.city}</p>
-          <p className="text-stone-400">{draftAddress?.state}, {draftAddress?.country}</p>
-        </div>
-        
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          <button onClick={() => setStep(3)} className="w-full rounded-2xl bg-amber-400 py-4 font-black text-stone-950 hover:bg-amber-300 transition">Save & Activate</button>
-          <button onClick={() => { setStep(1); setDraftAddress(null); }} className="w-full rounded-2xl bg-white/10 py-4 font-bold text-white hover:bg-white/20 transition">Discard</button>
-        </div>
-      </BottomSheet>
-
-      {/* ─── STEP 3: ADD DETAILS MODAL ─── */}
-      <BottomSheet isOpen={step === 3 && draftAddress}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-black text-white">Save Address Details</h3>
-          <button onClick={() => setStep(2)} className="rounded-full bg-white/10 p-2 text-stone-400 hover:text-white"><ArrowRight size={20} className="rotate-180" /></button>
-        </div>
-        
-        <div className="max-h-[50vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-          <PlaceTypePicker
-            tone="dark"
-            value={addressForm.placeType}
-            customValue={addressForm.customPlaceType}
-            onChange={(nextType) => setAddressForm({ ...addressForm, placeType: nextType })}
-            onCustomChange={(nextCustom) => setAddressForm({ ...addressForm, customPlaceType: nextCustom })}
-          />
-          <input value={addressForm.buildingName} onChange={(event) => setAddressForm({ ...addressForm, buildingName: event.target.value })} className={inputClassName} placeholder="Building / Place Name (Required)" />
-          {addressSettings.showLandmark && <input value={addressForm.landmark} onChange={(event) => setAddressForm({ ...addressForm, landmark: event.target.value })} className={inputClassName} placeholder="Nearest Landmark (optional)" />}
-        </div>
-        
-        <button onClick={saveCommunityAddress} disabled={saving} className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-400 px-6 py-4 text-xl font-black text-stone-950 shadow-xl shadow-amber-400/20 transition hover:bg-amber-300 disabled:opacity-50">
-          {saving ? 'Saving...' : 'Confirm & Save'}
-        </button>
-      </BottomSheet>
-
-      {/* ─── STEP 4: ACTIVE ADDRESS ACTIONS MODAL ─── */}
-      <BottomSheet isOpen={step === 4 && activeAddress}>
-        <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-400">PPOINNT Details</p>
-        <h2 className="mt-1 text-5xl font-black text-white">{activeAddress?.code}</h2>
-        <p className="mt-3 text-lg font-medium text-stone-300">{[activeAddress?.house_number, activeAddress?.building_name || activeAddress?.landmark].filter(Boolean).join(' ')}</p>
-        <p className="mt-1 text-stone-500">{activeAddress?.city}, {activeAddress?.state}</p>
-        
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          <Link to={`/drivers?code=${activeAddress?.code}`} className="flex items-center justify-center gap-2 rounded-2xl bg-amber-400 py-4 font-black text-stone-950 hover:bg-amber-300 transition">
-            <Navigation size={20} /> Navigate
-          </Link>
-          <button onClick={sendToDriver} className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] py-4 font-bold text-white shadow-lg transition hover:bg-[#20b858]">
-            <Share2 size={20} /> Share
-          </button>
-          <button onClick={() => copyValue(activeAddress?.code, 'code')} className="flex items-center justify-center gap-2 rounded-2xl bg-white/10 py-4 font-bold text-white hover:bg-white/20 transition sm:col-span-2">
-            <Copy size={20} /> {copyState === 'code' ? 'Copied!' : 'Copy Code'}
-          </button>
-        </div>
-        <button onClick={() => { setStep(1); setDraftAddress(null); setSearchResult(null); }} className="mt-6 w-full text-center text-sm font-semibold text-stone-500 hover:text-white transition">Close</button>
-      </BottomSheet>
-
+      )}
     </div>
   );
-}
+}
+
+function DollarSign({ size }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}

@@ -1,5 +1,5 @@
 // buildingDetectionRoutes.js
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // POST /api/buildings/ingest
@@ -17,4 +17,4 @@ router.post('/buildings/ai-detect', async (req, res) => {
   res.json({ message: 'AI detection started' });
 });
 
-module.exports = router;
+export default router;

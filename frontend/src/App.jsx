@@ -16,7 +16,9 @@ function App() {
         <Route path="/developers" element={<DevelopersPage />} />
         <Route path="/developer/dashboard" element={<DevelopersPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/login" element={<AdminDashboard />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/drivers" element={<DriversPage />} />
         <Route path="/:code" element={<AddressPage />} />
       </Routes>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Globe2, MapPin } from 'lucide-react';
+import { Globe2, MapPin, ShieldCheck } from 'lucide-react';
 import api from '../services/api';
 
 export default function Layout({ children }) {
@@ -11,6 +11,14 @@ export default function Layout({ children }) {
       .then((response) => setPublicConfig(response.data.data || null))
       .catch(() => setPublicConfig(null));
   }, []);
+
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('user_role') || 'user');
+
+  const toggleRole = () => {
+    const nextRole = userRole === 'user' ? 'agent' : 'user';
+    setUserRole(nextRole);
+    localStorage.setItem('user_role', nextRole);
+  };
 
   const location = useLocation();
   const isFullScreenMode = ['/', '/drivers'].includes(location.pathname);
@@ -31,13 +39,21 @@ export default function Layout({ children }) {
               </div>
             </Link>
             <div className="flex items-center gap-3 text-sm text-stone-300">
+              <button 
+                onClick={toggleRole}
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest transition shadow-lg ${userRole === 'agent' ? 'bg-amber-400 text-stone-950 shadow-amber-400/20' : 'bg-white/5 text-stone-400 border border-white/10'}`}
+              >
+                {userRole === 'agent' ? <ShieldCheck size={14} /> : null}
+                {userRole === 'agent' ? 'AGENT MODE' : 'SWITCH TO AGENT'}
+              </button>
+
               {[
                 { to: '/', label: 'Get Address' },
                 { to: '/drivers', label: 'Driver Navigation' },
-                { to: '/agents', label: 'Agents' },
-                { to: '/developers', label: 'Developers' },
-                { to: '/admin', label: 'Admin' },
-              ].map((item) => (
+                userRole === 'agent' && { to: '/agents', label: 'Dashboard' },
+                userRole === 'agent' && { to: '/developers', label: 'API' },
+                userRole === 'agent' && { to: '/admin', label: 'Admin' },
+              ].filter(Boolean).map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -46,10 +62,10 @@ export default function Layout({ children }) {
                   {item.label}
                 </NavLink>
               ))}
-              <>
-                <Globe2 size={16} />
+              <div className="hidden lg:flex items-center gap-2 text-[10px] font-black uppercase text-stone-500 ml-2">
+                <Globe2 size={12} />
                 <span>ppoint.africa</span>
-              </>
+              </div>
             </div>
           </div>
         </div>
