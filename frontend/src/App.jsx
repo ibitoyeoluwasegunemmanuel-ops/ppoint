@@ -5,6 +5,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import DevelopersPage from './pages/DevelopersPage';
 import AgentsPage from './pages/AgentsPage';
 import DriversPage from './pages/DriversPage';
+import ProfilePage from './pages/ProfilePage';
 import Layout from './components/Layout';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/drivers" element={<DriversPage />} />
+        <Route path="/profile/:id" element={<ProfilePage />} />
         <Route path="/:code" element={<AddressPage />} />
       </Routes>
     </Layout>

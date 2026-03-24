@@ -53,6 +53,7 @@ export default function HomePage() {
   const [buildingName, setBuildingName] = useState('');
   const [landmark, setLandmark] = useState('');
   const [note, setNote] = useState(''); // Formerly extraDirections
+  const [creatorName, setCreatorName] = useState('Ibitoye Oluwasegun Emmanuel');
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -177,6 +178,7 @@ export default function HomePage() {
         placeType,
         customPlaceType: placeType === 'Other' ? note : null,
         buildingName,
+        creatorName,
         isPaid: true // Tell backend payment is done
       });
       setResult(response.data.data);
@@ -193,9 +195,10 @@ export default function HomePage() {
     setLoading(true);
     setError('');
     try {
-      const response = await api.put(`/addresses/${result.code}`, { // Assuming a PUT endpoint for updates
+      const response = await api.patch(`/platform/community/addresses/${result.code}/details`, { 
         landmark,
-        description: note, // Using 'description' for Note
+        description: note,
+        creator_name: creatorName,
       });
       setResult(response.data.data); // Update result with new data
       setNotice('PPOINNT improved with extra details!');
@@ -219,20 +222,30 @@ export default function HomePage() {
     setError('');
 
     try {
-      const response = await api.get('/address/search', { params: { code: searchQuery.trim().toUpperCase() } });
-      const foundAddress = response.data.data;
-      setResult(foundAddress);
-      setSelectedPosition({ lat: Number(foundAddress.latitude), lng: Number(foundAddress.longitude) });
-      setPosition([Number(foundAddress.latitude), Number(foundAddress.longitude)]);
-      
-      if (mapRef.current) {
-        mapRef.current.flyTo(Number(foundAddress.longitude), Number(foundAddress.latitude), 18);
+      // Step 1: Try searching for a PPOINNT address
+      try {
+        const response = await api.get('/address/search', { params: { code: searchQuery.trim().toUpperCase() } });
+        const foundAddress = response.data.data;
+        if (foundAddress) {
+          setResult(foundAddress);
+          setSelectedPosition({ lat: Number(foundAddress.latitude), lng: Number(foundAddress.longitude) });
+          setPosition([Number(foundAddress.latitude), Number(foundAddress.longitude)]);
+          if (mapRef.current) mapRef.current.flyTo(Number(foundAddress.longitude), Number(foundAddress.latitude), 18);
+          setCurrentScreen(SCREENS.RESULT);
+          return;
+        }
+      } catch (err) {
+        // Fallback to profile search
       }
-      
-      setCurrentScreen(SCREENS.RESULT);
-      setHasInteracted(true);
+
+      // Step 2: Search for profiles/users
+      const profileResp = await api.get('/profiles/search', { params: { q: searchQuery.trim() } });
+      const profiles = profileResp.data.data;
+      if (profiles && profiles.length > 0) {
+        navigate(`/profile/${profiles[0].id}`);
+      }
     } catch (err) {
-      setError('PPOINNT code not found or invalid');
+        setError('Search failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -283,7 +296,14 @@ export default function HomePage() {
                 placeholder="Building Name (Optional)"
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
               />
-            </div>
+              <input 
+              type="text"
+              value={creatorName}
+              onChange={(e) => setCreatorName(e.target.value)}
+              placeholder="Your Full Name (required)"
+              className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
+            />
+          </div>
     
             <PrimaryButton 
               onClick={generatePpoint}
@@ -369,6 +389,13 @@ export default function HomePage() {
             onChange={e => setNote(e.target.value)}
             rows="2"
             className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50 resize-none"
+          />
+
+          <input 
+            placeholder="Creator Name"
+            value={creatorName}
+            onChange={e => setCreatorName(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50"
           />
 
           <PrimaryButton 

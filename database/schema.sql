@@ -417,3 +417,23 @@ CREATE TABLE IF NOT EXISTS public_usage (
     last_generation_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE addresses
+ADD COLUMN IF NOT EXISTS creator_name VARCHAR(180),
+ADD COLUMN IF NOT EXISTS profile_id INTEGER;
+
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id SERIAL PRIMARY KEY,
+    full_name VARCHAR(180) NOT NULL,
+    phone_number VARCHAR(40) UNIQUE NOT NULL,
+    email VARCHAR(180) UNIQUE,
+    bio TEXT,
+    avatar_url TEXT,
+    ppoint_count INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Seed profile for Ibitoye Oluwasegun Emmanuel
+INSERT INTO user_profiles (full_name, phone_number, email)
+VALUES ('Ibitoye Oluwasegun Emmanuel', '+2349076530908', 'emmanuel@ppoint.africa')
+ON CONFLICT (phone_number) DO NOTHING;

@@ -80,6 +80,8 @@ class Address {
     createdSource,
     moderationStatus,
     agentId,
+    creatorName,
+    profileId,
   }) {
     const normalizedCode = String(ppointCode || '').trim().toUpperCase();
     if (inMemoryStore.isEnabled()) {
@@ -115,6 +117,8 @@ class Address {
         createdSource,
         moderationStatus,
         agentId,
+        creatorName,
+        profileId,
       });
     }
 
@@ -153,9 +157,11 @@ class Address {
         created_source,
         moderation_status,
         is_active,
-        location
+        location,
+        creator_name,
+        profile_id
       )
-      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25::jsonb, $26, $27, $28, $29, $30, ST_SetSRID(ST_MakePoint($4, $3), 4326))
+      VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25::jsonb, $26, $27, $28, $29, $30, ST_SetSRID(ST_MakePoint($4, $3), 4326), $31, $32)
       RETURNING *
     `;
     try {
@@ -190,6 +196,8 @@ class Address {
         createdSource || 'community',
         moderationStatus || 'active',
         isActive,
+        creatorName || null,
+        profileId || null,
       ]);
       return result.rows[0];
     } catch (error) {
@@ -211,7 +219,7 @@ class Address {
     const result = await pool.query(
       `SELECT *
        FROM addresses
-       WHERE COALESCE(ppoint_code, code) ILIKE $1
+       WHERE (COALESCE(ppoint_code, code) ILIKE $1
           OR COALESCE(building_name, '') ILIKE $1
           OR COALESCE(community_name, '') ILIKE $1
           OR COALESCE(street_name, '') ILIKE $1
@@ -219,12 +227,19 @@ class Address {
           OR COALESCE(state, '') ILIKE $1
           OR COALESCE(country, '') ILIKE $1
           OR COALESCE(landmark, '') ILIKE $1
+          OR COALESCE(creator_name, '') ILIKE $1)
        ORDER BY created_at DESC
        LIMIT 25`,
       [`%${query}%`]
     );
 
     return result.rows;
+  }
+
+  static async findByProfileId(profileId) {
+    if (inMemoryStore.isEnabled()) return [];
+    const { rows } = await pool.query('SELECT * FROM addresses WHERE profile_id = $1 ORDER BY created_at DESC', [profileId]);
+    return rows;
   }
 
   static async list(query = '') {

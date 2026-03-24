@@ -141,6 +141,18 @@ export default function AddressPage() {
                   {copyState ? <Check size={28} className="text-emerald-400" /> : <Copy size={28} />}
                 </button>
               </h1>
+
+              {/* Creator Identity */}
+              <div className="mt-4 flex items-center gap-2">
+                <span className="text-[10px] font-black text-stone-500 uppercase tracking-widest leading-none">Created by</span>
+                <Link 
+                  to={`/profile/${address.profile_id || 1}`}
+                  className="text-xs font-black text-amber-400 hover:text-amber-300 transition-colors uppercase italic flex items-center gap-1"
+                >
+                  {address.creator_name || 'Ibitoye Oluwasegun Emmanuel'}
+                  <ExternalLink size={10} />
+                </Link>
+              </div>
             </div>
             <div className="flex flex-col gap-2">
                <button onClick={() => setShowQr(!showQr)} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-white hover:bg-white/10 border border-white/10">

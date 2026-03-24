@@ -200,6 +200,8 @@ const toAddressResponse = (address, cityContext, countryCode, stateCode, cityCod
   created_by: address.created_by || 'Community',
   moderation_status: address.moderation_status || 'active',
   created_at: address.created_at,
+  creator_name: address.creator_name || 'Community',
+  profile_id: address.profile_id || null,
   shareUrl: `${process.env.PUBLIC_APP_URL || 'http://127.0.0.1:5183'}/${address.ppoint_code || address.code}`,
   ...getAddressIntelligence(address),
 });
@@ -355,6 +357,8 @@ class AddressService {
           createdSource: options.createdSource,
           moderationStatus,
           agentId: options.agentId,
+          creatorName: options.creatorName,
+          profileId: options.profileId,
         });
         break;
       } catch (error) {
@@ -419,6 +423,8 @@ class AddressService {
       address_metadata: item.address_metadata || {},
       structured_address_line: structuredAddressLine(item.house_number, item.street_name),
       is_active: item.is_active !== false,
+      creator_name: item.creator_name || 'Community',
+      profile_id: item.profile_id || null,
       ...getAddressIntelligence(item),
     }));
   }
