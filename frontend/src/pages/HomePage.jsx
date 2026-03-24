@@ -290,9 +290,10 @@ export default function HomePage() {
                 type="text"
                 value={buildingName}
                 onChange={(e) => setBuildingName(e.target.value)}
+                placeholder="Building Name (Optional)"
                 className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
               />
-          </div>
+            </div>
     
             <PrimaryButton 
               onClick={generatePpoint}

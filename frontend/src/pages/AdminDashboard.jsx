@@ -166,7 +166,7 @@ export default function AdminDashboard() {
   const [token, setToken] = useState(getInitialToken);
   const [adminProfile, setAdminProfile] = useState(readStoredAdmin);
   const [loginForm, setLoginForm] = useState(initialLogin);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('ibitoyeoluwasegunemmanuel@gmail.com');
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
