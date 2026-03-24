@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import AddressPage from './pages/AddressPage';
@@ -9,6 +10,12 @@ import ProfilePage from './pages/ProfilePage';
 import Layout from './components/Layout';
 
 function App() {
+  useEffect(() => {
+    // Production Mode: Clear any potentially stale identity bits from local storage
+    localStorage.removeItem('creatorName');
+    localStorage.removeItem('user_details');
+  }, []);
+
   return (
     <Layout>
       <Routes>

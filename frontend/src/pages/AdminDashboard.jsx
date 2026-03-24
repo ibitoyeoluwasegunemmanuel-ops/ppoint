@@ -96,8 +96,8 @@ const regionTabCopy = {
 };
 
 const initialLogin = {
-  email: 'admin@ppoint.africa',
-  password: 'Admin@1234',
+  email: '',
+  password: '',
 };
 
 const initialStaffForm = {
