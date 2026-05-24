@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,50 +7,93 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --pp-bg: #0A0B0D;
+    --pp-card: #16191F;
+    --pp-line: rgba(255,255,255,0.06);
+    --pp-yellow: #FFC72C;
+    --pp-blue: #2E6BFF;
+    --pp-green: #23C57A;
   }
 
   html {
     font-family: 'Manrope', sans-serif;
-    background: #0c0a09;
+    background: var(--pp-bg);
+    -webkit-font-smoothing: antialiased;
   }
 
   body {
-    min-height: 100vh;
-    background: transparent;
+    min-height: 100dvh;
+    background: var(--pp-bg);
+    color: #fff;
+    overflow: hidden;
   }
 
   #root {
-    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-.leaflet-container {
-  font-family: inherit;
+/* ── MapLibre ── */
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-logo {
+  display: none !important;
 }
 
-@keyframes marker-bounce {
+.maplibregl-map {
+  font-family: 'Manrope', sans-serif;
+}
+
+/* ── Animations ── */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-slide-up { animation: slide-up 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
+.animate-fade-in { animation: fade-in 0.25s ease-out; }
+.animate-pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 0; }
+
+/* ── Bottom sheet ── */
+.bottom-sheet {
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  background: var(--pp-bg);
+}
+
+/* ── Glass ── */
+.glass {
+  background: rgba(20, 22, 28, 0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* ── Pin marker bounce ── */
+@keyframes pin-bounce {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  50% { transform: translateY(-6px); }
 }
-
-@keyframes marker-pulse {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.8); opacity: 0; }
-}
-
-.marker-bounce {
-  animation: marker-bounce 1s ease-in-out infinite;
-}
-
-.marker-pulse {
-  animation: marker-pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
-@layer utilities {
-  .glass-card {
-    background: rgba(12, 10, 9, 0.85);
-    backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
-  }
-}
+.pin-bounce { animation: pin-bounce 0.6s ease-in-out; }

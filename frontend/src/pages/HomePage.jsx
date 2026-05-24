@@ -1,550 +1,428 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import MapboxMap, { Marker } from '../components/MapboxMap';
-import { 
-  Search, MapPin, Navigation, Share2, 
-  Layers, LocateFixed, X, Check, Copy,
-  ArrowRight, ShieldCheck, Zap
-} from 'lucide-react';
 import api from '../services/api';
-import { PLACE_TYPES } from '../constants/placeTypes';
+import { PP } from '../styles/tokens';
 
-// ─── Design System ───────────────────────────────────────────────────────────
-
-const SCREENS = {
-  HOME: 'home',
-  GENERATING: 'generating',
-  RESULT: 'result'
+// ── Icons ─────────────────────────────────────────────────────────────────────
+const I = {
+  search: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  mic: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.8"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  bell: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2H4.5L6 16z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M10 21a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  plus: () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>,
+  arrow: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  nav: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 11L21 4l-7 17-2-7-9-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  share: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.8"/><path d="M8.5 11l7-4M8.5 13l7 4" stroke="currentColor" strokeWidth="1.6"/></svg>,
+  scan: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M7 12h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  house: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-7h-6v7H5a1 1 0 0 1-1-1v-9z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  shop: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 8l2-4h14l2 4M3 8h18v12H3V8z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 12h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  target: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M12 1v3M12 20v3M23 12h-3M4 12H1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  layers: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l9 5-9 5-9-5 9-5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M3 13l9 5 9-5M3 17l9 5 9-5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  copy: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l5 5 9-11" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  close: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
+  wa: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>,
 };
 
-function GlassCard({ children, className = '' }) {
+function CodeChip({ code }) {
+  const parts = code.split('-');
   return (
-    <div className={`glass-card rounded-[2.5rem] p-8 ${className}`}>
-      {children}
-    </div>
+    <span style={{ fontFamily: PP.mono, fontWeight: 700, letterSpacing: 0.4 }}>
+      {parts.map((p, i) => (
+        <span key={i}>
+          <span style={{ color: i === parts.length - 1 ? PP.yellow : PP.text }}>{p}</span>
+          {i < parts.length - 1 && <span style={{ color: PP.text3 }}>-</span>}
+        </span>
+      ))}
+    </span>
   );
 }
 
-function PrimaryButton({ children, onClick, variant = 'primary', className = '', disabled = false }) {
-  const base = "flex items-center justify-center gap-2 rounded-2xl px-6 py-4 font-black transition-all active:scale-95 disabled:opacity-50";
-  const variants = {
-    primary: "bg-amber-400 text-stone-950 hover:bg-amber-300 shadow-xl shadow-amber-400/20",
-    secondary: "bg-white/5 text-white hover:bg-white/10 border border-white/10"
-  };
-  return (
-    <button onClick={onClick} disabled={disabled} className={`${base} ${variants[variant]} ${className}`}>
-      {children}
-    </button>
-  );
+const PLACE_TYPE_ICONS = {
+  House: I.house, Shop: I.shop,
+};
+function PlaceIcon({ type }) {
+  const Ic = PLACE_TYPE_ICONS[type] || I.house;
+  return <Ic />;
 }
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const navigate = useNavigate();
-  
-  const [currentScreen, setCurrentScreen] = useState(SCREENS.HOME);
+  const mapRef = useRef(null);
+
   const [position, setPosition] = useState([6.5244, 3.3792]);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // PPOINNT Creation States
-  const [placeType, setPlaceType] = useState(PLACE_TYPES[0]); // Default to 'House'
-  const [buildingName, setBuildingName] = useState('');
-  const [landmark, setLandmark] = useState('');
-  const [note, setNote] = useState(''); // Formerly extraDirections
-  
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [result, setResult] = useState(null); // Renamed from draftAddress
-  const [notice, setNotice] = useState(''); // For success messages like "Copied!"
+  const [result, setResult] = useState(null);
+  const [notice, setNotice] = useState('');
   const [showGuidance, setShowGuidance] = useState(true);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  
-  // Payment States
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [viewMode, setViewMode] = useState('standard');
+  const [recentPpoints, setRecentPpoints] = useState([
+    { code: 'PPT-NG-LAG-IKD-1234', name: '15, Abraham Adesanya, Lekki', time: '2 min ago', type: 'House' },
+    { code: 'PPT-NG-LAG-YBA-5678', name: '23, Kudirat Abiola Way, Oregun', time: '1 hr ago', type: 'Shop' },
+    { code: 'PPT-NG-ABJ-GRK-9012', name: 'Block 12, Garki, Abuja', time: 'Yesterday', type: 'House' },
+  ]);
 
-  // Repeating Guidance Logic: Fade in (1s), Stay (4s), Repeat gap (10s)
   useEffect(() => {
-    if (hasInteracted) {
-      setShowGuidance(false);
-      return;
-    }
-    const interval = setInterval(() => {
-      if (!hasInteracted && !selectedPosition) { // Only show if no pin is placed
-        setShowGuidance(true);
-        setTimeout(() => setShowGuidance(false), 5000); // 1s fade + 4s stay
-      }
-    }, 15000); // 5s active + 10s gap
-    return () => clearInterval(interval);
-  }, [hasInteracted, selectedPosition]);
-
-  const mapRef = useRef(null);
-
-  // ─── Core Logic ─────────────────────────────────────────────────────────────
+    const t = setTimeout(() => setShowGuidance(false), 6000);
+    return () => clearTimeout(t);
+  }, []);
 
   const detectLocation = () => {
+    if (!navigator.geolocation) return;
     setLoading(true);
-    setError('');
-    
-    if (!navigator.geolocation) {
-      setError('Geolocation not supported');
-      setLoading(false);
-      return;
-    }
-
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const newPos = { lat, lng };
+      ({ coords: { latitude: lat, longitude: lng } }) => {
         setPosition([lat, lng]);
-        setSelectedPosition(newPos);
-        
-        // Auto-scroll map to location
-        if (mapRef.current) {
-          mapRef.current.flyTo(lng, lat, 17);
-        }
-        
-        setLoading(false);
-        setHasInteracted(true);
-      },
-      (err) => {
-        setError('Location permission denied. Please enable GPS.');
+        setSelectedPosition({ lat, lng });
+        mapRef.current?.flyTo(lng, lat, 17);
         setLoading(false);
       },
-      { enableHighAccuracy: true }
+      () => setLoading(false),
+      { enableHighAccuracy: true },
     );
-  };
-
-  const generatePpoint = async () => {
-    if (!selectedPosition) {
-      setError('Select a location first');
-      return;
-    }
-    if (!placeType) {
-      setError('Please select a Place Type');
-      return;
-    }
-
-    setLoading(true);
-    setError(''); // Clear previous errors
-    try {
-      const response = await api.post('/platform/community/addresses/generate', {
-        latitude: selectedPosition.lat,
-        longitude: selectedPosition.lng,
-        placeType: placeType,
-        customPlaceType: placeType === 'Other' ? note : null,
-        buildingName,
-      });
-
-      setResult(response.data.data);
-      setCurrentScreen(SCREENS.RESULT); // Move to Result screen
-      setHasInteracted(true);
-    } catch (err) {
-      if (err.response?.status === 402) {
-        setShowPaymentModal(true);
-      } else {
-        setError(err.response?.data?.message || 'Failed to generate PPOINNT. Please try again.');
-        setCurrentScreen(SCREENS.HOME);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const processPayment = async () => {
-    setPaymentLoading(true);
-    try {
-      // Simulate Payment Verification (e.g. Paystack/Flutterwave)
-      await api.post('/payments/verify-ppoint-fee', { reference: 'PAY-' + Date.now() });
-      setShowPaymentModal(false);
-      // Retry generation as paid
-      await generatePpointAsPaid();
-    } catch (err) {
-      setError('Payment verification failed. Please try again.');
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  const generatePpointAsPaid = async () => {
-    setLoading(true);
-    try {
-      const response = await api.post('/platform/community/addresses/generate', {
-        latitude: selectedPosition.lat,
-        longitude: selectedPosition.lng,
-        placeType,
-        customPlaceType: placeType === 'Other' ? note : null,
-        buildingName,
-        isPaid: true // Tell backend payment is done
-      });
-      setResult(response.data.data);
-      setCurrentScreen(SCREENS.RESULT);
-    } catch (err) {
-      setError(err.response?.data?.message || 'PPOINNT generation failed even after payment.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updatePpoint = async () => {
-    if (!result?.code) return;
-    setLoading(true);
-    setError('');
-    try {
-      const response = await api.patch(`/platform/community/addresses/${result.code}/details`, { 
-        landmark,
-        description: note,
-      });
-      setResult(response.data.data); // Update result with new data
-      setNotice('PPOINNT improved with extra details!');
-    } catch (err) {
-      setError('Optional update failed, but your PPOINNT is still valid.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const shareToWhatsapp = (code) => {
-    const text = encodeURIComponent(`📍 PPOINNT Delivery Address:\nCode: ${code}\nLocation: ${result?.city || ''}\n\nLink: ${window.location.origin}/p/${code}`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-
     setLoading(true);
-    setError('');
-
     try {
-      // Step 1: Try searching for a PPOINNT address
-      try {
-        const response = await api.get('/address/search', { params: { code: searchQuery.trim().toUpperCase() } });
-        const foundAddress = response.data.data;
-        if (foundAddress) {
-          setResult(foundAddress);
-          setSelectedPosition({ lat: Number(foundAddress.latitude), lng: Number(foundAddress.longitude) });
-          setPosition([Number(foundAddress.latitude), Number(foundAddress.longitude)]);
-          if (mapRef.current) mapRef.current.flyTo(Number(foundAddress.longitude), Number(foundAddress.latitude), 18);
-          setCurrentScreen(SCREENS.RESULT);
-          return;
-        }
-      } catch (err) {
-        // Fallback to profile search
+      const res = await api.get('/address/search', { params: { code: searchQuery.trim().toUpperCase() } });
+      const addr = res.data.data;
+      if (addr) {
+        setResult(addr);
+        setSelectedPosition({ lat: Number(addr.latitude), lng: Number(addr.longitude) });
+        setPosition([Number(addr.latitude), Number(addr.longitude)]);
+        mapRef.current?.flyTo(Number(addr.longitude), Number(addr.latitude), 18);
       }
-
-      // Step 2: Search for profiles/users
-      const profileResp = await api.get('/profiles/search', { params: { q: searchQuery.trim() } });
-      const profiles = profileResp.data.data;
-      if (profiles && profiles.length > 0) {
-        navigate(`/profile/${profiles[0].id}`);
-      }
-    } catch (err) {
-        setError('Search failed. Please try again.');
+    } catch {
+      // silently ignore
     } finally {
       setLoading(false);
     }
   };
 
-  // ─── Render Functions ──────────────────────────────────────────────────────
-
-  const renderHomeScreen = () => {
-    if (selectedPosition && !result) { // Only show initial capture if a pin is placed and no result yet
-      return (
-        <div className="absolute left-8 bottom-24 z-10 w-full max-w-[300px] animate-in slide-in-from-left-5 duration-500">
-          <GlassCard className="p-6 border border-white/10 shadow-3xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-black text-white italic tracking-tighter">NEW PPOINNT</h2>
-              <button onClick={() => setSelectedPosition(null)} className="text-stone-500 hover:text-white"><X size={16} /></button>
-            </div>
-    
-            <div className="space-y-3">
-              <div className="relative">
-                <select
-                  value={placeType}
-                  onChange={(e) => setPlaceType(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-white outline-none focus:border-amber-400"
-                >
-                  {PLACE_TYPES.map(type => (
-                    <option key={type} value={type} className="bg-stone-900 font-bold">{type}</option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-stone-500">
-                  <Layers size={12} />
-                </div>
-              </div>
-
-              {placeType === 'Other' && (
-                <input 
-                  type="text"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Enter Place Type (e.g. Cinema)"
-                  className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50 animate-in zoom-in-95"
-                />
-              )}
-    
-              <input 
-                type="text"
-                value={buildingName}
-                onChange={(e) => setBuildingName(e.target.value)}
-                placeholder="Building Name (Optional)"
-                className="w-full rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-xs font-black text-white outline-none focus:border-amber-400/50"
-              />
-            </div>
-    
-            <PrimaryButton 
-              onClick={generatePpoint}
-              disabled={loading || !placeType}
-              className="w-full mt-4 py-3 text-xs shadow-none border-t border-white/5 rounded-2xl"
-            >
-              {loading ? <Zap size={18} className="animate-spin" /> : <Layers size={18} />}
-              {loading ? 'GENERATING...' : 'GENERATE PPOINNT'}
-            </PrimaryButton>
-    
-            {error && <p className="mt-3 text-[10px] font-bold text-red-500">{error}</p>}
-          </GlassCard>
-        </div>
-      );
-    }
-    return null;
+  const shareToWhatsApp = (code) => {
+    const text = encodeURIComponent(`📍 PPOINNT Address:\n${code}\n\n${window.location.origin}/p/${code}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
-  const renderGeneratingScreen = () => (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-2xl">
-      <div className="text-center">
-        <div className="mx-auto h-24 w-24 relative mb-6">
-           <div className="absolute inset-0 animate-ping rounded-full bg-amber-400/20" />
-           <div className="relative h-24 w-24 animate-spin rounded-full border-[6px] border-amber-400 border-t-transparent shadow-[0_0_50px_hsla(38,92%,50%,0.4)]" />
-        </div>
-        <h3 className="text-4xl font-black text-white italic tracking-tighter">CALIBRATING GRID...</h3>
-        <p className="mt-2 font-bold text-stone-400 uppercase tracking-widest text-sm">Synchronizing hex-coordinates to network</p>
-      </div>
-    </div>
-  );
-
-  const renderResultScreen = () => (
-    <div className="absolute left-8 bottom-24 z-20 w-full max-w-[350px] animate-in slide-in-from-left-5 duration-700">
-      <GlassCard className="p-6 border-t-4 border-emerald-500">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-400">
-             <ShieldCheck size={14} /> Verified Active
-          </div>
-          <button onClick={() => { setCurrentScreen(SCREENS.HOME); setResult(null); setSelectedPosition(null); setLandmark(''); setNote(''); setBuildingName(''); setPlaceType(PLACE_TYPES[0]); }} className="text-stone-500 hover:text-white transition"><X size={18} /></button>
-        </div>
-        
-        <div className="flex items-center gap-3 mb-6">
-           <h2 className="text-4xl font-black text-white tracking-tighter italic">{result?.code}</h2>
-           <button 
-             onClick={async () => { await navigator.clipboard.writeText(result.code); setNotice('Code copied!'); setTimeout(()=>setNotice(''), 2000); }} 
-             className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-stone-400 hover:bg-white/10"
-           >
-              {notice === 'Code copied!' ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} />}
-           </button>
-        </div>
-
-        <div className="space-y-2 mb-6 text-white/90">
-           <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-              <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Location</p>
-              <p className="text-xs font-bold flex items-center gap-2"><MapPin size={12} className="text-amber-400"/> {result?.city}, {result?.state}</p>
-           </div>
-           <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-              <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Category</p>
-              <p className="text-xs font-bold flex items-center gap-2 uppercase"><Layers size={12} className="text-amber-400"/> {result?.display_place_type || result?.place_type}</p>
-           </div>
-           {result?.buildingName && (
-             <div className="rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-                <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Building</p>
-                <p className="text-xs font-bold flex items-center gap-2">{result.buildingName}</p>
-             </div>
-           )}
-        </div>
-
-        {/* Enrichment Phase */}
-        <div className="mt-6 space-y-3 pt-4 border-t border-white/5">
-          <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Boost Accuracy (Optional)</p>
-          
-          <input 
-            placeholder="Landmark (e.g. Near Big Gate)"
-            value={landmark}
-            onChange={e => setLandmark(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50"
-          />
-          
-          <textarea 
-            placeholder="Note / Door description"
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            rows="2"
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black text-white outline-none placeholder:text-white/20 focus:border-amber-400/50 resize-none"
-          />
-
-          <PrimaryButton 
-            onClick={updatePpoint}
-            disabled={loading}
-            className="w-full py-3 text-xs shadow-none border-t border-white/5 rounded-2xl"
-          >
-            {loading ? 'SAVING...' : 'SAVE ENRICHMENT'}
-          </PrimaryButton>
-          {notice === 'PPOINNT improved with extra details!' && <p className="mt-2 text-[10px] font-bold text-emerald-400">{notice}</p>}
-          {error && <p className="mt-2 text-[10px] font-bold text-red-500">{error}</p>}
-        </div>
-
-        <div className="mt-6 flex gap-2">
-          <button 
-            onClick={() => shareToWhatsapp(result?.code)}
-            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25D366] text-white shadow-lg hover:scale-105 transition active:scale-95"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
-          </button>
-          <PrimaryButton 
-            onClick={() => navigate(`/drivers?code=${result?.code}`)}
-            className="flex-1 py-3 text-xs shadow-lg shadow-blue-600/20"
-          >
-            <Navigation size={14} /> NAVIGATE
-          </PrimaryButton>
-        </div>
-      </GlassCard>
-    </div>
-  );
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div className="relative h-screen w-full flex flex-col bg-stone-950 overflow-hidden font-sans">
-      
-      {/* ── FLOATING GUIDANCE ── */}
-      {showGuidance && currentScreen === SCREENS.HOME && !selectedPosition && (
-        <div className="absolute top-24 inset-x-0 z-50 flex justify-center px-4 pointer-events-none animate-in fade-in slide-in-from-top-4 duration-1000">
-           <div className="flex items-center gap-3 rounded-full bg-white/10 border border-white/20 p-2 px-6 backdrop-blur-2xl shadow-2xl pointer-events-auto">
-              <p className="text-[11px] font-black text-white italic tracking-tighter">
-                For best accuracy, stand at your entrance or move the pin
-              </p>
-           </div>
-        </div>
-      )}
+    <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: PP.bg }}>
 
-      {/* ── MAP CONTAINER ── */}
-      <div className="absolute inset-0 z-0">
+      {/* ── MAP ── */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <MapboxMap
           ref={mapRef}
           center={[position[1], position[0]]}
           zoom={15}
-          defaultViewMode="hybrid" // High-contrast design for Hybrid
+          defaultViewMode={viewMode}
           onClick={(lat, lng) => {
-            if (currentScreen === SCREENS.HOME) {
-              setSelectedPosition({ lat, lng });
-              setPosition([lat, lng]);
-              setHasInteracted(true);
-            }
+            setSelectedPosition({ lat, lng });
+            setPosition([lat, lng]);
+            setResult(null);
           }}
           style={{ height: '100%', width: '100%' }}
         >
           {selectedPosition && (
-            <Marker 
-              longitude={selectedPosition.lng} 
-              latitude={selectedPosition.lat} 
+            <Marker
+              longitude={selectedPosition.lng}
+              latitude={selectedPosition.lat}
               anchor="bottom"
               draggable
-              onDragEnd={(evt) => {
-                const { lng, lat } = evt.lngLat;
-                setSelectedPosition({ lat, lng });
-              }}
+              onDragEnd={({ lngLat: { lng, lat } }) => setSelectedPosition({ lat, lng })}
             >
-              <div className="relative group flex items-center justify-center h-8 w-8 cursor-move transition-transform active:scale-125">
-                 {/* Precision Shadow & Pulse */}
-                 <div className="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-20" />
-                 <div className="absolute h-full w-full rounded-full bg-black/40 blur-[4px] translate-y-2 scale-x-75" />
-                 
-                 {/* Surgical Pin Body */}
-                 <div className="relative h-full w-full flex items-center justify-center rounded-full border-2 border-white bg-amber-500 shadow-xl overflow-hidden">
-                   {/* Center Dot for Precision */}
-                   <div className="h-2 w-2 rounded-full bg-stone-950 border border-white/50" />
-                 </div>
+              <div style={{ position: 'relative', cursor: 'move' }}>
+                <div style={{
+                  position: 'absolute', inset: -8, borderRadius: '50%',
+                  background: `radial-gradient(closest-side, ${PP.yellowGlow}, transparent)`,
+                  animation: 'pulse-ring 1.5s ease-out infinite',
+                }} />
+                <svg width="44" height="52" viewBox="0 0 40 48">
+                  <path d="M20 47s-15-16-15-27a15 15 0 1 1 30 0c0 11-15 27-15 27z" fill={PP.yellow} stroke="#0A0B0D" strokeWidth="1.2"/>
+                  <circle cx="20" cy="19" r="6" fill="#0A0B0D"/>
+                </svg>
               </div>
             </Marker>
           )}
         </MapboxMap>
       </div>
 
-      {/* ── SEARCH BAR ── */}
-      {currentScreen !== SCREENS.GENERATING && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 w-full max-w-[400px] px-4">
-          <form onSubmit={handleSearch} className="relative group">
+      {/* ── GRADIENT OVERLAY at bottom ── */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, height: '55%', zIndex: 1,
+        background: `linear-gradient(to bottom, rgba(10,11,13,0) 0%, rgba(10,11,13,0.75) 30%, #0A0B0D 60%)`,
+        pointerEvents: 'none',
+      }} />
+
+      {/* ── TOP BAR ── */}
+      <div style={{ position: 'relative', zIndex: 5, padding: '52px 16px 0' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            flex: 1, height: 46, borderRadius: 14,
+            background: 'rgba(20,22,28,0.82)', backdropFilter: 'blur(20px)',
+            border: `1px solid ${PP.lineStrong || 'rgba(255,255,255,0.1)'}`,
+            display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10,
+          }}>
+            <span style={{ color: PP.text3 }}>{I.search()}</span>
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search PPOINNT..."
-              className="w-full rounded-2xl border border-white/10 bg-black/40 px-12 py-4 font-black text-white shadow-2xl backdrop-blur-xl outline-none focus:border-amber-400/50 transition-all text-sm"
+              placeholder="Search PPOINNT or place…"
+              style={{
+                flex: 1, background: 'none', border: 'none', outline: 'none',
+                color: PP.text, fontSize: 14, fontFamily: PP.font,
+              }}
             />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-400" size={18} />
-            {loading && <div className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />}
-          </form>
-        </div>
-      )}
+            {loading
+              ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${PP.yellow}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+              : <button type="submit" style={{
+                width: 28, height: 28, borderRadius: 8, background: PP.yellow,
+                border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#0A0B0D', cursor: 'pointer',
+              }}>{I.mic()}</button>
+            }
+          </div>
+        </form>
 
-      {/* ── FLOATING TARGET BUTTON ── */}
-      {currentScreen === SCREENS.HOME && (
-        <button 
-          onClick={detectLocation}
-          className={`absolute right-6 bottom-[120px] z-20 flex h-14 w-14 items-center justify-center rounded-2xl shadow-3xl transition-all active:scale-90 ${loading ? 'bg-amber-400 animate-pulse' : 'bg-stone-900 border border-white/10 text-amber-400 hover:bg-stone-800'}`}
-        >
-          <LocateFixed size={28} />
-        </button>
-      )}
-
-      {/* ── UI OVERLAYS ── */}
-      {currentScreen === SCREENS.HOME && renderHomeScreen()}
-      {currentScreen === SCREENS.GENERATING && renderGeneratingScreen()}
-      {currentScreen === SCREENS.RESULT && renderResultScreen()}
-
-      {/* ── BRANDING ── */}
-      <div className="absolute top-2 left-6 z-10 select-none grayscale opacity-30 pointer-events-none">
-         <span className="text-6xl font-black italic tracking-tighter text-white">PPOINT</span>
+        {/* Guidance banner */}
+        {showGuidance && !selectedPosition && (
+          <div className="animate-fade-in" style={{
+            marginTop: 12, padding: '10px 14px', borderRadius: 12,
+            background: 'rgba(255,199,44,0.08)',
+            border: `1px solid rgba(255,199,44,0.18)`,
+            backdropFilter: 'blur(20px)',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{ color: PP.yellow }}>{I.target()}</span>
+            <span style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4 }}>
+              Stand near your entrance for the most accurate PPOINNT.
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* ── PAYMENT MODAL ── */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-stone-950/40 backdrop-blur-xl p-4">
-           <div className="w-full max-w-sm rounded-[2.5rem] bg-stone-900 border border-white/10 p-8 shadow-3xl animate-in slide-in-from-bottom-5">
-              <div className="flex justify-center mb-6">
-                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-400 text-stone-950 shadow-xl shadow-amber-400/20">
-                    <DollarSign size={32} />
-                 </div>
-              </div>
-              <h2 className="text-3xl font-black text-white italic tracking-tighter text-center">LIMIT REACHED</h2>
-              <p className="mt-4 text-center text-sm font-bold text-stone-400 leading-relaxed uppercase tracking-widest">
-                First 3 PPOINNTs are free. To generate this new precision code, a small fee of <span className="text-amber-400">₦50</span> applies.
-              </p>
-              
-              <div className="mt-8 space-y-3">
-                 <PrimaryButton 
-                   onClick={processPayment}
-                   disabled={paymentLoading}
-                   className="w-full"
-                 >
-                   {paymentLoading ? 'PROCESSING...' : 'PAY ₦50 & GENERATE'}
-                 </PrimaryButton>
-                 <button 
-                   onClick={() => setShowPaymentModal(false)}
-                   className="w-full py-3 text-[10px] font-black uppercase text-stone-500 hover:text-white"
-                 >
-                   CANCEL
-                 </button>
-              </div>
-           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      {/* ── FLOATING MAP CONTROLS ── */}
+      <div style={{ position: 'absolute', right: 16, top: 180, zIndex: 5, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[
+          { icon: I.layers, action: () => setViewMode(v => v === 'standard' ? 'satellite' : v === 'satellite' ? 'hybrid' : 'standard') },
+          { icon: I.target, action: detectLocation },
+        ].map(({ icon: Ic, action }, i) => (
+          <button key={i} onClick={action} style={{
+            width: 42, height: 42, borderRadius: 13,
+            border: `1px solid ${PP.line}`,
+            background: 'rgba(20,22,28,0.88)', backdropFilter: 'blur(20px)',
+            color: i === 1 && loading ? PP.yellow : PP.text2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}><Ic /></button>
+        ))}
+      </div>
 
-function DollarSign({ size }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-    </svg>
+      {/* ── BOTTOM SHEET ── */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 10,
+        background: PP.bg,
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        paddingTop: 6,
+      }}>
+        {/* grab handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 14px' }}>
+          <div style={{ width: 40, height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
+
+        {result ? (
+          /* ── SUCCESS STATE ── */
+          <div className="animate-fade-in" style={{ padding: '0 20px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: PP.green, boxShadow: `0 0 8px ${PP.green}` }} />
+                <span style={{ fontSize: 12, color: PP.green, fontWeight: 700 }}>Address Generated</span>
+              </div>
+              <button onClick={() => { setResult(null); setSelectedPosition(null); }} style={{
+                width: 32, height: 32, borderRadius: 10, border: 'none',
+                background: PP.card, color: PP.text3, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{I.close()}</button>
+            </div>
+
+            <div style={{
+              background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 20,
+              padding: '16px 18px', marginBottom: 12,
+            }}>
+              <div style={{ fontSize: 11, color: PP.text3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Your PPOINNT</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ fontSize: 18 }}><CodeChip code={result.code} /></div>
+                <button onClick={async () => {
+                  await navigator.clipboard.writeText(result.code);
+                  setNotice('Copied!');
+                  setTimeout(() => setNotice(''), 2000);
+                }} style={{
+                  width: 32, height: 32, borderRadius: 9, border: 'none',
+                  background: notice ? PP.greenSoft : 'rgba(255,255,255,0.05)',
+                  color: notice ? PP.green : PP.text3, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{notice ? I.check() : I.copy()}</button>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 10, color: PP.text3, fontWeight: 600 }}>Accuracy</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: PP.green, marginTop: 2 }}>High · ±3m</div>
+                </div>
+                <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 10, color: PP.text3, fontWeight: 600 }}>Type</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{result.display_place_type || result.place_type}</div>
+                </div>
+                <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 10, color: PP.text3, fontWeight: 600 }}>City</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2 }}>{result.city}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => shareToWhatsApp(result.code)} style={{
+                width: 52, height: 52, borderRadius: 16, border: 'none',
+                background: 'rgba(37,211,102,0.14)', color: '#25D366',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              }}>{I.wa()}</button>
+              <button onClick={() => navigate(`/drivers?code=${result.code}`)} style={{
+                flex: 1, height: 52, borderRadius: 16, border: 'none',
+                background: PP.blue, color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: 8, fontFamily: PP.font, fontWeight: 700, fontSize: 15, cursor: 'pointer',
+              }}>{I.nav()} Navigate Now</button>
+            </div>
+          </div>
+        ) : selectedPosition ? (
+          /* ── PIN PLACED — QUICK GENERATE ── */
+          <div className="animate-fade-in" style={{ padding: '0 20px 16px' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 14, letterSpacing: -0.3 }}>Pin placed</div>
+            <button onClick={() => navigate('/generate', { state: { lat: selectedPosition.lat, lng: selectedPosition.lng } })} style={{
+              width: '100%', height: 54, borderRadius: 18, border: 'none',
+              background: `linear-gradient(135deg, ${PP.yellow} 0%, #FFB400 100%)`,
+              color: '#0A0B0D', fontFamily: PP.font, fontWeight: 800, fontSize: 16,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              cursor: 'pointer', boxShadow: `0 12px 28px rgba(255,199,44,0.22)`,
+            }}>
+              {I.plus()} Generate PPOINNT {I.arrow()}
+            </button>
+            <button onClick={() => setSelectedPosition(null)} style={{
+              width: '100%', marginTop: 10, padding: '10px 0', background: 'none', border: 'none',
+              color: PP.text3, fontFamily: PP.font, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>Clear pin</button>
+          </div>
+        ) : (
+          /* ── DEFAULT HOME CONTENT ── */
+          <>
+            <div style={{ padding: '0 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 13, color: PP.text3, fontWeight: 500 }}>{greeting}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2, letterSpacing: -0.3 }}>Where to?</div>
+              </div>
+              <div style={{
+                width: 40, height: 40, borderRadius: 12,
+                background: PP.card, border: `1px solid ${PP.line}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                position: 'relative', cursor: 'pointer', color: PP.text2,
+              }}>
+                {I.bell()}
+                <span style={{
+                  position: 'absolute', top: 8, right: 9, width: 7, height: 7,
+                  borderRadius: '50%', background: PP.yellow, border: `2px solid ${PP.bg}`,
+                }} />
+              </div>
+            </div>
+
+            {/* Generate CTA */}
+            <div style={{ padding: '0 20px 14px' }}>
+              <button onClick={() => navigate('/generate')} style={{
+                width: '100%', background: `linear-gradient(135deg, ${PP.yellow} 0%, #FFB400 100%)`,
+                borderRadius: 20, padding: '16px 18px', border: 'none',
+                display: 'flex', alignItems: 'center', gap: 14,
+                color: '#0A0B0D', cursor: 'pointer',
+                boxShadow: `0 12px 28px rgba(255,199,44,0.22)`,
+                position: 'relative', overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', right: -10, bottom: -14, opacity: 0.14 }}>
+                  <svg width="90" height="108" viewBox="0 0 40 48"><path d="M20 47s-15-16-15-27a15 15 0 1 1 30 0c0 11-15 27-15 27z" fill="#0A0B0D"/><circle cx="20" cy="19" r="6" fill="#FFC72C"/></svg>
+                </div>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14,
+                  background: 'rgba(10,11,13,0.12)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{I.plus()}</div>
+                <div style={{ flex: 1, textAlign: 'left', position: 'relative', zIndex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>Generate PPOINNT</div>
+                  <div style={{ fontSize: 12.5, opacity: 0.7, fontWeight: 500, marginTop: 2 }}>Pin your exact entrance</div>
+                </div>
+                <div style={{ position: 'relative', zIndex: 1 }}>{I.arrow()}</div>
+              </button>
+            </div>
+
+            {/* Quick actions */}
+            <div style={{ padding: '0 20px 18px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              {[
+                { label: 'Navigate', icon: I.nav, accent: PP.blue, soft: PP.blueSoft, onClick: () => navigate('/drivers') },
+                { label: 'Share', icon: I.share, accent: PP.text2, soft: 'rgba(255,255,255,0.05)', onClick: () => {} },
+                { label: 'Scan', icon: I.scan, accent: PP.text2, soft: 'rgba(255,255,255,0.05)', onClick: () => {} },
+              ].map((a, i) => (
+                <button key={i} onClick={a.onClick} style={{
+                  background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 16,
+                  padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                  cursor: 'pointer',
+                }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 11, background: a.soft,
+                    color: a.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}><a.icon /></div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: PP.text2 }}>{a.label}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Recent PPOINNTs */}
+            <div style={{ padding: '0 20px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.8 }}>Recent</div>
+              <div style={{ fontSize: 12, color: PP.yellow, fontWeight: 600, cursor: 'pointer' }}>View all</div>
+            </div>
+
+            <div style={{ padding: '4px 20px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {recentPpoints.slice(0, 2).map((r) => (
+                <button key={r.code} onClick={() => navigate(`/p/${r.code}`)} style={{
+                  background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 14,
+                  padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 11,
+                    background: PP.yellowSoft, color: PP.yellow,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}><PlaceIcon type={r.type} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12 }}><CodeChip code={r.code} /></div>
+                    <div style={{ fontSize: 12, color: PP.text3, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</div>
+                  </div>
+                  <div style={{ fontSize: 11, color: PP.text3, whiteSpace: 'nowrap', flexShrink: 0 }}>{r.time}</div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-ring {
+          0% { transform: scale(0.9); opacity: 1; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+      `}</style>
+    </div>
   );
 }

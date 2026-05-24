@@ -1,157 +1,146 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, MapPin, Globe, Phone, Mail, 
-  Map as MapIcon, ShieldCheck, Zap, ArrowRight,
-  ExternalLink, User, Search
-} from 'lucide-react';
-import api from '../services/api';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PP } from '../styles/tokens';
+
+const I = {
+  settings: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" stroke="currentColor" strokeWidth="1.6"/></svg>,
+  chevR: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  star: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7.5.6-5.7 5 1.7 7.4L12 18l-6.5 4 1.7-7.4-5.7-5L9 9l3-7z"/></svg>,
+  bookmark: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 4h12v17l-6-4-6 4V4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  map: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  speaker: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" opacity="0.5"/><path d="M16 8a5 5 0 0 1 0 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  nav: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 11L21 4l-7 17-2-7-9-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  user: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  shield: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  help: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><circle cx="12" cy="17" r="1" fill="currentColor"/></svg>,
+  info: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>,
+};
 
 export default function ProfilePage() {
-  const { id } = useParams();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const isAgent = localStorage.getItem('user_role') === 'agent';
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await api.get(`/profiles/${id}`);
-        setProfile(response.data.data);
-      } catch (err) {
-        setError('User profile not found.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-stone-950">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-amber-400 border-t-transparent shadow-[0_0_20px_hsla(38,92%,50%,0.3)]" />
-          <p className="mt-4 font-black text-white">ACCESSING CREATOR PROFILE...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center bg-stone-950 p-6 text-center">
-        <h2 className="text-3xl font-black text-white">PROFILE NOT FOUND</h2>
-        <Link to="/" className="mt-8 rounded-2xl bg-amber-400 px-8 py-4 font-black text-stone-950 shadow-xl border border-amber-500">
-           Return to Hub
-        </Link>
-      </div>
-    );
-  }
+  const menuSections = [
+    {
+      items: [
+        { label: 'Saved Addresses', icon: I.bookmark, to: '/saved' },
+        { label: 'Offline Maps', icon: I.map, badge: 'Download', badgeColor: PP.green },
+        { label: 'Voice Settings', icon: I.speaker },
+        { label: 'Navigation Settings', icon: I.nav },
+      ],
+    },
+    {
+      items: [
+        { label: 'Account Type', icon: I.user, badge: isAgent ? 'Agent' : 'User', badgeColor: isAgent ? PP.yellow : PP.text3 },
+        { label: 'Help & Support', icon: I.help },
+        { label: 'About PPOINNT', icon: I.info },
+      ],
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-stone-950 text-white font-sans selection:bg-amber-400 selection:text-stone-950">
-      
-      {/* ── HEADER & NAVIGATION ── */}
-      <nav className="fixed top-0 inset-x-0 z-30 p-6 flex items-center justify-between pointer-events-none">
-        <button 
-          onClick={() => navigate(-1)}
-          className="h-14 w-14 flex items-center justify-center rounded-3xl bg-stone-900/80 text-white border border-white/10 backdrop-blur-xl shadow-2xl pointer-events-auto active:scale-95 transition"
-        >
-          <ArrowLeft size={24} />
-        </button>
-      </nav>
-
-      {/* ── PROFILE HERO ── */}
-      <div className="relative pt-32 pb-16 px-6 overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-400/10 via-transparent to-transparent opacity-50 blur-3xl" />
-        
-        <div className="relative mx-auto max-w-4xl text-center">
-           <div className="mx-auto h-32 w-32 rounded-[2.5rem] bg-stone-900 border-4 border-amber-400 shadow-2xl shadow-amber-400/20 overflow-hidden flex items-center justify-center text-amber-400">
-              <User size={64} className="opacity-50" />
-           </div>
-           
-           <h1 className="mt-8 text-5xl md:text-6xl font-black italic tracking-tighter leading-none">{profile.full_name}</h1>
-           <p className="mt-4 text-sm font-bold text-stone-500 uppercase tracking-[0.5em] flex items-center justify-center gap-3">
-              <ShieldCheck size={16} className="text-emerald-500" /> Verified Creator
-           </p>
-
-           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-              <div className="rounded-2xl bg-white/5 border border-white/10 px-6 py-4 backdrop-blur-md">
-                 <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Total Created</p>
-                 <p className="text-2xl font-black text-amber-400 italic">{(profile.addresses?.length || 0).toLocaleString()} <span className="text-stone-600">PPOINNTs</span></p>
-              </div>
-              <div className="rounded-2xl bg-white/5 border border-white/10 px-6 py-4 backdrop-blur-md">
-                 <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Global Reach</p>
-                 <p className="text-2xl font-black text-emerald-400 italic">8 / 10 <span className="text-stone-600">Precision</span></p>
-              </div>
-           </div>
-
-           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 opacity-60">
-              <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
-                 <Phone size={12} className="text-amber-400" /> {profile.phone_number}
-              </div>
-              <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full bg-white/5 border border-white/5">
-                 <Mail size={12} className="text-amber-400" /> {profile.email || 'emmanuel@ppoint.africa'}
-              </div>
-           </div>
-        </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PP.bg, overflow: 'hidden' }}>
+      <div style={{ padding: '52px 20px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.3 }}>Profile</div>
+        <button style={{
+          width: 40, height: 40, borderRadius: 12, border: '1px solid ' + PP.line,
+          background: PP.card, color: PP.text2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>{I.settings()}</button>
       </div>
 
-      {/* ── CREATED PPOINNTs ── */}
-      <div className="relative mx-auto max-w-4xl px-6 pb-24">
-        <div className="flex items-center justify-between mb-8">
-           <h3 className="text-xl font-black italic tracking-tight flex items-center gap-3">
-              <MapIcon size={20} className="text-amber-400" />
-              COLLECTION BY THIS CREATOR
-           </h3>
-           <div className="h-[1px] flex-1 mx-6 bg-white/10" />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-           {profile.addresses?.map((ppt) => (
-              <Link 
-                key={ppt.code}
-                to={`/${ppt.code}`}
-                className="group relative overflow-hidden rounded-[2rem] border border-white/5 bg-white/5 p-6 backdrop-blur-xl transition-all hover:border-amber-400/50 hover:bg-white/10"
-              >
-                <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900 text-stone-400 group-hover:bg-amber-400 group-hover:text-stone-950 transition-colors">
-                        <MapPin size={24} />
-                      </div>
-                      <div>
-                         <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">{ppt.place_type}</p>
-                         <h4 className="text-xl font-black text-white italic">{ppt.code}</h4>
-                      </div>
-                   </div>
-                   <ArrowRight size={20} className="text-stone-700 group-hover:text-amber-400 transition-colors" />
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-white/5">
-                   <p className="text-xs font-bold text-stone-400 truncate">
-                      {ppt.building_name || ppt.landmark || ppt.city || 'Precision Location'}
-                   </p>
-                </div>
-              </Link>
-           ))}
-           {!profile.addresses?.length && (
-              <div className="col-span-full py-12 text-center rounded-[2.5rem] border border-dashed border-white/10">
-                 <p className="text-stone-500 font-bold">This creator hasn't published any PPOINNTs yet.</p>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ padding: '0 20px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'linear-gradient(135deg, ' + PP.yellow + ' 0%, #FFB400 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, fontWeight: 800, color: '#0A0B0D', flexShrink: 0,
+          }}>E</div>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 800 }}>Emmanuel O.</div>
+            {isAgent && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <span style={{ color: PP.yellow }}>{I.star()}</span>
+                <span style={{ fontSize: 12, color: PP.text3, fontWeight: 600 }}>Silver Agent</span>
               </div>
-           )}
+            )}
+            <div style={{ fontSize: 13, color: PP.text3, marginTop: 4 }}>+234 801 234 5678</div>
+          </div>
         </div>
 
-        {/* ── DISCOVERY CTA ── */}
-        <div className="mt-16 text-center">
-            <h4 className="text-stone-500 text-sm font-bold uppercase tracking-widest mb-6">Become a Verified Creator</h4>
-            <Link to="/" className="inline-flex items-center gap-3 rounded-full bg-white/5 border border-white/10 px-8 py-4 font-black transition-all hover:bg-white/10 hover:border-amber-400 active:scale-95">
-               GET YOUR OWN PPOINNT <ArrowRight size={18} />
-            </Link>
+        {isAgent && (
+          <div style={{ padding: '0 20px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {[{ v: '128', l: 'PPOINNTs' }, { v: '98%', l: 'Accuracy' }, { v: '₦48k', l: 'Earned' }].map((s, i) => (
+              <div key={i} style={{
+                background: PP.card, border: '1px solid ' + PP.line, borderRadius: 14,
+                padding: '14px 12px', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.3 }}>{s.v}</div>
+                <div style={{ fontSize: 11, color: PP.text3, marginTop: 3, fontWeight: 600 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isAgent && (
+          <div style={{ padding: '0 20px 16px' }}>
+            <button onClick={() => navigate('/agents')} style={{
+              width: '100%', padding: '14px 18px', borderRadius: 16,
+              background: PP.yellowSoft, border: '1px solid rgba(255,199,44,0.2)',
+              display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, background: PP.yellow,
+                color: '#0A0B0D', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>{I.shield()}</div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: PP.yellow }}>Agent Dashboard</div>
+                <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>View earnings and territory</div>
+              </div>
+              <span style={{ color: PP.yellow }}>{I.chevR()}</span>
+            </button>
+          </div>
+        )}
+
+        {menuSections.map((section, si) => (
+          <div key={si} style={{
+            margin: '0 20px 14px',
+            background: PP.card, border: '1px solid ' + PP.line, borderRadius: 18, overflow: 'hidden',
+          }}>
+            {section.items.map((item, ii) => (
+              <button key={ii} onClick={() => item.to && navigate(item.to)} style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '15px 18px', width: '100%', background: 'none', border: 'none',
+                borderBottom: ii < section.items.length - 1 ? '1px solid ' + PP.line : 'none',
+                cursor: 'pointer', textAlign: 'left',
+              }}>
+                <span style={{ color: PP.text2, display: 'flex' }}>{item.icon()}</span>
+                <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: PP.text, fontFamily: PP.font }}>{item.label}</span>
+                {item.badge && (
+                  <span style={{
+                    padding: '3px 8px', borderRadius: 8,
+                    background: item.badgeColor + '18', color: item.badgeColor,
+                    fontSize: 11, fontWeight: 700,
+                  }}>{item.badge}</span>
+                )}
+                <span style={{ color: PP.text3 }}>{I.chevR()}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+
+        <div style={{ padding: '0 20px 36px' }}>
+          <button onClick={() => {
+            localStorage.setItem('user_role', isAgent ? 'user' : 'agent');
+            window.location.reload();
+          }} style={{
+            width: '100%', padding: '14px', borderRadius: 14,
+            border: '1px solid ' + PP.line, background: PP.card,
+            color: isAgent ? PP.red : PP.yellow,
+            fontFamily: PP.font, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+          }}>{isAgent ? 'Switch to User Mode' : 'Switch to Agent Mode'}</button>
         </div>
       </div>
-
     </div>
   );
 }
