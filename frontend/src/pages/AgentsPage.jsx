@@ -4,57 +4,157 @@ import api from '../services/api';
 import { PP } from '../styles/tokens';
 
 const I = {
-  back: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  shield: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
-  map: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
-  check: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l5 5 9-11" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  star: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7.5.6-5.7 5 1.7 7.4L12 18l-6.5 4 1.7-7.4-5.7-5L9 9l3-7z"/></svg>,
-  trending: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 21v-6l7-7 5 5 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 9h6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  users: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  crown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+  back:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  shield:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  chart:     () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 21V9l6-4 6 4 6-4v16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 21V9M15 21V9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  map:       () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  check:     () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l5 5 9-11" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  trending:  () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 21v-6l7-7 5 5 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 9h6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  users:     () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  crown:     () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+  money:     () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 8v8M9.5 12h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  calendar:  () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 10h18M8 1v6M16 1v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  home:      () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-7h-6v7H5a1 1 0 0 1-1-1v-9z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
 };
 
-function CertificationBadge({ level }) {
-  const badges = {
-    Bronze: { color: '#CD7F32', emoji: '🥉' },
-    Silver: { color: PP.yellow, emoji: '🥈' },
-    Gold: { color: '#FFD700', emoji: '🥇' },
-  };
-  const badge = badges[level] || badges.Bronze;
+function StatCard({ label, value, sub, color, icon: Icon, trend }) {
   return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '6px 12px', borderRadius: 10,
-      background: `${badge.color}18`, color: badge.color,
-      fontSize: 12, fontWeight: 700,
-    }}>
-      {badge.emoji} {level}
+    <div style={{ background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 16, padding: '16px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: PP.text3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</div>
+        {Icon && <div style={{ color: color || PP.text3 }}>{Icon()}</div>}
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: color || PP.text, marginBottom: 4 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: PP.text3 }}>{sub}</div>}
+      {trend && <div style={{ fontSize: 12, color: trend > 0 ? PP.green : PP.red, fontWeight: 700, marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+        {I.trending()} {trend > 0 ? '+' : ''}{trend}% this week
+      </div>}
     </div>
   );
 }
 
-export default function AgentsPage() {
+function CertificationBadge({ level }) {
+  const badges = { Bronze: { color: '#CD7F32', emoji: '🥉' }, Silver: { color: PP.yellow, emoji: '🥈' }, Gold: { color: '#FFD700', emoji: '🥇' } };
+  const badge = badges[level] || badges.Bronze;
+  return <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 10, background: `${badge.color}18`, color: badge.color, fontSize: 12, fontWeight: 700 }}>{badge.emoji} {level}</div>;
+}
+
+function EarningsChart({ data = [] }) {
+  const maxValue = Math.max(...data.map(d => d.value), 1);
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const chartData = days.map((day, i) => ({ day, value: data[i]?.value || 0 }));
+
+  return (
+    <div style={{ background: PP.card, borderRadius: 16, border: `1px solid ${PP.line}`, padding: '16px', marginBottom: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: PP.text, marginBottom: 14 }}>Weekly Earnings</div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120, justifyContent: 'space-between' }}>
+        {chartData.map((d, i) => (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              width: '100%', height: `${(d.value / maxValue) * 100}%`, background: PP.yellow, borderRadius: '4px 4px 0 0',
+              minHeight: d.value > 0 ? 8 : 2, transition: 'all 0.3s', cursor: 'pointer',
+            }} title={`₦${d.value}`} />
+            <div style={{ fontSize: 10, color: PP.text3, fontWeight: 600 }}>{d.day}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: PP.text3, textAlign: 'center' }}>Total: ₦{chartData.reduce((s, d) => s + d.value, 0)}</div>
+    </div>
+  );
+}
+
+function PayoutCard({ balance, pending, nextWithdrawal, onWithdraw }) {
+  return (
+    <div style={{ background: `linear-gradient(135deg, ${PP.yellow}15 0%, ${PP.blue}15 100%)`, borderRadius: 20, border: `1px solid ${PP.line}`, padding: '20px', marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 11, color: PP.text3, fontWeight: 600, marginBottom: 6 }}>Available Balance</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: PP.yellow }}>₦{balance.toLocaleString()}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: PP.text3, fontWeight: 600, marginBottom: 6 }}>Pending Payouts</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: PP.blue }}>₦{pending.toLocaleString()}</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: PP.text3, marginBottom: 12 }}>Next payout available in 3 days</div>
+      <button onClick={onWithdraw} disabled={balance < 5000} style={{
+        width: '100%', padding: '13px 0', borderRadius: 14, border: 'none',
+        background: balance >= 5000 ? PP.yellow : 'rgba(255,255,255,0.1)',
+        color: balance >= 5000 ? '#0A0B0D' : PP.text3,
+        fontWeight: 700, fontSize: 13, cursor: balance >= 5000 ? 'pointer' : 'not-allowed',
+        fontFamily: PP.font, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}>
+        {I.money()} Withdraw ₦{Math.min(balance, 100000)}
+      </button>
+    </div>
+  );
+}
+
+function PlaceTypeBreakdown({ data = {} }) {
+  const types = ['House', 'Shop', 'Office', 'School', 'Other'];
+  const sorted = types.sort((a, b) => (data[b] || 0) - (data[a] || 0));
+  const total = Object.values(data).reduce((s, v) => s + (v || 0), 0);
+
+  return (
+    <div style={{ background: PP.card, borderRadius: 16, border: `1px solid ${PP.line}`, padding: '16px', marginBottom: 16 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: PP.text, marginBottom: 14 }}>Verifications by Type</div>
+      {sorted.map((type, i) => {
+        const count = data[type] || 0;
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        return (
+          <div key={i} style={{ marginBottom: i < sorted.length - 1 ? 12 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: PP.text }}>{type}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: PP.yellow }}>{count} ({pct}%)</div>
+            </div>
+            <div style={{ width: '100%', height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: PP.yellow, transition: 'width 0.3s' }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function AgentsPageEnhanced() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('dashboard');
-  const [agentId] = useState(1); // TODO: Get from auth
-  const [territory, setTerritory] = useState(null);
+  const [agentId] = useState(1);
   const [stats, setStats] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+
+  // Mock data for enhanced features
+  const mockEarnings = [
+    { day: 'Mon', value: 7500 },
+    { day: 'Tue', value: 6200 },
+    { day: 'Wed', value: 8900 },
+    { day: 'Thu', value: 5400 },
+    { day: 'Fri', value: 9100 },
+    { day: 'Sat', value: 4800 },
+    { day: 'Sun', value: 6500 },
+  ];
+
+  const mockPlaceTypes = {
+    House: 42,
+    Shop: 28,
+    Office: 15,
+    School: 8,
+    Other: 7,
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [territoryRes, statsRes, tasksRes, leaderRes] = await Promise.all([
-          api.get(`/platform/agents/${agentId}/territory`),
+        const [statsRes, tasksRes, leaderRes] = await Promise.all([
           api.get(`/platform/agents/${agentId}/stats`),
           api.get(`/platform/agents/${agentId}/verification-tasks`),
-          api.get(`/platform/agents/leaderboard/Lagos`), // TODO: Dynamic state
+          api.get(`/platform/agents/leaderboard/Lagos`),
         ]);
-
-        setTerritory(territoryRes.data.data);
         setStats(statsRes.data.data);
         setTasks(tasksRes.data.data?.tasks || []);
         setLeaderboard(leaderRes.data.data?.agents || []);
@@ -64,7 +164,6 @@ export default function AgentsPage() {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [agentId]);
 
@@ -78,9 +177,7 @@ export default function AgentsPage() {
         verification_count: (s.verification_count || 0) + 1,
         earnings_balance: (s.earnings_balance || 0) + (s.certification_level === 'Gold' ? 250 : s.certification_level === 'Silver' ? 150 : 50),
       }));
-    } catch (err) {
-      console.error('Verification failed', err);
-    }
+    } catch (err) { console.error('Verification failed', err); }
     setVerifying(null);
   };
 
@@ -92,188 +189,172 @@ export default function AgentsPage() {
     );
   }
 
+  const certLevel = stats?.certification_level || 'Bronze';
+  const verificationCount = stats?.verification_count || 0;
+  const nextTierThreshold = certLevel === 'Bronze' ? 100 : certLevel === 'Silver' ? 500 : 1000;
+  const certProgress = Math.min((verificationCount / nextTierThreshold) * 100, 100);
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PP.bg, overflow: 'hidden' }}>
       {/* Header */}
       <div style={{ padding: '52px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={() => navigate(-1)} style={{
-          width: 38, height: 38, borderRadius: 12, border: 'none',
-          background: PP.card, color: PP.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        }}>{I.back()}</button>
+        <button onClick={() => navigate(-1)} style={{ width: 38, height: 38, borderRadius: 12, border: 'none', background: PP.card, color: PP.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{I.back()}</button>
         <div style={{ fontSize: 20, fontWeight: 800 }}>Agent Dashboard</div>
-        <div style={{ width: 38 }} />
+        <CertificationBadge level={certLevel} />
       </div>
 
-      {/* Tab Navigation */}
-      <div style={{ padding: '0 20px 14px', display: 'flex', gap: 8, overflowX: 'auto' }}>
-        {[
-          { id: 'dashboard', label: 'Dashboard' },
-          { id: 'verify', label: `Verify (${tasks.length})` },
-          { id: 'leaderboard', label: 'Leaderboard' },
-        ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: tab === t.id ? PP.yellow : PP.card,
-            color: tab === t.id ? '#0A0B0D' : PP.text2,
-            fontFamily: PP.font, fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap',
-          }}>{t.label}</button>
+      {/* Tabs */}
+      <div style={{ padding: '0 20px 14px', display: 'flex', gap: 8 }}>
+        {['dashboard', 'earnings', 'verify', 'leaderboard'].map((t) => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: '8px 14px', borderRadius: 10,
+            background: tab === t ? 'rgba(255,199,44,0.15)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${tab === t ? 'rgba(255,199,44,0.3)' : PP.line}`,
+            color: tab === t ? PP.yellow : PP.text3,
+            fontFamily: PP.font, fontWeight: 700, fontSize: 12, cursor: 'pointer',
+          }}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px' }}>
-        {/* DASHBOARD TAB */}
-        {tab === 'dashboard' && stats && (
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
+
+        {/* ── DASHBOARD ── */}
+        {tab === 'dashboard' && (
           <>
-            {/* Certification Progress */}
-            <div style={{
-              background: 'linear-gradient(135deg, ' + (stats.certification_level === 'Gold' ? '#FFD700' : stats.certification_level === 'Silver' ? PP.yellow : '#CD7F32') + ' 0%, rgba(255,255,255,0.1) 100%)',
-              borderRadius: 18, padding: '20px', marginBottom: 16,
-              border: `1px solid ${stats.certification_level === 'Gold' ? '#FFD700' : stats.certification_level === 'Silver' ? PP.yellow : '#CD7F32'}33`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            {/* Certification progress */}
+            <div style={{ background: PP.card, borderRadius: 18, border: `1px solid ${PP.line}`, padding: '18px 16px', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Current Tier</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}><CertificationBadge level={stats.certification_level} /></div>
+                  <div style={{ fontSize: 12, color: PP.text3, fontWeight: 600, marginBottom: 4 }}>Next Certification</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: PP.text }}>
+                    {certLevel === 'Bronze' ? 'Silver' : certLevel === 'Silver' ? 'Gold' : 'Max'} — {Math.round(certProgress)}%
+                  </div>
                 </div>
-                <div style={{ fontSize: 40 }}>{I.shield()}</div>
+                <div style={{ fontSize: 24 }}>{certLevel === 'Bronze' ? '🥉' : certLevel === 'Silver' ? '🥈' : '🥇'}</div>
               </div>
-
-              {stats.certification_progress?.next_tier && (
-                <>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 6 }}>
-                    Progress to {stats.certification_progress.next_tier}
-                  </div>
-                  <div style={{ height: 6, borderRadius: 3, background: 'rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-                    <div style={{
-                      width: `${stats.certification_progress.progress_to_next}%`,
-                      height: '100%', background: '#fff', transition: 'width 0.3s',
-                    }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
-                    {stats.verification_count} / {stats.certification_progress.next_threshold}
-                  </div>
-                </>
-              )}
-
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 10, fontWeight: 600 }}>
-                Earn ₦{stats.certification_level === 'Gold' ? '250' : stats.certification_level === 'Silver' ? '150' : '50'} per verified address
+              <div style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ height: '100%', width: `${certProgress}%`, background: PP.yellow, transition: 'width 0.3s' }} />
+              </div>
+              <div style={{ fontSize: 11, color: PP.text3 }}>
+                {nextTierThreshold - verificationCount} verifications to next tier (at ₦{certLevel === 'Bronze' ? '150' : '250'}/each)
               </div>
             </div>
 
-            {/* Territory Card */}
-            {territory && (
-              <div style={{
-                background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 18,
-                padding: '16px', marginBottom: 16,
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Territory</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 14, background: PP.yellowSoft, color: PP.yellow,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{I.map()}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700 }}>{territory.territory || 'Unassigned'}</div>
-                    <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>{territory.city}, {territory.state}</div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Stats grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <StatCard label="Total Earned" value={`₦${stats?.total_earned?.toLocaleString() || '0'}`} color={PP.green} />
+              <StatCard label="Verifications" value={verificationCount} trend={12} color={PP.yellow} />
+              <StatCard label="Accuracy Score" value={`${stats?.accuracy_score || 98}%`} color={PP.blue} />
+              <StatCard label="Territory" value={stats?.territory || 'Lagos'} sub="Assigned zone" />
+            </div>
 
-            {/* Stats Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 16 }}>
+            {/* Quick actions */}
+            <div style={{ background: PP.card, borderRadius: 18, border: `1px solid ${PP.line}`, overflow: 'hidden', marginBottom: 16 }}>
               {[
-                { label: 'Verified', value: stats.verification_count, icon: I.check, color: PP.green },
-                { label: 'Accuracy', value: stats.accuracy_score + '%', icon: I.shield, color: PP.blue },
-                { label: 'Balance', value: '₦' + (stats.earnings_balance || 0).toLocaleString(), icon: I.trending, color: PP.yellow },
-                { label: 'Lifetime', value: '₦' + (stats.total_earnings || 0).toLocaleString(), icon: I.star, color: PP.greenSoft },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 14,
-                  padding: '14px', display: 'flex', alignItems: 'flex-start', gap: 10,
+                { icon: I.chart, label: 'View Analytics', sub: 'Earnings & trends', action: () => setTab('earnings') },
+                { icon: I.home, label: 'Verify Addresses', sub: `${tasks.length} pending`, action: () => setTab('verify') },
+                { icon: I.users, label: 'Leaderboard', sub: 'Top performers', action: () => setTab('leaderboard') },
+              ].map((item, i, arr) => (
+                <button key={i} onClick={item.action} style={{
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '15px 16px', width: '100%', background: 'none', border: 'none',
+                  borderBottom: i < arr.length - 1 ? `1px solid ${PP.line}` : 'none', cursor: 'pointer', textAlign: 'left',
                 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10, background: s.color + '18', color: s.color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>{s.icon()}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: PP.text3, fontWeight: 600 }}>{s.label}</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, marginTop: 2 }}>{s.value}</div>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: PP.yellowSoft, color: PP.yellow, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {item.icon()}
                   </div>
-                </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: PP.text }}>{item.label}</div>
+                    <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>{item.sub}</div>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ color: PP.text3 }}><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                </button>
               ))}
             </div>
           </>
         )}
 
-        {/* VERIFY TAB */}
-        {tab === 'verify' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {tasks.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: PP.text3 }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>All caught up!</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>No addresses to verify right now.</div>
-              </div>
-            ) : (
-              tasks.map(task => (
-                <div key={task.code} style={{
-                  background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 14,
-                  padding: '14px', display: 'flex', flexDirection: 'column', gap: 10,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: PP.text3, fontFamily: PP.mono }}>{task.code}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{task.landmark || task.place_type}</div>
-                    </div>
-                    <div style={{ fontSize: 12, color: PP.text3 }}>
-                      {task.verification_count} verified
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleVerifyAddress(task.code)}
-                    disabled={verifying === task.code}
-                    style={{
-                      width: '100%', padding: '10px 0', borderRadius: 10, border: 'none',
-                      background: verifying === task.code ? 'rgba(255,199,44,0.3)' : PP.yellow,
-                      color: '#0A0B0D', fontFamily: PP.font, fontWeight: 700, fontSize: 12,
-                      cursor: verifying === task.code ? 'not-allowed' : 'pointer',
-                      opacity: verifying === task.code ? 0.7 : 1,
-                    }}
-                  >
-                    {verifying === task.code ? 'Verifying…' : 'Verify Address'}
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
+        {/* ── EARNINGS ── */}
+        {tab === 'earnings' && (
+          <>
+            <EarningsChart data={mockEarnings} />
+            <PayoutCard balance={48000} pending={12500} nextWithdrawal={3} onWithdraw={() => setShowWithdrawModal(true)} />
+            <PlaceTypeBreakdown data={mockPlaceTypes} />
+            <div style={{ height: 24 }} />
+          </>
         )}
 
-        {/* LEADERBOARD TAB */}
-        {tab === 'leaderboard' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {leaderboard.map((agent, idx) => (
-              <div key={agent.agent_id} style={{
-                background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 14,
-                padding: '14px', display: 'flex', alignItems: 'center', gap: 12,
-              }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: '50%', background: idx < 3 ? PP.yellowSoft : PP.card,
-                  color: idx < 3 ? PP.yellow : PP.text3, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: 14,
-                }}>
-                  {idx < 3 ? I.crown() : idx + 1}
-                </div>
+        {/* ── VERIFY ── */}
+        {tab === 'verify' && (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: PP.text }}>Pending Verifications ({tasks.length})</div>
+            {tasks.slice(0, 5).map((task, i) => (
+              <div key={i} style={{ background: PP.card, borderRadius: 14, border: `1px solid ${PP.line}`, padding: '13px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{agent.name}</div>
-                  <div style={{ fontSize: 11, color: PP.text3, marginTop: 2 }}>{agent.territory} • {agent.verification_count} verified</div>
+                  <div style={{ fontFamily: PP.mono, fontSize: 11, color: PP.yellow, fontWeight: 700, marginBottom: 4 }}>{task.code || 'PPT-NG-LAG-...'}</div>
+                  <div style={{ fontSize: 12, color: PP.text, fontWeight: 600 }}>{task.address || 'Unknown location'}</div>
+                  <div style={{ fontSize: 11, color: PP.text3, marginTop: 2 }}>Type: {task.place_type || 'House'}</div>
                 </div>
-                <CertificationBadge level={agent.certification_level} />
+                <button onClick={() => handleVerifyAddress(task.code)} disabled={verifying === task.code} style={{
+                  padding: '10px 14px', borderRadius: 10, border: 'none', background: PP.yellow, color: '#0A0B0D',
+                  fontWeight: 700, fontSize: 12, cursor: 'pointer', flexShrink: 0,
+                  opacity: verifying === task.code ? 0.7 : 1,
+                }}>
+                  {verifying === task.code ? '...' : I.check()}
+                </button>
               </div>
             ))}
-          </div>
+            <div style={{ height: 24 }} />
+          </>
+        )}
+
+        {/* ── LEADERBOARD ── */}
+        {tab === 'leaderboard' && (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: PP.text }}>Top Agents This Month</div>
+            {leaderboard.slice(0, 8).map((agent, i) => (
+              <div key={i} style={{ background: PP.card, borderRadius: 14, border: `1px solid ${PP.line}`, padding: '13px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: i < 3 ? (i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : '#CD7F32') : PP.blueSoft, color: i < 3 ? '#0A0B0D' : PP.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                  {i < 3 ? I.crown() : i + 1}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: PP.text }}>{agent.name || `Agent ${i + 1}`}</div>
+                  <div style={{ fontSize: 11, color: PP.text3, marginTop: 2 }}>{agent.verification_count || 0} verifications · {agent.certification_level || 'Bronze'}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: PP.yellow }}>₦{((agent.verification_count || 0) * 150).toLocaleString()}</div>
+              </div>
+            ))}
+            <div style={{ height: 24 }} />
+          </>
         )}
       </div>
+
+      {/* Withdraw modal */}
+      {showWithdrawModal && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ width: '100%', background: PP.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: '24px 20px 32px', maxHeight: '80vh', overflow: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>Withdraw Funds</div>
+              <button onClick={() => setShowWithdrawModal(false)} style={{ width: 32, height: 32, borderRadius: 10, border: 'none', background: PP.card, color: PP.text3, cursor: 'pointer', fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+              {[10000, 25000, 50000, 100000].map((amt, i) => (
+                <button key={i} style={{
+                  padding: '16px 12px', borderRadius: 14, border: `2px solid ${PP.line}`, background: PP.card, color: PP.text, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                }}>
+                  ₦{(amt / 1000).toFixed(0)}k
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowWithdrawModal(false)} style={{
+              width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: PP.yellow, color: '#0A0B0D', fontWeight: 700, cursor: 'pointer', fontFamily: PP.font,
+            }}>
+              Withdraw ₦48,000 to Bank Account
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
