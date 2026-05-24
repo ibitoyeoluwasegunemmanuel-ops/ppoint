@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import DataUsageMonitor from './components/DataUsageMonitor';
+import AuthPage from './pages/AuthPage';
+import OnboardingPage from './pages/OnboardingPage';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import SavedPage from './pages/SavedPage';
@@ -20,6 +22,8 @@ import TrackingPage from './pages/TrackingPage';
 import EmergencyPage from './pages/EmergencyPage';
 import BusinessDashboardPage from './pages/BusinessDashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import LibraryPage from './pages/LibraryPage';
+import GovernmentPortalPage from './pages/GovernmentPortalPage';
 
 function App() {
   useEffect(() => {
@@ -39,6 +43,12 @@ function App() {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/library" element={<LibraryPage />} />
+        <Route path="/government" element={<GovernmentPortalPage />} />
+
+        {/* Auth + Onboarding */}
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
 
         {/* Full-screen flows */}
         <Route path="/generate" element={<GeneratePage />} />
