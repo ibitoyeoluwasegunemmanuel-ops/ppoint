@@ -12,6 +12,7 @@ import AgentsPage from './pages/AgentsPage';
 import AddressPage from './pages/AddressPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminGovernmentPage from './pages/AdminGovernmentPage';
+import USSDAccessPage from './pages/USSDAccessPage';
 import DevelopersPage from './pages/DevelopersPage';
 
 function App() {
@@ -39,6 +40,9 @@ function App() {
         {/* Address lookup */}
         <Route path="/p/:code" element={<AddressPage />} />
         <Route path="/:code" element={<AddressPage />} />
+
+        {/* USSD + SMS Access */}
+        <Route path="/ussd" element={<USSDAccessPage />} />
 
         {/* Admin & developer (separate UX) */}
         <Route path="/admin" element={<AdminDashboard />} />

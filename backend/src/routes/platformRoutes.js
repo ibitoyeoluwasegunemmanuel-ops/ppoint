@@ -6,6 +6,7 @@ import FieldAgent from '../models/FieldAgent.js';
 import { inMemoryStore } from '../data/inMemoryStore.js';
 import { platformStore } from '../data/platformStore.js';
 import { calculateAddressConfidence, resolveConfidenceLevel } from '../services/addressConfidenceService.js';
+import USSDService from '../services/ussdService.js';
 
 const router = express.Router();
 
@@ -109,60 +110,134 @@ router.get('/system/public-config', (req, res) => {
 router.post('/ussd/session', async (req, res) => {
   try {
     const text = String(req.body.text || '').trim();
-    const parts = text.split('*').filter(Boolean);
+    const phoneNumber = req.body.phone_number || req.body.phoneNumber || 'unknown';
+    const sessionId = req.body.session_id || req.body.sessionId || null;
 
-    if (!parts.length) {
-      return res.json(success('USSD menu loaded', {
-        code: '234777#',
-        menu: ['1. Get My PPOINNT Address', '2. Search PPOINNT Address', '3. Help'],
+    if (!text) {
+      return res.json(success('USSD main menu', {
+        menu: USSDService.MAIN_MENU,
+        session_id: sessionId,
       }));
     }
 
-    if (parts[0] === '1') {
-      const { latitude, longitude } = parseCoordinates(req.body);
-      if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
-        return res.json(success('USSD address capture started', {
-          prompt: 'Collect country, state, city, landmark, and coordinates from the telecom gateway, then call this endpoint again with latitude and longitude.',
-          received: {
-            country: req.body.country || null,
-            state: req.body.state || null,
-            city: req.body.city || null,
-            landmark: req.body.landmark || null,
-          },
-        }));
-      }
+    const choice = text.split('*').pop();
 
-      const address = await AddressService.generateAddress(latitude, longitude, {
-        landmark: req.body.landmark || '',
-        description: req.body.description || `USSD request for ${req.body.city || 'community location'}`,
-        createdBy: 'USSD User',
+    // Main menu navigation
+    if (choice === '1') {
+      return res.json(success('USSD generate menu', {
+        menu: USSDService.GENERATE_MENU,
+        session_id: sessionId,
+      }));
+    }
+
+    if (choice === '2') {
+      const code = String(req.body.code || '').trim().toUpperCase();
+      if (code && code.length > 5) {
+        try {
+          const address = await AddressService.getAddressInfo(code);
+          return res.json(success('USSD search result', {
+            found: true,
+            code: address.code,
+            landmark: address.landmark,
+            city: address.city,
+            state: address.state,
+            sms_message: `${address.code}\n${address.landmark || 'No landmark'}\n${address.city}, ${address.state}`,
+          }));
+        } catch (err) {
+          return res.json(success('USSD search not found', {
+            found: false,
+            menu: 'Code not found.\n\n1. Try again\n2. Back\n\nChoose:',
+          }));
+        }
+      }
+      return res.json(success('USSD search prompt', {
+        menu: 'Enter PPOINNT code:\n(e.g., PPT-NG-LAG-IKD-1234)',
+        session_id: sessionId,
+      }));
+    }
+
+    if (choice === '3') {
+      return res.json(success('USSD instructions', {
+        menu: USSDService.INSTRUCTIONS,
+        session_id: sessionId,
+      }));
+    }
+
+    if (choice === '0') {
+      return res.json(success('USSD session ended', {
+        menu: 'Thank you for using PPOINNT!',
+      }));
+    }
+
+    return res.json(success('USSD main menu', {
+      menu: USSDService.MAIN_MENU,
+      session_id: sessionId,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.post('/ussd/generate', async (req, res) => {
+  try {
+    const { latitude, longitude, landmark, phone_number } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.json(success('USSD awaiting coordinates', {
+        menu: 'Send your location:\n\nDial *850*1*<LAT>*<LNG>#\n\nExample:\n*850*1*6.5244*3.3792#',
+        status: 'awaiting_coords',
+      }));
+    }
+
+    const address = await AddressService.generateAddress(
+      Number(latitude),
+      Number(longitude),
+      {
+        landmark: landmark || '',
+        description: 'Generated via USSD',
+        createdBy: `USSD-${phone_number || 'user'}`,
         createdSource: 'ussd',
         addressType: 'community',
         moderationStatus: 'active',
-      });
-
-      return res.json(success('USSD PPOINNT address generated', {
-        sms_message: `Your PPOINNT address: ${address.code}. ${address.landmark || ''} ${address.city}, ${address.state}`.trim(),
-        address,
-      }));
-    }
-
-    if (parts[0] === '2') {
-      const code = parts.slice(1).join('*').trim() || String(req.body.code || '').trim();
-      if (!code) {
-        return res.status(400).json(failure('PPOINNT code is required for USSD search'));
       }
+    );
 
-      const address = await AddressService.getAddressInfo(code);
-      return res.json(success('USSD address search completed', {
-        sms_message: `${address.code} ${address.landmark || ''} ${address.city}, ${address.state}`.trim(),
-        address,
-      }));
+    const smsText = `PPOINNT: ${address.code}\n${address.landmark || ''}\n${address.city}, ${address.state}\n\nShare: ppoint.online/p/${address.code}`;
+
+    return res.json(success('USSD address generated', {
+      code: address.code,
+      landmark: address.landmark,
+      city: address.city,
+      state: address.state,
+      menu: `Your PPOINNT:\n${address.code}\n\n${address.landmark || address.city}\n\n1. Share\n0. Exit`,
+      sms_message: smsText,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.post('/sms/command', async (req, res) => {
+  try {
+    const message = String(req.body.message || '').trim();
+    const phoneNumber = req.body.phone_number || req.body.phoneNumber || '';
+
+    if (!message) {
+      return res.status(400).json(failure('Message is required'));
     }
 
-    return res.json(success('USSD help loaded', {
-      help: 'Dial 234777#, choose 1 to generate an address, 2 to search a PPOINNT code, or use SMS lookup for text-based retrieval.',
-    }));
+    const result = await USSDService.handleSMSCommand(message);
+
+    res.json({
+      status: 'success',
+      success: true,
+      data: {
+        phone_number: phoneNumber,
+        command: message,
+        reply: result.sms_message || result.message,
+        ...result,
+      },
+    });
   } catch (error) {
     res.status(error.status || 400).json(failure(error.message));
   }
@@ -175,16 +250,28 @@ router.post('/sms/lookup', async (req, res) => {
       return res.status(400).json(failure('SMS message is required'));
     }
 
+    // Try as SMS command first
+    if (message.toUpperCase().startsWith('ADDR') || message.toUpperCase().startsWith('FIND') || message.toUpperCase().startsWith('HELP')) {
+      const result = await USSDService.handleSMSCommand(message);
+      return res.json(success('SMS command processed', {
+        reply: result.sms_message || result.message,
+        ...result,
+      }));
+    }
+
+    // Otherwise treat as address search
     const query = message.replace(/^ADDRESS\s+/i, '').trim();
     const results = await AddressService.searchAddresses(query);
     const match = results[0];
 
     if (!match) {
-      return res.status(404).json(failure('No PPOINNT address matched the SMS query'));
+      return res.status(404).json(success('No address found', {
+        reply: `No PPOINNT found.\n\nTry:\nFIND <CODE>\nADDR <LAT> <LNG>\nHELP`,
+      }));
     }
 
     res.json(success('SMS lookup completed', {
-      reply: `Your PPOINNT address:\n${match.code}\n${match.landmark || match.description || ''}\n${match.city} ${match.state}`.trim(),
+      reply: `${match.code}\n${match.landmark || match.city}\n${match.state}`,
       address: match,
     }));
   } catch (error) {
