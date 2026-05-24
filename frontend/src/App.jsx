@@ -19,6 +19,7 @@ import DevelopersPage from './pages/DevelopersPage';
 import TrackingPage from './pages/TrackingPage';
 import EmergencyPage from './pages/EmergencyPage';
 import BusinessDashboardPage from './pages/BusinessDashboardPage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   useEffect(() => {
@@ -37,6 +38,7 @@ function App() {
         <Route path="/saved" element={<SavedPage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
         {/* Full-screen flows */}
         <Route path="/generate" element={<GeneratePage />} />

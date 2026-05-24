@@ -220,7 +220,7 @@ function AgentProfile({ user, navigate, signOut, tierMeta }) {
         <MenuCard items={[
           { icon: I.save, label: 'Saved Addresses', onClick: () => navigate('/saved') },
           { icon: I.map, label: 'Offline Maps', badge: 'Download', badgeColor: PP.green, onClick: () => {} },
-          { icon: I.nav, label: 'Navigation Settings', onClick: () => {} },
+          { icon: I.settings, label: 'Settings', onClick: () => navigate('/settings') },
         ]} />
         <MenuCard items={[
           { icon: I.ussd, label: 'USSD Access (*850#)', onClick: () => navigate('/ussd') },
@@ -307,7 +307,7 @@ function AccountProfile({ user, navigate, signOut, tierMeta }) {
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PP.bg, overflow: 'hidden' }}>
       <div style={{ padding: '52px 20px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.3 }}>Profile</div>
-        <button onClick={() => {}} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${PP.line}`, background: PP.card, color: PP.text2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{I.settings()}</button>
+        <button onClick={() => navigate('/settings')} style={{ width: 38, height: 38, borderRadius: 12, border: `1px solid ${PP.line}`, background: PP.card, color: PP.text2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>{I.settings()}</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ padding: '0 20px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -322,7 +322,7 @@ function AccountProfile({ user, navigate, signOut, tierMeta }) {
         <MenuCard items={[
           { icon: I.save, label: 'Saved Addresses', onClick: () => navigate('/saved') },
           { icon: I.map, label: 'Offline Maps', badge: 'Download', badgeColor: PP.green, onClick: () => {} },
-          { icon: I.nav, label: 'Navigation Settings', onClick: () => {} },
+          { icon: I.settings, label: 'Settings', onClick: () => navigate('/settings') },
         ]} />
 
         {/* Upgrade to Agent */}
