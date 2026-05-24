@@ -5,6 +5,7 @@ import PublicUsage from '../models/PublicUsage.js';
 import FieldAgent from '../models/FieldAgent.js';
 import { inMemoryStore } from '../data/inMemoryStore.js';
 import { platformStore } from '../data/platformStore.js';
+import { calculateAddressConfidence, resolveConfidenceLevel } from '../services/addressConfidenceService.js';
 
 const router = express.Router();
 
@@ -380,6 +381,103 @@ router.post('/logistics/bulk-verify', async (req, res) => {
     res.json(success('Bulk logistics verification completed', data));
   } catch (error) {
     res.status(400).json(failure(error.message));
+  }
+});
+
+router.get('/addresses/:code/confidence', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json(failure('PPOINNT code is required'));
+    }
+
+    const address = await AddressService.getAddressInfo(code);
+    if (!address) {
+      return res.status(404).json(failure('PPOINNT address not found'));
+    }
+
+    const confidence = calculateAddressConfidence({
+      gpsAccuracy: address.gps_accuracy || 10,
+      buildingDetected: !!address.building_polygon_id,
+      roadProximity: address.road_proximity_distance || 15,
+      entranceDetected: !!(address.entrance_latitude && address.entrance_longitude),
+      geocodingProviders: address.geocoding_providers || [],
+      communityName: address.community_name || '',
+      streetName: address.street_name || '',
+      landmarkProvided: !!address.landmark,
+      manualPin: true,
+    });
+
+    res.json(success('Address confidence score retrieved', {
+      code: address.code,
+      latitude: address.latitude,
+      longitude: address.longitude,
+      confidence_score: confidence.score,
+      confidence_level: confidence.level,
+      confidence_guidance: confidence.guidance,
+      confidence_breakdown: confidence.breakdown,
+      verification_count: address.verification_count || 0,
+      community_rating: address.community_rating || 0,
+      created_at: address.created_at,
+      landmark: address.landmark || null,
+      city: address.city,
+      state: address.state,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.post('/addresses/:code/verify', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    const { action, agentId, notes } = req.body;
+
+    if (!code) {
+      return res.status(400).json(failure('PPOINNT code is required'));
+    }
+
+    if (!['upvote', 'downvote', 'flag'].includes(action)) {
+      return res.status(400).json(failure('Action must be upvote, downvote, or flag'));
+    }
+
+    const address = await Address.findByCode(code);
+    if (!address) {
+      return res.status(404).json(failure('PPOINNT address not found'));
+    }
+
+    const currentVotes = address.verification_count || 0;
+    const currentRating = address.community_rating || 0;
+
+    let newVotes = currentVotes + 1;
+    let newRating = currentRating;
+
+    if (action === 'upvote') {
+      newRating = currentRating + 1;
+    } else if (action === 'downvote') {
+      newRating = Math.max(-100, currentRating - 1);
+    }
+
+    const updated = await Address.updateDetails(address.id, {
+      verification_count: newVotes,
+      community_rating: newRating,
+      address_metadata: {
+        ...(address.address_metadata || {}),
+        last_verification_action: action,
+        last_verification_at: new Date().toISOString(),
+        last_verified_by_agent: agentId || null,
+        verification_notes: notes || null,
+      },
+    });
+
+    res.json(success(`Address ${action}d successfully`, {
+      code: updated.code || code,
+      verification_count: newVotes,
+      community_rating: newRating,
+      address: updated,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
   }
 });
 

@@ -1,71 +1,120 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import MapboxMap, { Marker } from '../components/MapboxMap';
-import { 
-  ArrowLeft, Copy, Share2, Navigation, 
-  MapPin, Check, Phone, Info, LayoutGrid,
-  Send, ExternalLink, QrCode, Smartphone,
-  ShieldCheck, Zap, ArrowRight
-} from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
 import api from '../services/api';
+import { PP } from '../styles/tokens';
 
-// ─── Design System Tokens ────────────────────────────────────────────────────
-const THEME = {
-  primary: 'hsl(38, 92%, 50%)',
-  accent: 'hsl(160, 84%, 39%)',
-  bg: 'hsl(24, 10%, 10%)',
-  card: 'hsla(24, 10%, 15%, 0.8)',
+const I = {
+  back: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  copy: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.8"/></svg>,
+  check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l5 5 9-11" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  share: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.8"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.8"/><path d="M8.5 11l7-4M8.5 13l7 4" stroke="currentColor" strokeWidth="1.6"/></svg>,
+  nav: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 11L21 4l-7 17-2-7-9-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  shield: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  thumbUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 9V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2l-.5-5M20 7l-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  thumbDown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M10 15v4a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-12a2 2 0 0 0-2-2h-10a2 2 0 0 0-2 2l.5 5M4 17l4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  flag: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 15s1-1 5-1 8 1 11 0V4s-1 1-5 1-8-1-11 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 4v12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  pin: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 22s-7-7.5-7-13a7 7 0 1 1 14 0c0 5.5-7 13-7 13z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>,
 };
+
+function ConfidenceBadge({ score, level }) {
+  const colors = {
+    high: { bg: PP.greenSoft, text: PP.green, label: 'High' },
+    medium: { bg: PP.yellowSoft, text: PP.yellow, label: 'Medium' },
+    low: { bg: PP.redSoft, text: PP.red, label: 'Low' },
+  };
+  const color = colors[level] || colors.low;
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      padding: '6px 12px', borderRadius: 10,
+      background: color.bg, color: color.text, fontSize: 12, fontWeight: 700,
+    }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color.text }} />
+      {color.label} · {score}%
+    </div>
+  );
+}
+
+function CodeChip({ code }) {
+  const parts = code.split('-');
+  return (
+    <span style={{ fontFamily: PP.mono, fontWeight: 700, fontSize: 14, letterSpacing: 0.4 }}>
+      {parts.map((p, i) => (
+        <span key={i}>
+          <span style={{ color: i === parts.length - 1 ? PP.yellow : PP.text }}>{p}</span>
+          {i < parts.length - 1 && <span style={{ color: PP.text3 }}>-</span>}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 export default function AddressPage() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const mapRef = useRef(null);
+
   const [address, setAddress] = useState(null);
+  const [confidence, setConfidence] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [copyState, setCopyState] = useState(false);
-  const [showQr, setShowQr] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [verifying, setVerifying] = useState(null);
 
   useEffect(() => {
-    const fetchAddress = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get(`/addresses/${code.toUpperCase()}`);
-        setAddress(response.data.data);
+        const addrRes = await api.get(`/address/search`, { params: { code: code?.toUpperCase() } });
+        const addr = addrRes.data.data;
+        setAddress(addr);
+
+        const confRes = await api.get(`/platform/addresses/${code?.toUpperCase()}/confidence`);
+        setConfidence(confRes.data.data);
       } catch (err) {
-        setError('PPOINNT Code not found or invalid.');
+        setError('Address not found');
       } finally {
         setLoading(false);
       }
     };
-    fetchAddress();
+    if (code) fetchData();
   }, [code]);
 
+  const handleVerify = async (action) => {
+    setVerifying(action);
+    try {
+      await api.post(`/platform/addresses/${code?.toUpperCase()}/verify`, { action });
+      setConfidence(c => ({
+        ...c,
+        verification_count: (c.verification_count || 0) + 1,
+        community_rating: action === 'upvote' ? (c.community_rating || 0) + 1 : (c.community_rating || 0) - 1,
+      }));
+    } catch (err) {
+      console.error('Verification failed', err);
+    }
+    setVerifying(null);
+  };
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(address.code);
-    setCopyState(true);
-    setTimeout(() => setCopyState(false), 2000);
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: `PPOINNT Address: ${address.code}`,
-        text: `Find this location using PPOINNT code: ${address.code}`,
-        url: window.location.href,
-      });
-    } else {
-      const msg = `My PPOINNT Address: ${address.code}\n${window.location.href}`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-    }
+    const text = encodeURIComponent(`📍 PPOINNT Address:\n${code}\n\n${window.location.href}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-stone-950">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-amber-400 border-t-transparent shadow-[0_0_20px_hsla(38,92%,50%,0.3)]" />
-          <p className="mt-4 font-black text-white">RECONSTRUCTION COORDINATES...</p>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: PP.bg }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: '50%', border: `3px solid ${PP.yellow}`,
+            borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite', margin: '0 auto',
+          }} />
+          <div style={{ marginTop: 12, fontSize: 13, color: PP.text3 }}>Loading address...</div>
         </div>
       </div>
     );
@@ -73,217 +122,190 @@ export default function AddressPage() {
 
   if (error || !address) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-stone-950 p-6 text-center">
-        <div className="mb-6 rounded-full bg-red-500/10 p-6 text-red-500 ring-1 ring-red-500/20">
-          <Info size={48} />
-        </div>
-        <h2 className="text-3xl font-black text-white">404: CODE NOT FOUND</h2>
-        <p className="mt-2 text-stone-500 font-medium">This PPOINNT code doesn't exist or has been deactivated.</p>
-        <Link to="/" className="mt-8 rounded-2xl bg-amber-400 px-8 py-4 font-black text-stone-950 shadow-xl shadow-amber-400/20">
-          Return to Hub
-        </Link>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: PP.bg, padding: 20 }}>
+        <div style={{
+          width: 60, height: 60, borderRadius: 16, background: PP.redSoft,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: PP.red, fontSize: 28, marginBottom: 20,
+        }}>❌</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Address Not Found</div>
+        <div style={{ fontSize: 13, color: PP.text3, marginBottom: 20 }}>This PPOINNT code doesn't exist yet.</div>
+        <button onClick={() => navigate('/')} style={{
+          padding: '12px 24px', borderRadius: 14, border: 'none',
+          background: PP.yellow, color: '#0A0B0D', fontFamily: PP.font, fontWeight: 700, cursor: 'pointer',
+        }}>Go Home</button>
       </div>
     );
   }
 
   return (
-    <div className="relative h-screen w-full flex flex-col bg-stone-950 overflow-hidden font-sans">
-      <Helmet>
-        <title>PPOINNT - {address.display_place_type || address.place_type || 'Location'} in {address.city}, {address.state}</title>
-        <meta name="description" content={`Navigate easily to this location using PPOINNT code: ${address.code}. ${address.landmark || ''}`} />
-        <meta property="og:title" content={`PPOINNT - ${address.display_place_type || address.place_type || 'Location'} in ${address.city}`} />
-        <meta property="og:description" content={`Navigate easily to this location using PPOINNT code: ${address.code}.`} />
-        <meta property="og:url" content={`${window.location.origin}/p/${address.code}`} />
-      </Helmet>
-      
-      {/* ── MAP HEADER (45% height) ── */}
-      <div className="h-[45vh] w-full relative z-0">
-        <MapboxMap
-          center={[address.longitude, address.latitude]}
-          zoom={16}
-          defaultViewMode="hybrid"
-          defaultTheme="dark"
-          showViewToggle={false}
-          style={{ height: '100%', width: '100%' }}
-        >
-          <Marker longitude={address.longitude} latitude={address.latitude} anchor="bottom">
-            <div className="relative h-14 w-14 group">
-              <div className={`absolute inset-0 rounded-full animate-ping opacity-25 ${address.address_type === 'verified_business' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <div className={`relative h-full w-full flex items-center justify-center rounded-full border-4 border-white text-3xl shadow-2xl transition-transform group-hover:scale-110 ${address.address_type === 'verified_business' ? 'bg-emerald-500' : 'bg-amber-400'}`}>
-                {address.address_type === 'verified_business' ? '🏢' : '📍'}
-              </div>
-            </div>
-          </Marker>
-        </MapboxMap>
-
-        {/* Back Button */}
-        <button 
-          onClick={() => navigate('/')}
-          className="absolute left-6 top-6 z-10 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-stone-950/80 text-white shadow-2xl backdrop-blur-2xl hover:bg-stone-900"
-        >
-          <ArrowLeft size={24} />
-        </button>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PP.bg, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '52px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={() => navigate(-1)} style={{
+          width: 38, height: 38, borderRadius: 12, border: 'none',
+          background: PP.card, color: PP.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>{I.back()}</button>
+        <div style={{ fontSize: 14, color: PP.text3, fontWeight: 600 }}>PPOINNT Code</div>
+        <button onClick={handleCopy} style={{
+          width: 38, height: 38, borderRadius: 12, border: 'none',
+          background: copied ? PP.green : PP.card, color: PP.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>{copied ? I.check() : I.copy()}</button>
       </div>
 
-      {/* ── ADDRESS CONTENT ── */}
-      <div className="relative z-10 flex-1 -mt-10 overflow-y-auto">
-        <div className="mx-auto max-w-2xl min-h-full rounded-t-[3rem] border-t border-white/10 bg-stone-950/95 p-8 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
-          
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex gap-2 mb-2">
-                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">PPOINNT Active</p>
-                 {address.address_type === 'verified_business' && (
-                    <span className="bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                       <ShieldCheck size={10} /> VERIFIED BUSINESS
-                    </span>
-                 )}
-                 {address.confidence_score >= 90 && (
-                    <span className="bg-amber-400 text-stone-950 text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                       <Zap size={10} /> HIGH CONFIDENCE
-                    </span>
-                 )}
-              </div>
-              <h1 className="text-7xl font-black text-white tracking-tighter flex items-center gap-4">
-                {address.code}
-                <button onClick={handleCopy} className="text-stone-700 hover:text-amber-400 transition">
-                  {copyState ? <Check size={28} className="text-emerald-400" /> : <Copy size={28} />}
-                </button>
-              </h1>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 20px' }}>
+        {/* Map */}
+        <div style={{ height: 240, borderRadius: 20, overflow: 'hidden', marginBottom: 16, border: `1px solid ${PP.line}` }}>
+          <MapboxMap
+            ref={mapRef}
+            center={[Number(address.longitude), Number(address.latitude)]}
+            zoom={18}
+            defaultViewMode="standard"
+            style={{ height: '100%', width: '100%' }}
+          >
+            {address && (
+              <Marker longitude={Number(address.longitude)} latitude={Number(address.latitude)} anchor="bottom">
+                <svg width="44" height="52" viewBox="0 0 40 48">
+                  <path d="M20 47s-15-16-15-27a15 15 0 1 1 30 0c0 11-15 27-15 27z" fill={PP.yellow} stroke="#0A0B0D" strokeWidth="1.2"/>
+                  <circle cx="20" cy="19" r="6" fill="#0A0B0D"/>
+                </svg>
+              </Marker>
+            )}
+          </MapboxMap>
+        </div>
+
+        {/* Code Card */}
+        <div style={{
+          background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 18,
+          padding: '18px 16px', marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 11, color: PP.text3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 }}>Code</div>
+          <div style={{ fontSize: 16 }}><CodeChip code={address.code} /></div>
+        </div>
+
+        {/* Confidence Scoring */}
+        {confidence && (
+          <div style={{
+            background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 18,
+            padding: '16px', marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4 }}>Accuracy</div>
+              <ConfidenceBadge score={confidence.confidence_score} level={confidence.confidence_level} />
             </div>
-            <div className="flex flex-col gap-2">
-               <button onClick={() => setShowQr(!showQr)} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-white hover:bg-white/10 border border-white/10">
-                 <QrCode size={24} />
-               </button>
-               <button onClick={handleShare} className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 text-white hover:bg-white/10 border border-white/10">
-                 <Share2 size={24} />
-               </button>
+
+            {/* Progress bar */}
+            <div style={{
+              height: 6, borderRadius: 4, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 14,
+            }}>
+              <div style={{
+                width: `${confidence.confidence_score}%`, height: '100%',
+                background: confidence.confidence_level === 'high' ? PP.green : confidence.confidence_level === 'medium' ? PP.yellow : PP.red,
+                transition: 'width 0.3s',
+              }} />
+            </div>
+
+            {/* Verification count & rating */}
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 10 }}>
+                <div style={{ fontSize: 10, color: PP.text3, fontWeight: 600 }}>Verified</div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 3 }}>{confidence.verification_count || 0}</div>
+              </div>
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: 10 }}>
+                <div style={{ fontSize: 10, color: PP.text3, fontWeight: 600 }}>Community</div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 3, color: confidence.community_rating > 0 ? PP.green : confidence.community_rating < 0 ? PP.red : PP.text }}>
+                  {confidence.community_rating > 0 ? '+' : ''}{confidence.community_rating || 0}
+                </div>
+              </div>
+            </div>
+
+            {/* Guidance */}
+            <div style={{
+              fontSize: 12, color: PP.text3, lineHeight: 1.5,
+              padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: 10,
+            }}>
+              {confidence.confidence_guidance}
             </div>
           </div>
+        )}
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-white/5 pb-10">
-            <div className="space-y-6">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Location Context</p>
-                <div className="flex items-center gap-3 text-xl font-bold text-white">
-                   <MapPin size={20} className="text-amber-400" />
-                   {address.city}, {address.state}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Category</p>
-                <div className="flex items-center gap-3 text-xl font-bold text-white">
-                   <LayoutGrid size={20} className="text-amber-400" />
-                   {address.display_place_type || 'General'}
-                </div>
+        {/* Location Details */}
+        <div style={{
+          background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 18,
+          padding: '16px', marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Details</div>
+          {[
+            { icon: I.pin, label: 'Type', value: address.display_place_type || address.place_type || 'Location' },
+            address.landmark && { icon: I.shield, label: 'Landmark', value: address.landmark },
+            address.city && { icon: I.nav, label: 'City', value: `${address.city}, ${address.state}` },
+          ].filter(Boolean).map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 0', borderBottom: i < 2 ? `1px solid ${PP.line}` : 'none',
+            }}>
+              <span style={{ color: PP.text2, display: 'flex' }}>{item.icon()}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: PP.text3, fontWeight: 600 }}>{item.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{item.value}</div>
               </div>
             </div>
+          ))}
+        </div>
 
-            <div className="space-y-6">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Coordinates</p>
-                <code className="text-sm font-bold text-stone-400 bg-white/5 px-3 py-2 rounded-lg">
-                  {address.latitude.toFixed(6)}, {address.longitude.toFixed(6)}
-                </code>
-              </div>
-              
-              {address.phone_number && (
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Contact</p>
-                  <a href={`tel:${address.phone_number}`} className="flex items-center gap-3 text-xl font-bold text-amber-400">
-                    <Phone size={20} />
-                    {address.phone_number}
-                  </a>
-                </div>
-              )}
-            </div>
+        {/* Community Verification */}
+        <div style={{
+          background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 18,
+          padding: '16px', marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Is this address accurate?</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => handleVerify('upvote')} disabled={verifying} style={{
+              flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${PP.line}`,
+              background: PP.card, color: PP.green, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: PP.font, fontWeight: 600, fontSize: 12, cursor: verifying ? 'not-allowed' : 'pointer',
+              opacity: verifying ? 0.5 : 1,
+            }}>
+              {I.thumbUp()} Yes
+            </button>
+            <button onClick={() => handleVerify('downvote')} disabled={verifying} style={{
+              flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${PP.line}`,
+              background: PP.card, color: PP.red, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: PP.font, fontWeight: 600, fontSize: 12, cursor: verifying ? 'not-allowed' : 'pointer',
+              opacity: verifying ? 0.5 : 1,
+            }}>
+              {I.thumbDown()} No
+            </button>
+            <button onClick={() => handleVerify('flag')} disabled={verifying} style={{
+              flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${PP.line}`,
+              background: PP.card, color: PP.yellow, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: PP.font, fontWeight: 600, fontSize: 12, cursor: verifying ? 'not-allowed' : 'pointer',
+              opacity: verifying ? 0.5 : 1,
+            }}>
+              {I.flag()} Report
+            </button>
           </div>
+        </div>
 
-          <div className="mt-10">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-500 mb-4">Precision Routing</p>
-            <div className="grid grid-cols-1 gap-4">
-              <Link 
-                to={`/drivers?code=${address.code}`}
-                className="group flex items-center justify-between rounded-3xl bg-amber-400 p-6 transition hover:bg-amber-300 shadow-xl shadow-amber-400/10"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-950 text-amber-400">
-                    <Navigation size={32} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-stone-950">Start Navigation</h3>
-                    <p className="text-sm font-bold text-stone-950/70">Turn-by-turn guidance</p>
-                  </div>
-                </div>
-                <div className="rounded-full bg-stone-950/10 p-2 group-hover:translate-x-1 transition-transform">
-                  <Send size={24} className="text-stone-950" />
-                </div>
-              </Link>
-
-              <button 
-                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${address.latitude},${address.longitude}`, '_blank')}
-                className="flex items-center justify-between rounded-3xl border border-white/10 bg-white/5 p-6 hover:bg-white/10 transition"
-              >
-                <div className="flex items-center gap-4">
-                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-white">
-                    <ExternalLink size={28} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-white">External Maps</h3>
-                    <p className="text-sm font-bold text-stone-500">Open in Google Maps</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Viral Loop Section */}
-          <div className="mt-16 rounded-[2.5rem] bg-amber-400 p-8 shadow-2xl shadow-amber-400/20 text-center">
-            <h3 className="text-3xl font-black text-stone-950 italic tracking-tighter">WANT A CODE FOR YOUR ENTRANCE?</h3>
-            <p className="mt-2 text-sm font-bold text-stone-950/70 uppercase tracking-widest leading-relaxed">
-              Create your own precision PPOINNT for free and stop saying "turn beside the yellow building".
-            </p>
-            <Link 
-              to="/" 
-              className="mt-6 inline-flex items-center gap-3 rounded-2xl bg-stone-950 px-8 py-4 font-black text-white hover:scale-105 transition active:scale-95 shadow-xl"
-            >
-              CREATE MY PPOINNT <ArrowRight size={20} className="text-amber-400" />
-            </Link>
-          </div>
-
-          <p className="mt-12 text-center text-[10px] font-black uppercase tracking-[0.5em] text-stone-700">
-            Powered by PPOINNT Africa Network © 2026
-          </p>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <button onClick={handleShare} style={{
+            flex: 1, padding: '14px', borderRadius: 14, border: 'none',
+            background: PP.card, color: PP.text2, fontFamily: PP.font, fontWeight: 700, fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
+          }}>
+            {I.share()} Share
+          </button>
+          <button onClick={() => navigate(`/drivers?code=${code}`)} style={{
+            flex: 1, padding: '14px', borderRadius: 14, border: 'none',
+            background: PP.blue, color: '#fff', fontFamily: PP.font, fontWeight: 700, fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
+          }}>
+            {I.nav()} Navigate
+          </button>
         </div>
       </div>
 
-      {/* ── QR MODAL ── */}
-      {showQr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-xl p-6" onClick={() => setShowQr(false)}>
-          <div className="relative rounded-[3rem] bg-white p-12 shadow-2xl" onClick={e => e.stopPropagation()}>
-             <img 
-               src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(window.location.href)}&bgcolor=ffffff&color=0c0a09`}
-               alt="QR Code"
-               className="w-64 h-64"
-             />
-             <p className="mt-8 text-center text-xl font-black text-stone-950">SCAN TO OPEN ADDRESS</p>
-             <button onClick={() => setShowQr(false)} className="absolute -top-4 -right-4 flex h-12 w-12 items-center justify-center rounded-full bg-stone-950 text-white shadow-xl">
-               <X size={24} />
-             </button>
-          </div>
-        </div>
-      )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
-  );
-}
-
-function X({ size, className }) {
-  return (
-    <svg 
-      width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}
-    >
-      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-    </svg>
   );
 }
