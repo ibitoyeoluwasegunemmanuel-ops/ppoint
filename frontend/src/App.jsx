@@ -12,6 +12,7 @@ import AgentsPage from './pages/AgentsPage';
 import AddressPage from './pages/AddressPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminGovernmentPage from './pages/AdminGovernmentPage';
+import AdminModerationPage from './pages/AdminModerationPage';
 import USSDAccessPage from './pages/USSDAccessPage';
 import DevelopersPage from './pages/DevelopersPage';
 import TrackingPage from './pages/TrackingPage';
@@ -54,6 +55,7 @@ function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/login" element={<AdminDashboard />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/moderation" element={<AdminModerationPage />} />
         <Route path="/admin/government" element={<AdminGovernmentPage />} />
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/developers" element={<DevelopersPage />} />
