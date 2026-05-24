@@ -2,7 +2,10 @@ import React, { Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { LanguageProvider } from './i18n/useLanguage.jsx';
+import { AuthProvider } from './auth/useAuth.jsx';
 import App from './App.jsx';
+import OfflineIndicator from './components/OfflineIndicator.jsx';
 import './index.css';
 
 class ErrorBoundary extends Component {
@@ -34,11 +37,16 @@ class ErrorBoundary extends Component {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
-        <HelmetProvider>
-          <App />
-        </HelmetProvider>
-      </BrowserRouter>
+      <AuthProvider>
+        <LanguageProvider>
+          <BrowserRouter>
+            <HelmetProvider>
+              <OfflineIndicator />
+              <App />
+            </HelmetProvider>
+          </BrowserRouter>
+        </LanguageProvider>
+      </AuthProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );
