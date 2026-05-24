@@ -27,6 +27,7 @@ import trackingRoutes from './routes/trackingRoutes.js';
 import emergencyRoutes from './routes/emergencyRoutes.js';
 import moderationRoutes from './routes/moderationRoutes.js';
 import governmentRoutes from './routes/governmentRoutes.js';
+import developerEnhancedRoutes from './routes/developerEnhancedRoutes.js';
 
 dotenv.config();
 
@@ -90,6 +91,7 @@ app.use('/api/tracking', trackingRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/admin/moderation', moderationRoutes);
 app.use('/api/government', governmentRoutes);
+app.use('/api/developers/enhanced', developerEnhancedRoutes);
 app.use('/', seoRoutes); // Mount SEO routes at root or as needed
 
 app.get('/health', (req, res) => {
