@@ -16,6 +16,7 @@ import USSDAccessPage from './pages/USSDAccessPage';
 import DevelopersPage from './pages/DevelopersPage';
 import TrackingPage from './pages/TrackingPage';
 import EmergencyPage from './pages/EmergencyPage';
+import BusinessDashboardPage from './pages/BusinessDashboardPage';
 
 function App() {
   useEffect(() => {
@@ -40,6 +41,7 @@ function App() {
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/tracking" element={<TrackingPage />} />
         <Route path="/emergency" element={<EmergencyPage />} />
+        <Route path="/business" element={<BusinessDashboardPage />} />
 
         {/* Address lookup */}
         <Route path="/p/:code" element={<AddressPage />} />

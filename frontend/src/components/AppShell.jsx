@@ -3,7 +3,7 @@ import TabBar from './TabBar';
 import { PP } from '../styles/tokens';
 
 const TABBED_ROUTES = ['/', '/map', '/saved', '/activity', '/profile'];
-const FULL_SCREEN_ROUTES = ['/navigate', '/generate', '/drivers', '/share'];
+const FULL_SCREEN_PREFIXES = ['/navigate', '/generate', '/drivers', '/share', '/agents', '/tracking', '/emergency', '/business', '/ussd'];
 
 export default function AppShell({ children }) {
   const location = useLocation();
@@ -11,8 +11,8 @@ export default function AppShell({ children }) {
 
   const isAdmin = path.startsWith('/admin');
   const isDev = path.startsWith('/developers') || path.startsWith('/developer');
-  const isFullScreen = FULL_SCREEN_ROUTES.some(r => path.startsWith(r));
-  const hasTabBar = TABBED_ROUTES.includes(path);
+  const isFullScreen = FULL_SCREEN_PREFIXES.some(r => path.startsWith(r));
+  const hasTabBar = TABBED_ROUTES.includes(path) && !isFullScreen;
 
   if (isAdmin || isDev) {
     return <>{children}</>;
