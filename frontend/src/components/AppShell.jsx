@@ -11,10 +11,12 @@ export default function AppShell({ children }) {
 
   const isAdmin = path.startsWith('/admin');
   const isDev = path.startsWith('/developers') || path.startsWith('/developer');
+  const isDashboard = path.startsWith('/dashboard');
+  const isDesktopRoot = path === '/' && window.innerWidth >= 768;
   const isFullScreen = FULL_SCREEN_PREFIXES.some(r => path.startsWith(r));
-  const hasTabBar = TABBED_ROUTES.includes(path) && !isFullScreen;
+  const hasTabBar = TABBED_ROUTES.includes(path) && !isFullScreen && !isDesktopRoot;
 
-  if (isAdmin || isDev) {
+  if (isAdmin || isDev || isDashboard || isDesktopRoot) {
     return <>{children}</>;
   }
 

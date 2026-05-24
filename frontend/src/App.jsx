@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import DataUsageMonitor from './components/DataUsageMonitor';
 import AuthPage from './pages/AuthPage';
@@ -26,6 +26,12 @@ import LibraryPage from './pages/LibraryPage';
 import GovernmentPortalPage from './pages/GovernmentPortalPage';
 import WebDashboardPage from './pages/WebDashboardPage';
 
+// Detect desktop vs mobile and route to the right experience
+function RootRedirect() {
+  const isDesktop = window.innerWidth >= 768;
+  return isDesktop ? <WebDashboardPage /> : <HomePage />;
+}
+
 function App() {
   useEffect(() => {
     localStorage.removeItem('creatorName');
@@ -37,8 +43,8 @@ function App() {
       <DataUsageMonitor />
       <AppShell>
         <Routes>
-        {/* Main mobile app */}
-        <Route path="/" element={<HomePage />} />
+        {/* Root: desktop → web dashboard, mobile → home app */}
+        <Route path="/" element={<RootRedirect />} />
         <Route path="/map" element={<MapPage />} />
         <Route path="/saved" element={<SavedPage />} />
         <Route path="/activity" element={<ActivityPage />} />
