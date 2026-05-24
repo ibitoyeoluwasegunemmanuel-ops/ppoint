@@ -105,7 +105,9 @@ export default function AdminGovernmentPage() {
         {[
           { id: 'dashboard', label: 'Dashboard', icon: I.stats },
           { id: 'coverage', label: 'Coverage', icon: I.map },
-          { id: 'bulk', label: 'Bulk Lookup', icon: I.search },
+          { id: 'emergency', label: 'Emergency', icon: I.alert },
+          { id: 'property', label: 'Property', icon: I.map },
+          { id: 'bulk', label: 'Bulk', icon: I.search },
           { id: 'export', label: 'Export', icon: I.download },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -205,6 +207,142 @@ export default function AdminGovernmentPage() {
                 }} />
               </div>
               <div style={{ fontSize: 12, fontWeight: 700, marginTop: 8 }}>{coverage.coverage_percentage}% verified</div>
+            </div>
+          </>
+        )}
+
+        {/* EMERGENCY SERVICES */}
+        {tab === 'emergency' && (
+          <>
+            <div style={{
+              background: 'linear-gradient(135deg, #EF4444, rgba(239,68,68,0.1))',
+              borderRadius: 16, padding: '20px', marginBottom: 20,
+              border: `1px solid #EF444433`,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 16 }}>Emergency Services Integration</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                {[
+                  { name: 'Ambulances', total: 245, active: 189, coverage: 77, icon: '🚑', time: '12.5min' },
+                  { name: 'Fire Services', total: 89, active: 73, coverage: 82, icon: '🚒', time: '8.2min' },
+                  { name: 'Police', total: 567, active: 502, coverage: 88, icon: '🚔', time: '6.8min' },
+                ].map((service, i) => (
+                  <div key={i} style={{
+                    background: PP.card, borderRadius: 12, padding: 12, border: `1px solid ${PP.line}`,
+                  }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>{service.icon}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: PP.text3, marginBottom: 8 }}>{service.name}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: PP.yellow, marginBottom: 4 }}>{service.active}/{service.total}</div>
+                    <div style={{ fontSize: 11, color: PP.text3, marginBottom: 8 }}>Coverage: {service.coverage}%</div>
+                    <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${service.coverage}%`, height: '100%',
+                        background: service.coverage > 80 ? '#10B981' : '#FDB022',
+                        transition: 'width 0.3s',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: 10, color: PP.text3, marginTop: 8 }}>Avg: {service.time}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{
+              background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 16,
+              padding: '16px', marginBottom: 20,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Last 24 Hours Dispatches</div>
+              {[
+                { type: 'Ambulance', count: 156, icon: '🚑', color: '#EF4444' },
+                { type: 'Fire', count: 23, icon: '🚒', color: '#FDB022' },
+                { type: 'Police', count: 342, icon: '🚔', color: '#3B82F6' },
+              ].map((dispatch, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 0', borderBottom: i < 2 ? `1px solid ${PP.line}` : 'none',
+                }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 20 }}>{dispatch.icon}</span>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{dispatch.type}</div>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: dispatch.color }}>{dispatch.count}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* PROPERTY REGISTRY */}
+        {tab === 'property' && (
+          <>
+            <div style={{
+              background: 'linear-gradient(135deg, #10B981, rgba(16,185,129,0.1))',
+              borderRadius: 16, padding: '20px', marginBottom: 20,
+              border: `1px solid #10B98133`,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 16 }}>Property Registry Integration</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: PP.text3, fontWeight: 600, marginBottom: 4 }}>Total Properties</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: PP.text }}>45.2K</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: PP.text3, fontWeight: 600, marginBottom: 4 }}>Linked to PPOINNT</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: PP.yellow }}>34.8K</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 16,
+              padding: '16px', marginBottom: 20,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Linking Status: 77.0%</div>
+              <div style={{ height: 12, borderRadius: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 12 }}>
+                <div style={{
+                  width: '77%', height: '100%',
+                  background: `linear-gradient(90deg, #10B981, #FDB022)`,
+                  transition: 'width 0.3s',
+                }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ padding: 12, background: '#10B98110', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: PP.text3, marginBottom: 4 }}>Linked</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#10B981' }}>34.8K</div>
+                </div>
+                <div style={{ padding: 12, background: '#FDB02210', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: PP.text3, marginBottom: 4 }}>Pending</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#FDB022' }}>10.4K</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              background: PP.card, border: `1px solid ${PP.line}`, borderRadius: 16,
+              padding: '16px',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: PP.text3, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 12 }}>Property Categories</div>
+              {[
+                { category: 'Residential', count: 28340, percentage: 62.6 },
+                { category: 'Commercial', count: 10200, percentage: 22.5 },
+                { category: 'Institutional', count: 4560, percentage: 10.1 },
+                { category: 'Mixed-Use', count: 2100, percentage: 4.8 },
+              ].map((cat, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 0', borderBottom: i < 3 ? `1px solid ${PP.line}` : 'none',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{cat.category}</div>
+                    <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>{cat.count.toLocaleString()}</div>
+                  </div>
+                  <div style={{
+                    fontSize: 14, fontWeight: 800, color: PP.yellow,
+                    minWidth: 40, textAlign: 'right',
+                  }}>
+                    {cat.percentage}%
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}
