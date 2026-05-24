@@ -481,4 +481,166 @@ router.post('/addresses/:code/verify', async (req, res) => {
   }
 });
 
+// ──── AGENT TERRITORIES & VERIFICATION INFRASTRUCTURE ────
+router.get('/agents/:id/territory', async (req, res) => {
+  try {
+    const agent = await FieldAgent.findById(req.params.id);
+    if (!agent) {
+      return res.status(404).json(failure('Agent not found'));
+    }
+
+    const territory = await FieldAgent.getTerritory(req.params.id);
+    const stats = await FieldAgent.getStats(req.params.id);
+
+    res.json(success('Agent territory loaded', {
+      agent_id: req.params.id,
+      territory: territory?.territory || 'Unassigned',
+      city: territory?.city || '',
+      state: territory?.state || '',
+      country: territory?.country || 'Nigeria',
+      certification_level: stats?.certification_level || 'Bronze',
+      verification_count: stats?.verification_count || 0,
+      accuracy_score: stats?.accuracy_score || 0,
+      payout_per_address: FieldAgent.calculatePayout(stats?.verification_count || 0),
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.get('/agents/:id/verification-tasks', async (req, res) => {
+  try {
+    const agent = await FieldAgent.findById(req.params.id);
+    if (!agent) {
+      return res.status(404).json(failure('Agent not found'));
+    }
+
+    const tasks = await FieldAgent.getVerificationTasks(req.params.id);
+
+    res.json(success('Verification tasks loaded', {
+      pending_count: tasks.length,
+      tasks: tasks.map(t => ({
+        code: t.code || t.ppoint_code,
+        latitude: t.latitude,
+        longitude: t.longitude,
+        landmark: t.landmark,
+        city: t.city,
+        verification_count: t.verification_count,
+        community_rating: t.community_rating,
+        place_type: t.place_type || t.display_place_type,
+        created_at: t.created_at,
+      })),
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.post('/agents/:id/verify-address/:code', async (req, res) => {
+  try {
+    const agentId = req.params.id;
+    const code = String(req.params.code || '').trim().toUpperCase();
+    const { verified, notes, correct_latitude, correct_longitude } = req.body;
+
+    const agent = await FieldAgent.findById(agentId);
+    if (!agent) {
+      return res.status(404).json(failure('Agent not found'));
+    }
+
+    const address = await Address.findByCode(code);
+    if (!address) {
+      return res.status(404).json(failure('PPOINNT address not found'));
+    }
+
+    // Record the verification
+    await FieldAgent.recordVerification(agentId, code, verified);
+
+    // Update address metadata with agent verification
+    const updatedMetadata = {
+      ...(address.address_metadata || {}),
+      agent_verified: verified,
+      verified_by_agent_id: agentId,
+      verified_at: new Date().toISOString(),
+      verification_notes: notes || '',
+    };
+
+    // If agent provided corrections
+    if (verified && (correct_latitude || correct_longitude)) {
+      updatedMetadata.original_latitude = address.latitude;
+      updatedMetadata.original_longitude = address.longitude;
+      updatedMetadata.corrected_by_agent = agentId;
+    }
+
+    const updated = await Address.updateDetails(address.id, {
+      address_metadata: updatedMetadata,
+      latitude: correct_latitude ? Number(correct_latitude) : address.latitude,
+      longitude: correct_longitude ? Number(correct_longitude) : address.longitude,
+      verification_count: (address.verification_count || 0) + 1,
+    });
+
+    // Award payout to agent
+    const payout = FieldAgent.calculatePayout(agent.verification_count || 0);
+    await FieldAgent.updateEarnings(agentId, payout);
+
+    res.json(success('Address verified by agent', {
+      code: address.code,
+      verified,
+      payout_awarded: payout,
+      address: updated,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.get('/agents/leaderboard/:state', async (req, res) => {
+  try {
+    const state = String(req.params.state).trim();
+    const limit = Math.min(Number(req.query.limit) || 10, 50);
+
+    const leaderboard = await FieldAgent.leaderboard(state, limit);
+
+    res.json(success('Agent leaderboard loaded', {
+      state,
+      agents: leaderboard.map((a, idx) => ({
+        rank: idx + 1,
+        agent_id: a.id,
+        name: a.full_name,
+        territory: a.territory,
+        certification_level: a.certification_level,
+        verification_count: a.verification_count,
+        accuracy_score: a.accuracy_score,
+        lifetime_earnings: a.total_earnings,
+      })),
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.get('/agents/:id/stats', async (req, res) => {
+  try {
+    const stats = await FieldAgent.getStats(req.params.id);
+    if (!stats) {
+      return res.status(404).json(failure('Agent not found'));
+    }
+
+    const nextTierThreshold = stats.certification_level === 'Gold' ? 500 : stats.certification_level === 'Silver' ? 100 : 0;
+    const nextTier = stats.certification_level === 'Bronze' ? 'Silver' : stats.certification_level === 'Silver' ? 'Gold' : null;
+
+    res.json(success('Agent stats loaded', {
+      ...stats,
+      certification_progress: {
+        current_tier: stats.certification_level,
+        current_verifications: stats.verification_count,
+        next_tier: nextTier,
+        next_threshold: nextTier ? (stats.certification_level === 'Bronze' ? 100 : 500) : null,
+        progress_to_next: nextTier ? ((stats.verification_count / (stats.certification_level === 'Bronze' ? 100 : 500)) * 100) : 100,
+      },
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
 export default router;
