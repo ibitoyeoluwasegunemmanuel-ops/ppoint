@@ -155,7 +155,7 @@ export default function AgentsPage() {
                 </>
               )}
 
-              <div style({ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 10, fontWeight: 600 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 10, fontWeight: 600 }}>
                 Earn ₦{stats.certification_level === 'Gold' ? '250' : stats.certification_level === 'Silver' ? '150' : '50'} per verified address
               </div>
             </div>
