@@ -24,6 +24,7 @@ import BusinessDashboardPage from './pages/BusinessDashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import LibraryPage from './pages/LibraryPage';
 import GovernmentPortalPage from './pages/GovernmentPortalPage';
+import WebDashboardPage from './pages/WebDashboardPage';
 
 function App() {
   useEffect(() => {
@@ -65,6 +66,10 @@ function App() {
 
         {/* USSD + SMS Access */}
         <Route path="/ussd" element={<USSDAccessPage />} />
+
+        {/* Web/Desktop dashboard */}
+        <Route path="/dashboard" element={<WebDashboardPage />} />
+        <Route path="/dashboard/*" element={<WebDashboardPage />} />
 
         {/* Admin & developer (separate UX) */}
         <Route path="/admin" element={<AdminDashboard />} />
