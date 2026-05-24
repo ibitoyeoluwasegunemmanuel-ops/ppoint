@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AppShell from './components/AppShell';
+import DataUsageMonitor from './components/DataUsageMonitor';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import SavedPage from './pages/SavedPage';
@@ -26,8 +27,10 @@ function App() {
   }, []);
 
   return (
-    <AppShell>
-      <Routes>
+    <>
+      <DataUsageMonitor />
+      <AppShell>
+        <Routes>
         {/* Main mobile app */}
         <Route path="/" element={<HomePage />} />
         <Route path="/map" element={<MapPage />} />
@@ -60,8 +63,9 @@ function App() {
         <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/developers" element={<DevelopersPage />} />
         <Route path="/developer/dashboard" element={<DevelopersPage />} />
-      </Routes>
-    </AppShell>
+        </Routes>
+      </AppShell>
+    </>
   );
 }
 
