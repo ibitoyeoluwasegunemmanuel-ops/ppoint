@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import AppShell from './components/AppShell';
+import { Routes, Route } from 'react-router-dom';
 import DataUsageMonitor from './components/DataUsageMonitor';
+import WebAppShell from './components/WebAppShell';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
 import HomePage from './pages/HomePage';
@@ -26,12 +26,6 @@ import LibraryPage from './pages/LibraryPage';
 import GovernmentPortalPage from './pages/GovernmentPortalPage';
 import WebDashboardPage from './pages/WebDashboardPage';
 
-// Detect desktop vs mobile and route to the right experience
-function RootRedirect() {
-  const isDesktop = window.innerWidth >= 768;
-  return isDesktop ? <WebDashboardPage /> : <HomePage />;
-}
-
 function App() {
   useEffect(() => {
     localStorage.removeItem('creatorName');
@@ -41,41 +35,33 @@ function App() {
   return (
     <>
       <DataUsageMonitor />
-      <AppShell>
-        <Routes>
-        {/* Root: desktop → web dashboard, mobile → home app */}
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/saved" element={<SavedPage />} />
-        <Route path="/activity" element={<ActivityPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/library" element={<LibraryPage />} />
-        <Route path="/government" element={<GovernmentPortalPage />} />
-
-        {/* Auth + Onboarding */}
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/onboarding" element={<OnboardingPage />} />
-
-        {/* Full-screen flows */}
-        <Route path="/generate" element={<GeneratePage />} />
-        <Route path="/drivers" element={<DriversPage />} />
-        <Route path="/navigate" element={<DriversPage />} />
-        <Route path="/agents" element={<AgentsPage />} />
-        <Route path="/tracking" element={<TrackingPage />} />
-        <Route path="/emergency" element={<EmergencyPage />} />
-        <Route path="/business" element={<BusinessDashboardPage />} />
-
-        {/* Address lookup */}
-        <Route path="/p/:code" element={<AddressPage />} />
-        <Route path="/:code" element={<AddressPage />} />
-
-        {/* USSD + SMS Access */}
-        <Route path="/ussd" element={<USSDAccessPage />} />
-
-        {/* Web/Desktop dashboard */}
+      {/* Web-first: all routes render as full-width desktop experience */}
+      <Routes>
+        {/* Main dashboard */}
+        <Route path="/" element={<WebDashboardPage />} />
         <Route path="/dashboard" element={<WebDashboardPage />} />
         <Route path="/dashboard/*" element={<WebDashboardPage />} />
+
+        {/* Web pages wrapped for responsive rendering */}
+        <Route path="/auth" element={<WebAppShell><AuthPage /></WebAppShell>} />
+        <Route path="/onboarding" element={<WebAppShell><OnboardingPage /></WebAppShell>} />
+        <Route path="/map" element={<WebAppShell><MapPage /></WebAppShell>} />
+        <Route path="/saved" element={<WebAppShell><SavedPage /></WebAppShell>} />
+        <Route path="/activity" element={<WebAppShell><ActivityPage /></WebAppShell>} />
+        <Route path="/profile" element={<WebAppShell><ProfilePage /></WebAppShell>} />
+        <Route path="/settings" element={<WebAppShell><SettingsPage /></WebAppShell>} />
+        <Route path="/library" element={<WebAppShell><LibraryPage /></WebAppShell>} />
+        <Route path="/government" element={<WebAppShell><GovernmentPortalPage /></WebAppShell>} />
+        <Route path="/generate" element={<WebAppShell><GeneratePage /></WebAppShell>} />
+        <Route path="/drivers" element={<WebAppShell><DriversPage /></WebAppShell>} />
+        <Route path="/navigate" element={<WebAppShell><DriversPage /></WebAppShell>} />
+        <Route path="/agents" element={<WebAppShell><AgentsPage /></WebAppShell>} />
+        <Route path="/tracking" element={<WebAppShell><TrackingPage /></WebAppShell>} />
+        <Route path="/emergency" element={<WebAppShell><EmergencyPage /></WebAppShell>} />
+        <Route path="/business" element={<WebAppShell><BusinessDashboardPage /></WebAppShell>} />
+        <Route path="/p/:code" element={<WebAppShell><AddressPage /></WebAppShell>} />
+        <Route path="/:code" element={<WebAppShell><AddressPage /></WebAppShell>} />
+        <Route path="/ussd" element={<WebAppShell><USSDAccessPage /></WebAppShell>} />
 
         {/* Admin & developer (separate UX) */}
         <Route path="/admin" element={<AdminDashboard />} />
@@ -87,7 +73,6 @@ function App() {
         <Route path="/developers" element={<DevelopersPage />} />
         <Route path="/developer/dashboard" element={<DevelopersPage />} />
         </Routes>
-      </AppShell>
     </>
   );
 }
