@@ -21,6 +21,10 @@ import aiMappingRoutes from './routes/aiMappingRoutes.js';
 import driverIntelligenceRoutes from './routes/driverIntelligenceRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import seoRoutes from './routes/seoRoutes.js';
+import propertyRoutes from './routes/propertyRoutes.js';
+import deliveryProofRoutes from './routes/deliveryProofRoutes.js';
+import trackingRoutes from './routes/trackingRoutes.js';
+import emergencyRoutes from './routes/emergencyRoutes.js';
 
 dotenv.config();
 
@@ -78,6 +82,10 @@ app.use('/api', buildingClaimRoutes);
 app.use('/api', aiMappingRoutes);
 app.use('/api/driver', driverIntelligenceRoutes);
 app.use('/api/profiles', profileRoutes);
+app.use('/api/property', propertyRoutes);
+app.use('/api/delivery', deliveryProofRoutes);
+app.use('/api/tracking', trackingRoutes);
+app.use('/api/emergency', emergencyRoutes);
 app.use('/', seoRoutes); // Mount SEO routes at root or as needed
 
 app.get('/health', (req, res) => {

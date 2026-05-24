@@ -14,6 +14,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminGovernmentPage from './pages/AdminGovernmentPage';
 import USSDAccessPage from './pages/USSDAccessPage';
 import DevelopersPage from './pages/DevelopersPage';
+import TrackingPage from './pages/TrackingPage';
+import EmergencyPage from './pages/EmergencyPage';
 
 function App() {
   useEffect(() => {
@@ -36,6 +38,8 @@ function App() {
         <Route path="/drivers" element={<DriversPage />} />
         <Route path="/navigate" element={<DriversPage />} />
         <Route path="/agents" element={<AgentsPage />} />
+        <Route path="/tracking" element={<TrackingPage />} />
+        <Route path="/emergency" element={<EmergencyPage />} />
 
         {/* Address lookup */}
         <Route path="/p/:code" element={<AddressPage />} />
