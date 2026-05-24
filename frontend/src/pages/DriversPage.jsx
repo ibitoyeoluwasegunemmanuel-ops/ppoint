@@ -1,37 +1,30 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import MapboxMap, { Marker, Source, Layer } from '../components/MapboxMap';
-import {
-  Navigation, Search, LocateFixed, Car, Zap, Footprints,
-  CheckCircle2, Compass, ArrowLeft, ArrowUpRight, 
-  ArrowUpLeft, ArrowUp, RotateCcw, AlertCircle,
-  Volume2, VolumeX, Share2
-} from 'lucide-react';
 import api from '../services/api';
-
-// ─── Shared Components ────────────────────────────────────────────────────────
+import { PP } from '../styles/tokens';
 
 function DriverMarkerPin({ bearing = 0 }) {
   return (
-    <div className="relative" style={{ transform: `rotate(${bearing}deg)`, transition: 'transform 0.3s ease-out' }}>
-       <div className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-20" />
-       <div className="relative h-12 w-12 flex items-center justify-center rounded-full border-[3px] border-white bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.5)]">
-          <Navigation size={24} className="text-white fill-white" />
-       </div>
+    <div style={{ transform: `rotate(${bearing}deg)`, transition: 'transform 0.3s ease-out', position: 'relative' }}>
+      <div style={{
+        position: 'absolute', inset: -8, borderRadius: '50%',
+        background: 'radial-gradient(closest-side, rgba(46,107,255,0.4), transparent)',
+        animation: 'pulse-ring 1.5s ease-out infinite',
+      }} />
+      <svg width="34" height="34" viewBox="0 0 32 32">
+        <path d="M16 2 L26 28 L16 22 L6 28 Z" fill={PP.blue} stroke="#fff" strokeWidth="2.5" strokeLinejoin="round"/>
+      </svg>
     </div>
   );
 }
 
-function DestinationPin({ placeType }) {
-  const emojiMap = {
-    House: '🏠', Shop: '🛍', Office: '🏢', School: '🎓', Hospital: '🏥',
-    Hotel: '🏨', 'Police Station': '🚓', Church: '⛪', Mosque: '🕌',
-    Warehouse: '📦', Market: '🛒', 'Government Office': '🏛', Other: '📍',
-  };
+function DestinationPin() {
   return (
-    <div className="text-5xl filter drop-shadow-xl animate-bounce">
-      {emojiMap[placeType] || '📍'}
-    </div>
+    <svg width="44" height="52" viewBox="0 0 40 48">
+      <path d="M20 47s-15-16-15-27a15 15 0 1 1 30 0c0 11-15 27-15 27z" fill={PP.yellow} stroke="#0A0B0D" strokeWidth="1.2"/>
+      <circle cx="20" cy="19" r="6" fill="#0A0B0D"/>
+    </svg>
   );
 }
 
@@ -326,10 +319,10 @@ export default function DriversPage() {
   const currentStepData = steps[currentStepIndex] || null;
 
   return (
-    <div className="relative h-screen w-full bg-stone-950 font-sans overflow-hidden">
-      
+    <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', background: PP.bg, overflow: 'hidden', fontFamily: PP.font }}>
+
       {/* ── MAP ── */}
-      <div className="absolute inset-0">
+      <div style={{ position: 'absolute', inset: 0 }}>
         <MapboxMap
           ref={navMapRef}
           center={displayPos ? [displayPos.lng, displayPos.lat] : [3.3792, 6.5244]}
@@ -376,250 +369,232 @@ export default function DriversPage() {
         </MapboxMap>
       </div>
 
-      {/* ── TOP NAV UI ── */}
-      <div className="absolute top-6 inset-x-4 z-20 pointer-events-none">
+      {/* ── TOP INSTRUCTION / SEARCH ── */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, padding: '52px 14px 0' }}>
         {navigating ? (
-          <div className="mx-auto max-w-xl rounded-3xl bg-stone-900/95 p-6 shadow-2xl pointer-events-auto border border-white/10 backdrop-blur-3xl animate-in slide-in-from-top-4">
-             <div className="flex items-center gap-6">
-                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-600 shadow-xl shadow-blue-600/20">
-                  {currentStepData?.maneuver_modifier?.includes('left') ? <ArrowUpLeft size={48} className="text-white" /> :
-                   currentStepData?.maneuver_modifier?.includes('right') ? <ArrowUpRight size={48} className="text-white" /> :
-                   <ArrowUp size={48} className="text-white" />}
-                </div>
-                <div className="flex-1">
-                   <div className="flex items-center gap-2">
-                      <span className="text-sm font-black text-blue-400 uppercase tracking-widest">
-                        {isNearFinal ? 'Final Approach' : `${Math.round(currentStepData?.distance || 0)}m`}
-                      </span>
-                   </div>
-                   <h2 className="text-3xl font-black text-white leading-none tracking-tighter mt-1">
-                     {currentStepData?.instruction || 'Continue straight'}
-                   </h2>
-                </div>
-             </div>
-             {recalculating && (
-               <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-orange-500/10 py-2 border border-orange-500/20">
-                  <RotateCcw size={16} className="animate-spin text-orange-400" />
-                  <span className="text-xs font-black text-orange-400 uppercase tracking-widest">Off-Route • Rerouting...</span>
-               </div>
-             )}
+          <div style={{
+            background: 'rgba(20,22,28,0.94)', backdropFilter: 'blur(24px)',
+            borderRadius: 20, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 14,
+            border: `1px solid ${PP.line}`,
+            boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 16, background: PP.blue, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                {currentStepData?.maneuver_modifier?.includes('left')
+                  ? <path d="M22 22L10 14 L22 6" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  : currentStepData?.maneuver_modifier?.includes('right')
+                  ? <path d="M10 22L22 14 L10 6" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  : <path d="M16 24V8M10 14l6-6 6 6" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                }
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: PP.blue, fontWeight: 700, marginBottom: 4 }}>
+                {isNearFinal ? 'Final Approach' : `${Math.round(currentStepData?.distance || 0)} m`}
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: -0.2, lineHeight: 1.2 }}>
+                {currentStepData?.instruction || 'Continue straight'}
+              </div>
+            </div>
           </div>
         ) : (
-          <div className="mx-auto max-w-xl flex gap-3 pointer-events-auto">
-            <button onClick={() => navigate(-1)} className="h-14 w-14 flex items-center justify-center rounded-2xl bg-stone-900 border border-white/10 text-white shadow-xl">
-              <ArrowLeft size={24} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => navigate(-1)} style={{
+              width: 46, height: 46, borderRadius: 14, border: `1px solid ${PP.line}`,
+              background: 'rgba(20,22,28,0.9)', backdropFilter: 'blur(20px)',
+              color: PP.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0,
+            }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
-            <div className="relative flex-1">
-              <input 
-                value={code} 
-                onChange={e => setCode(e.target.value.toUpperCase())}
-                placeholder="PPOINNT Destination" 
-                className="h-14 w-full rounded-2xl border border-white/10 bg-stone-900 px-6 font-black text-white outline-none focus:border-blue-500 shadow-xl"
-              />
-            </div>
+            <input
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              placeholder="Enter PPOINNT code…"
+              style={{
+                flex: 1, height: 46, borderRadius: 14,
+                background: 'rgba(20,22,28,0.9)', backdropFilter: 'blur(20px)',
+                border: `1px solid rgba(255,255,255,0.1)`,
+                color: PP.text, fontSize: 15, fontWeight: 700, fontFamily: PP.font,
+                padding: '0 16px', outline: 'none',
+              }}
+            />
+          </div>
+        )}
+
+        {/* Low network */}
+        {isLowNetwork && (
+          <div style={{
+            marginTop: 10, padding: '8px 14px',
+            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
+            borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8,
+            backdropFilter: 'blur(20px)',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: PP.amber }}>
+              <path d="M3 3l18 18M5 12.5a13 13 0 0 1 4-2.5M19 12.5a13 13 0 0 0-6-3.4M9 16.5a6 6 0 0 1 6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              <circle cx="12" cy="20" r="1" fill="currentColor"/>
+            </svg>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>Low network · using offline maps</span>
+          </div>
+        )}
+
+        {/* Recalculating */}
+        {recalculating && (
+          <div style={{
+            marginTop: 10, padding: '8px 14px',
+            background: 'rgba(229,72,77,0.1)', border: `1px solid rgba(229,72,77,0.25)`,
+            borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8,
+            backdropFilter: 'blur(20px)',
+          }}>
+            <div style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${PP.red}`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+            <span style={{ fontSize: 12, color: PP.red, fontWeight: 700 }}>Off route · Recalculating…</span>
           </div>
         )}
       </div>
 
       {/* ── RIGHT CONTROLS ── */}
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-4">
-        {navigating && (
-          <>
-            <button 
-              onClick={() => setVoiceEnabled(!voiceEnabled)}
-              className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xl transition-all ${voiceEnabled ? 'bg-amber-400 text-stone-950' : 'bg-red-500/20 text-red-500 border border-red-500/50'}`}
-            >
-              {voiceEnabled ? <Volume2 size={28} /> : <VolumeX size={28} />}
+      {navigating && (
+        <div style={{ position: 'absolute', right: 14, top: '45%', zIndex: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={() => setVoiceEnabled(!voiceEnabled)} style={{
+            width: 44, height: 44, borderRadius: 14, border: 'none',
+            background: voiceEnabled ? PP.yellow : PP.redSoft,
+            color: voiceEnabled ? '#0A0B0D' : PP.red,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          }}>
+            {voiceEnabled
+              ? <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" fill="none"/></svg>
+              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 9v6h4l5 4V5L8 9H4zM23 9l-6 6M17 9l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+            }
+          </button>
+          {!autoFollow && (
+            <button onClick={() => setAutoFollow(true)} style={{
+              width: 44, height: 44, borderRadius: 14, border: 'none',
+              background: PP.blue, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/><path d="M12 1v3M12 20v3M23 12h-3M4 12H1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
             </button>
-            {!autoFollow && (
-              <button 
-                onClick={() => setAutoFollow(true)}
-                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-2xl animate-pulse"
-              >
-                <LocateFixed size={32} />
-              </button>
-            )}
-          </>
-        )}
-      </div>
-
-        {/* ── LOW NETWORK BANNER ── */}
-      {isLowNetwork && (
-        <div className="absolute top-[140px] inset-x-8 z-30 animate-in slide-in-from-top-2">
-           <div className="mx-auto max-w-sm rounded-full bg-orange-500 p-2 px-4 shadow-xl flex items-center justify-center gap-2">
-              <Zap size={14} className="text-white animate-pulse" />
-              <span className="text-[10px] font-black uppercase text-white tracking-widest">Low signal • Offline Nav active</span>
-           </div>
-        </div>
-      )}
-
-      {/* ── BOTTOM NAV UI ── */}
-      <div className="absolute bottom-10 right-4 lg:right-10 z-20 pointer-events-none">
-        {arrived ? (
-          <div className="max-w-[320px] rounded-[2.5rem] bg-emerald-500 p-6 text-center shadow-3xl pointer-events-auto border-b-4 border-emerald-700 animate-in slide-in-from-right-10">
-             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg">
-               <CheckCircle2 size={32} />
-             </div>
-             <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Goal Reached!</h2>
-             <p className="mt-1 text-xs font-black text-emerald-100 uppercase tracking-[0.2em]">{destinationData?.code}</p>
-             
-             <div className="mt-6 flex flex-col gap-2">
-                <button 
-                  onClick={() => {
-                    const text = encodeURIComponent(`I have arrived at PPOINNT: ${destinationData?.code}`);
-                    window.open(`https://wa.me/?text=${text}`, '_blank');
-                  }}
-                  className="w-full rounded-2xl bg-[#25D366] py-4 text-sm font-black text-white shadow-lg active:scale-95 transition"
-                >
-                  WhatsApp Arrival
-                </button>
-                <button 
-                  onClick={() => {
-                    setNavigating(false);
-                    setArrived(false);
-                    setDestination(null);
-                    setDestinationData(null);
-                    navigate('/');
-                  }} 
-                  className="w-full rounded-2xl bg-black/20 py-3 text-xs font-black text-white hover:bg-black/30 transition"
-                >
-                  CLOSE TRIP
-                </button>
-             </div>
-          </div>
-        ) : navigating ? (
-          <div className="mx-auto max-w-xl rounded-3xl bg-stone-900/90 p-6 flex flex-col gap-4 border border-white/10 shadow-3xl backdrop-blur-xl pointer-events-auto overflow-hidden">
-             
-             {isNearFinal && (destinationData?.landmark || destinationData?.description) && (
-               <div className="rounded-2xl bg-amber-400 p-4 animate-in zoom-in-95">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle size={14} className="text-stone-950" />
-                    <p className="text-[10px] font-black text-stone-950 uppercase tracking-widest">Human Instruction</p>
-                  </div>
-                  <p className="text-lg font-black text-stone-950 leading-tight">
-                    {destinationData.landmark && <span>🚩 Near: {destinationData.landmark}</span>}
-                    {destinationData.description && <span className="block mt-1 italic opacity-80">"{destinationData.description}"</span>}
-                  </p>
-               </div>
-             )}
-
-             <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-3xl font-black text-white">
-                    {Math.ceil((routeInfo?.duration || 0) / 60)} min
-                  </span>
-                  <span className="text-sm font-bold text-stone-500">
-                    {routeInfo?.distance_km} km • ETA {new Date(Date.now() + (routeInfo?.duration || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <button onClick={() => setNavigating(false)} className="h-14 px-8 rounded-2xl bg-red-600 font-black text-white shadow-lg active:scale-95 transition">
-                  CANCEL
-                </button>
-             </div>
-          </div>
-        ) : destination && (
-          <div className="mx-auto max-w-xl rounded-[2.5rem] bg-white p-8 shadow-2xl pointer-events-auto border border-stone-200">
-             <div className="flex items-center justify-between mb-8">
-                <div>
-                   <div className="flex items-center gap-2 mb-1">
-                      <div className={`h-2 w-2 rounded-full ${destinationData?.confidence_score > 80 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                      <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">
-                        {destinationData?.confidence_score > 80 ? 'High Confidence' : 'Medium Precision'}
-                      </p>
-                   </div>
-                   <h1 className="text-4xl font-black text-stone-950 leading-none tracking-tighter italic">{destinationData?.code}</h1>
-                   <p className="text-sm font-bold text-stone-500 mt-1 uppercase tracking-widest">{destinationData?.place_type}</p>
-                </div>
-                <div className="text-right">
-                   <p className="text-2xl font-black text-stone-950">{routeInfo?.distance_km} km</p>
-                   <p className="text-sm font-bold text-stone-500">~ {Math.ceil((routeInfo?.duration || 0) / 60)} mins</p>
-                </div>
-             </div>
-             <button 
-                onClick={() => setNavigating(true)}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-4 rounded-3xl bg-blue-600 py-6 font-black text-white text-2xl shadow-xl hover:bg-blue-500 active:scale-95 disabled:opacity-50"
-             >
-                <Navigation size={32} />
-                {loading ? 'CALCULATING...' : 'START'}
-             </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── CHAT SYSTEM ── */}
-      {navigating && !arrived && (
-        <button 
-          onClick={() => setShowChat(true)}
-          className="absolute right-6 bottom-48 z-50 flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-400 text-stone-950 shadow-2xl shadow-amber-400/20 active:scale-95 transition-all pointer-events-auto"
-        >
-          <MessageSquare size={28} />
-          {chatMessages.length > 1 && (
-            <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white">{chatMessages.length - 1}</span>
           )}
-        </button>
-      )}
-
-      {showChat && (
-        <div className="absolute inset-0 z-[60] flex items-end justify-center bg-black/60 p-4 transition-all animate-in fade-in duration-300 pointer-events-auto">
-           <div className="w-full max-w-xl rounded-[2.5rem] bg-stone-900 border border-white/10 shadow-3xl animate-in slide-in-from-bottom-5 duration-500 overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400 text-stone-950">
-                    <MessageSquare size={20} />
-                  </div>
-                  <h2 className="text-xl font-black text-white italic tracking-tighter uppercase">Dispatch Chat</h2>
-                </div>
-                <button onClick={() => setShowChat(false)} className="rounded-full bg-white/5 p-2 text-white hover:bg-white/10">
-                  <ArrowLeft size={20} />
-                </button>
-              </div>
-
-              <div className="h-[300px] overflow-y-auto p-6 space-y-4">
-                {chatMessages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.sender === 'driver' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm font-bold ${msg.sender === 'driver' ? 'bg-blue-600 text-white' : 'bg-white/10 text-stone-300'}`}>
-                      {msg.text}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="p-6 border-t border-white/5 bg-black/20">
-                <div className="flex gap-2">
-                  <input 
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    placeholder="Type message..."
-                    className="flex-1 rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-white outline-none focus:border-amber-400"
-                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                  />
-                  <button onClick={() => sendMessage()} className="h-12 w-12 flex items-center justify-center rounded-2xl bg-amber-400 text-stone-950 shadow-lg active:scale-95 transition">
-                    <Send size={18} />
-                  </button>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                   {['I am outside', 'Traffic is heavy', 'Almost there'].map(t => (
-                     <button key={t} onClick={() => sendMessage(t)} className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-black text-stone-400 border border-white/10 hover:border-amber-400 hover:text-white transition uppercase">
-                       {t}
-                     </button>
-                   ))}
-                </div>
-              </div>
-           </div>
         </div>
       )}
 
-      {/* Error Fallback */}
-      {recalculating && !navigating && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-stone-900/80 backdrop-blur-md">
-            <div className="text-center">
-               <RotateCcw size={48} className="mx-auto animate-spin text-blue-500 mb-4" />
-               <p className="font-black text-white text-xl">LOCKING ON SATELLITES...</p>
+      {/* ── BOTTOM CARD ── */}
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 10 }}>
+        {arrived ? (
+          <div style={{
+            background: PP.green, padding: '20px 20px 36px', textAlign: 'center',
+            borderTopLeftRadius: 28, borderTopRightRadius: 28,
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%', background: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 14px',
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l5 5 9-11" stroke={PP.green} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 4 }}>You have arrived!</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', marginBottom: 20 }}>{destinationData?.code}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 4px' }}>
+              <button onClick={() => {
+                const text = encodeURIComponent(`I have arrived at PPOINNT: ${destinationData?.code}`);
+                window.open(`https://wa.me/?text=${text}`, '_blank');
+              }} style={{
+                width: '100%', height: 50, borderRadius: 16, border: 'none',
+                background: '#25D366', color: '#fff',
+                fontSize: 15, fontWeight: 700, fontFamily: PP.font, cursor: 'pointer',
+              }}>Share arrival on WhatsApp</button>
+              <button onClick={() => { setNavigating(false); setArrived(false); setDestination(null); navigate('/'); }} style={{
+                width: '100%', height: 46, borderRadius: 16, border: 'none',
+                background: 'rgba(0,0,0,0.2)', color: '#fff',
+                fontSize: 14, fontWeight: 600, fontFamily: PP.font, cursor: 'pointer',
+              }}>Close trip</button>
             </div>
           </div>
-      )}
+        ) : navigating ? (
+          <div style={{
+            background: PP.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: '18px 20px 32px', borderTop: `1px solid ${PP.line}`,
+          }}>
+            {isNearFinal && (destinationData?.landmark || destinationData?.description) && (
+              <div style={{
+                background: PP.yellow, borderRadius: 16, padding: '12px 14px', marginBottom: 14,
+                color: '#0A0B0D',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Entrance hint</div>
+                <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.3 }}>
+                  {destinationData.landmark && `Near: ${destinationData.landmark}`}
+                  {destinationData.description && ` · ${destinationData.description}`}
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+              {[
+                { v: `${(routeInfo?.distance_km || 0)}`, u: 'km', l: 'Distance' },
+                { v: `${Math.ceil((routeInfo?.duration || 0) / 60)}`, u: 'min', l: 'ETA', highlight: true },
+                { v: new Date(Date.now() + (routeInfo?.duration || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), u: '', l: 'Arrival' },
+              ].map((s, i) => (
+                <div key={i} style={{ textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, justifyContent: 'center' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: s.highlight ? PP.yellow : PP.text }}>{s.v}</div>
+                    {s.u && <div style={{ fontSize: 12, color: PP.text3, fontWeight: 600 }}>{s.u}</div>}
+                  </div>
+                  <div style={{ fontSize: 11, color: PP.text3, marginTop: 2, fontWeight: 600 }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setNavigating(false)} style={{
+                flex: 1, height: 50, borderRadius: 16, border: 'none',
+                background: PP.red, color: '#fff',
+                fontSize: 15, fontWeight: 700, fontFamily: PP.font, cursor: 'pointer',
+              }}>End trip</button>
+              <button onClick={() => setVoiceEnabled(!voiceEnabled)} style={{
+                width: 50, height: 50, borderRadius: 16, border: `1px solid ${PP.line}`,
+                background: PP.card, color: PP.text2,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9H4z"/></svg>
+              </button>
+            </div>
+          </div>
+        ) : destination ? (
+          <div style={{
+            background: PP.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: '20px 20px 36px', borderTop: `1px solid ${PP.line}`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: (destinationData?.confidence_score || 0) > 80 ? PP.green : PP.amber }} />
+                  <span style={{ fontSize: 11, color: PP.text3, fontWeight: 700 }}>
+                    {(destinationData?.confidence_score || 0) > 80 ? 'High confidence' : 'Medium precision'}
+                  </span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, fontFamily: PP.mono }}>{destinationData?.code}</div>
+                <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>{destinationData?.place_type} · {destinationData?.city}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 22, fontWeight: 800 }}>{routeInfo?.distance_km} km</div>
+                <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>~{Math.ceil((routeInfo?.duration || 0) / 60)} min</div>
+              </div>
+            </div>
+            <button onClick={() => setNavigating(true)} disabled={loading} style={{
+              width: '100%', height: 54, borderRadius: 18, border: 'none',
+              background: loading ? PP.blueSoft : PP.blue, color: '#fff',
+              fontSize: 16, fontWeight: 700, fontFamily: PP.font, cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 11L21 4l-7 17-2-7-9-3z" stroke="#fff" strokeWidth="2" strokeLinejoin="round"/></svg>
+              {loading ? 'Calculating route…' : 'Start navigation'}
+            </button>
+          </div>
+        ) : null}
+      </div>
 
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse-ring { 0% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(2.2); opacity: 0; } }`}</style>
     </div>
   );
 }

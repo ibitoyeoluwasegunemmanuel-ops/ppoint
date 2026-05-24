@@ -1,358 +1,200 @@
-import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import { 
-  ArrowRight, LocateFixed, MapPinned, Users, Check, 
-  ShieldCheck, TrendingUp, DollarSign, Zap, Layers, X
-} from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import api from '../services/api';
-import { PLACE_TYPES } from '../constants/placeTypes';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PP } from '../styles/tokens';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
-
-const initialAgentForm = {
-  fullName: '',
-  phoneNumber: '',
-  email: '',
-  country: 'Nigeria',
-  state: '',
-  city: '',
-  territory: '',
+const I = {
+  back: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  bell: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2H4.5L6 16z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M10 21a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  chevR: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  shield: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-3z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  star: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7.5.6-5.7 5 1.7 7.4L12 18l-6.5 4 1.7-7.4-5.7-5L9 9l3-7z"/></svg>,
+  up: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 14l5-5 5 5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 };
 
-const initialAddressForm = {
-  placeType: '',
-  customPlaceType: '',
-  buildingName: '',
-  houseNumber: '',
-  landmark: '',
-  district: '',
-  streetDescription: '',
-  phoneNumber: '',
-};
-
-const inputClassName = 'w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-stone-500 focus:border-amber-400/50 transition-all';
-
-const getAddressSettings = (publicConfig) => ({
-  requireBuildingName: publicConfig?.address_settings?.require_building_name !== false,
-  showLandmark: publicConfig?.address_settings?.show_landmark !== false,
-  showStreetDescription: publicConfig?.address_settings?.show_street_description !== false,
-  showPhoneNumber: publicConfig?.address_settings?.show_phone_number !== false,
-  enableHouseNumber: publicConfig?.address_settings?.enable_house_number !== false,
-  enableDistrict: publicConfig?.address_settings?.enable_district !== false,
-});
-
-function MapViewportController({ position }) {
-  const map = useMap();
-  useEffect(() => {
-    if (position) {
-      map.flyTo(position, 13);
-    }
-  }, [position, map]);
-  return null;
-}
-
-function MapClickHandler({ onSelect }) {
-  useMapEvents({
-    click(event) {
-      onSelect([event.latlng.lat, event.latlng.lng]);
-    }
-  });
-  return null;
-}
+const TABS = ['Dashboard', 'Addresses', 'Earnings', 'Tasks'];
 
 export default function AgentsPage() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [agentForm, setAgentForm] = useState(initialAgentForm);
-  const [mappingForm, setMappingForm] = useState(initialAddressForm);
-  const [agents, setAgents] = useState([]);
-  const [agentId, setAgentId] = useState('');
-  const [dashboard, setDashboard] = useState(null);
-  const [position, setPosition] = useState([6.5244, 3.3792]);
-  const [selectedPosition, setSelectedPosition] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  const [publicConfig, setPublicConfig] = useState(null);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
-  const addressSettings = getAddressSettings(publicConfig);
-
-  const activeAgent = dashboard?.agent || null;
-  const recentAddresses = useMemo(() => dashboard?.addresses || [], [dashboard]);
-  const activeMappedCount = useMemo(() => recentAddresses.filter((address) => ['active', 'verified_business'].includes(address.moderation_status)).length, [recentAddresses]);
-
-  const loadAgents = async () => {
-    const response = await api.get('/platform/agents');
-    const data = response.data.data || [];
-    setAgents(data);
-    if (!agentId && data[0]?.id) setAgentId(String(data[0].id));
-  };
-
-  const loadDashboard = async (nextAgentId = agentId) => {
-    if (!nextAgentId) {
-      setDashboard(null);
-      return;
-    }
-    const response = await api.get(`/platform/agents/${nextAgentId}/dashboard`);
-    setDashboard(response.data.data);
-  };
-
-  useEffect(() => {
-    loadAgents().catch(() => setError('Failed to load field agents.'));
-    api.get('/platform/system/public-config')
-      .then((response) => setPublicConfig(response.data.data || null))
-      .catch(() => setPublicConfig(null));
-  }, []);
-
-  useEffect(() => {
-    if (agentId) loadDashboard(agentId).catch(() => setError('Failed to load field agent dashboard.'));
-  }, [agentId]);
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported in this browser.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const nextPosition = [coords.latitude, coords.longitude];
-        setSelectedPosition(nextPosition);
-        setPosition(nextPosition);
-        setError('');
-      },
-      () => setError('Unable to detect location. Select the point on the map instead.'),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  };
-
-  const registerAgent = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError('');
-    setNotice('');
-    try {
-      const response = await api.post('/platform/agents/register', agentForm);
-      const nextAgent = response.data.data;
-      await loadAgents();
-      setAgentId(String(nextAgent.id));
-      setAgentForm(initialAgentForm);
-      setNotice(`Field agent registered. Agent ID: ${nextAgent.id}`);
-      setActiveTab('dashboard'); // Switch to work after registration
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Failed to register field agent.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createMappedAddress = async (event) => {
-    event.preventDefault();
-    if (!agentId) return setError('Choose an active identity first.');
-    if (!selectedPosition) return setError('Tap the map to place a pin first.');
-    if (addressSettings.requireBuildingName && !mappingForm.buildingName.trim()) return setError('Building Name is required.');
-    if (!mappingForm.placeType) return setError('Select a place type.');
-    if (mappingForm.placeType === 'Other' && !mappingForm.customPlaceType.trim()) return setError('Enter the custom place type.');
-
-    setLoading(true);
-    setError('');
-    setNotice('');
-    try {
-      await api.post(`/platform/agents/${agentId}/addresses`, {
-        latitude: selectedPosition[0],
-        longitude: selectedPosition[1],
-        placeType: mappingForm.placeType,
-        customPlaceType: mappingForm.customPlaceType,
-        buildingName: mappingForm.buildingName,
-        houseNumber: mappingForm.houseNumber,
-        landmark: mappingForm.landmark,
-        district: mappingForm.district,
-        streetDescription: mappingForm.streetDescription,
-        phoneNumber: mappingForm.phoneNumber,
-      });
-      await loadDashboard(agentId);
-      setMappingForm(initialAddressForm);
-      setShowMoreDetails(false);
-      setNotice('Success! PPOINNT node created and activated.');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Creation failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [showWithdraw, setShowWithdraw] = useState(false);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      {/* ── HEADER & TAB SWITCHER ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2 border-b border-white/5">
-        <div>
-           <h1 className="text-4xl font-black text-white italic tracking-tighter">AGENT HUB</h1>
-           <p className="text-stone-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">Scale the logistics network</p>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: PP.bg, overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{
+        padding: '52px 20px 0',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => navigate(-1)} style={{
+            width: 38, height: 38, borderRadius: 12, border: 'none',
+            background: PP.card, color: PP.text, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          }}>{I.back()}</button>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Agent Dashboard</div>
         </div>
-        
-        <div className="flex items-center gap-1 rounded-2l bg-white/5 p-1 border border-white/10 w-fit">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center gap-2 rounded-full px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'dashboard' ? 'bg-amber-400 text-stone-950 shadow-xl shadow-amber-400/20' : 'text-stone-400 hover:text-white'}`}
-          >
-            <TrendingUp size={12} /> WORKSPACE
-          </button>
-          <button 
-            onClick={() => setActiveTab('identity')}
-            className={`flex items-center gap-2 rounded-full px-6 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'identity' ? 'bg-amber-400 text-stone-950 shadow-xl shadow-amber-400/20' : 'text-stone-400 hover:text-white'}`}
-          >
-            <Users size={12} /> MY IDENTITY
-          </button>
-        </div>
+        <button style={{
+          width: 38, height: 38, borderRadius: 12, border: '1px solid ' + PP.line,
+          background: PP.card, color: PP.text2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>{I.bell()}</button>
       </div>
 
-      {(error || notice) && (
-        <div className={`rounded-2xl border p-4 text-sm font-bold flex items-center justify-between animate-in zoom-in-95 ${error ? 'border-red-400/20 bg-red-400/10 text-red-200' : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'}`}>
-          <div className="flex items-center gap-3">
-            {error ? <X size={18} /> : <Check size={18} />}
-            {error || notice}
+      {/* Tab bar */}
+      <div style={{ padding: '16px 20px 0', display: 'flex', gap: 6 }}>
+        {TABS.map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} style={{
+            padding: '8px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
+            background: activeTab === t ? PP.yellow : PP.card,
+            color: activeTab === t ? '#0A0B0D' : PP.text3,
+            fontSize: 13, fontWeight: 700, fontFamily: PP.font,
+            transition: 'all 0.15s',
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* Earnings hero card */}
+        <div style={{
+          background: 'linear-gradient(135deg, #1A1D24 0%, #14171C 100%)',
+          border: '1px solid ' + PP.line, borderRadius: 22, padding: '18px',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: -30, right: -30, width: 160, height: 160,
+            background: 'radial-gradient(closest-side, rgba(255,199,44,0.22), transparent)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 12, color: PP.text3, fontWeight: 600 }}>Earnings balance</div>
+            <button onClick={() => setShowWithdraw(true)} style={{
+              padding: '6px 12px', borderRadius: 9, background: PP.yellow, color: '#0A0B0D',
+              fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: PP.font,
+            }}>Withdraw</button>
           </div>
-          <button onClick={() => { setError(''); setNotice(''); }} className="opacity-50 hover:opacity-100"><X size={16} /></button>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 10, position: 'relative' }}>
+            <div style={{ fontSize: 15, color: PP.text2, fontWeight: 600 }}>₦</div>
+            <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: -0.8, lineHeight: 1 }}>24,650</div>
+            <div style={{ fontSize: 20, color: PP.text2, fontWeight: 700 }}>.00</div>
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: PP.green }}>{I.up()}</span>
+            <span style={{ fontSize: 12, color: PP.green, fontWeight: 700 }}>+₦2,150 this week</span>
+            <span style={{ fontSize: 12, color: PP.text3 }}>· Instant payout enabled</span>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {[
+            { v: '128', l: 'PPOINNT created', sub: 'This month' },
+            { v: '₦48,230', l: 'Total earned', sub: 'All time' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              background: PP.card, border: '1px solid ' + PP.line, borderRadius: 18, padding: '14px 16px',
+            }}>
+              <div style={{ fontSize: 11.5, color: PP.text3, fontWeight: 600 }}>{s.l}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginTop: 6, letterSpacing: -0.4 }}>{s.v}</div>
+              <div style={{ fontSize: 11, color: PP.text3, marginTop: 3 }}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Territory */}
+        <div style={{ background: PP.card, border: '1px solid ' + PP.line, borderRadius: 18, padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 11.5, color: PP.text3, fontWeight: 600 }}>Your territory</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>Ikorodu, Lagos</div>
+            </div>
+            <button style={{
+              padding: '6px 12px', borderRadius: 9,
+              background: 'rgba(255,255,255,0.04)', border: 'none',
+              fontSize: 12, fontWeight: 700, color: PP.text2, cursor: 'pointer', fontFamily: PP.font,
+            }}>Change</button>
+          </div>
+          {/* Territory map visual */}
+          <div style={{
+            height: 80, borderRadius: 12, position: 'relative', overflow: 'hidden',
+            background: '#1B1F26',
+          }}>
+            <svg width="100%" height="100%" viewBox="0 0 300 80" preserveAspectRatio="xMidYMid slice">
+              <rect width="300" height="80" fill="#1B1F26"/>
+              {/* simple road grid */}
+              <line x1="0" y1="40" x2="300" y2="40" stroke="rgba(120,140,180,0.14)" strokeWidth="4"/>
+              <line x1="150" y1="0" x2="150" y2="80" stroke="rgba(120,140,180,0.14)" strokeWidth="4"/>
+              {/* territory polygon */}
+              <polygon points="50,15 210,12 258,55 148,76 42,65" fill="rgba(255,199,44,0.18)" stroke={PP.yellow} strokeWidth="1.5"/>
+              <circle cx="150" cy="44" r="4" fill={PP.yellow}/>
+            </svg>
+          </div>
+        </div>
+
+        {/* Performance */}
+        <div style={{ background: PP.card, border: '1px solid ' + PP.line, borderRadius: 18, padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontSize: 11.5, color: PP.text3, fontWeight: 600 }}>Performance · Accuracy score</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: PP.green }}>
+              {I.star()} Silver Agent
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>98%</div>
+            <div style={{ fontSize: 12, color: PP.text3, fontWeight: 600 }}>· rank #14 in Ikorodu</div>
+          </div>
+          <div style={{ height: 6, borderRadius: 6, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+            <div style={{ width: '98%', height: '100%', background: 'linear-gradient(90deg, ' + PP.green + ', #5EE6A0)' }} />
+          </div>
+        </div>
+
+        {/* Task card */}
+        <div style={{
+          background: 'rgba(46,107,255,0.07)', border: '1px solid rgba(46,107,255,0.22)',
+          borderRadius: 18, padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{
+            width: 38, height: 38, borderRadius: 11,
+            background: PP.blueSoft, color: PP.blue,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>{I.shield()}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700 }}>3 PPOINNTs to verify</div>
+            <div style={{ fontSize: 12, color: PP.text3, marginTop: 2 }}>Earn ₦500 per verification</div>
+          </div>
+          <span style={{ color: PP.text3 }}>{I.chevR()}</span>
+        </div>
+
+        <div style={{ height: 20 }} />
+      </div>
+
+      {/* Withdraw modal */}
+      {showWithdraw && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          background: 'rgba(10,11,13,0.7)', backdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'flex-end',
+        }} onClick={() => setShowWithdraw(false)}>
+          <div style={{
+            width: '100%', background: PP.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: '28px 24px 40px',
+          }} onClick={e => e.stopPropagation()} className="animate-slide-up">
+            <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Withdraw earnings</div>
+            <div style={{ fontSize: 14, color: PP.text3, marginBottom: 24 }}>Available: ₦24,650.00</div>
+            <input placeholder="Enter amount" style={{
+              width: '100%', height: 54, borderRadius: 14,
+              background: PP.card, border: '1px solid ' + PP.line,
+              color: PP.text, fontSize: 18, fontWeight: 700, fontFamily: PP.font,
+              padding: '0 16px', outline: 'none', boxSizing: 'border-box',
+            }} />
+            <button style={{
+              width: '100%', height: 54, marginTop: 14, borderRadius: 18, border: 'none',
+              background: PP.yellow, color: '#0A0B0D',
+              fontSize: 16, fontWeight: 700, fontFamily: PP.font, cursor: 'pointer',
+            }}>Request Withdrawal</button>
+          </div>
         </div>
       )}
-
-      <section>
-        {activeTab === 'identity' ? (
-           <div className="grid gap-8 lg:grid-cols-2">
-             <div className="rounded-[2.5rem] border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
-               <h2 className="text-2xl font-black text-white italic tracking-tighter mb-6">FIELD REGISTRATION</h2>
-               <form onSubmit={registerAgent} className="space-y-4">
-                 <input value={agentForm.fullName} onChange={(e) => setAgentForm({ ...agentForm, fullName: e.target.value })} className={inputClassName} placeholder="Full Legal Name" />
-                 <input value={agentForm.phoneNumber} onChange={(e) => setAgentForm({ ...agentForm, phoneNumber: e.target.value })} className={inputClassName} placeholder="Phone Number" />
-                 <input value={agentForm.email} onChange={(e) => setAgentForm({ ...agentForm, email: e.target.value })} className={inputClassName} placeholder="Email Address" />
-                 <div className="grid grid-cols-2 gap-4">
-                   <input value={agentForm.state} onChange={(e) => setAgentForm({ ...agentForm, state: e.target.value })} className={inputClassName} placeholder="Region / State" />
-                   <input value={agentForm.city} onChange={(e) => setAgentForm({ ...agentForm, city: e.target.value })} className={inputClassName} placeholder="City" />
-                 </div>
-                 <input value={agentForm.territory} onChange={(e) => setAgentForm({ ...agentForm, territory: e.target.value })} className={inputClassName} placeholder="Assigned Territory (e.g. Lagos Island)" />
-                 <button disabled={loading} className="w-full rounded-2xl bg-white py-4 font-black text-stone-950 hover:bg-stone-200 transition">REGISTER PERSONNEL</button>
-               </form>
-             </div>
-
-             <div className="rounded-[2.5rem] border border-stone-800 bg-stone-950 p-8">
-               <h3 className="text-xl font-black text-white italic tracking-tighter mb-4">ACTIVE IDENTITY</h3>
-               <div className="space-y-4">
-                 <p className="text-[10px] font-black uppercase text-stone-500 tracking-widest">Select Agent Profile</p>
-                 <select value={agentId} onChange={(e) => setAgentId(e.target.value)} className={`${inputClassName} bg-stone-900`}>
-                   <option value="" className="bg-stone-900">Choose identity...</option>
-                   {agents.map((agent) => (
-                     <option key={agent.id} value={agent.id} className="bg-stone-900 text-white font-bold">{agent.ppoint_agent_id || `AGT-${agent.id}`} • {agent.full_name}</option>
-                   ))}
-                 </select>
-               </div>
-             </div>
-           </div>
-        ) : (
-           <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-8">
-                 {/* Map Section */}
-                 <div className="overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/5 shadow-3xl">
-                    <div className="flex items-center justify-between p-6 border-b border-white/5">
-                       <h3 className="text-lg font-black text-white italic tracking-tighter uppercase">MAP TERMINAL</h3>
-                       <button onClick={detectLocation} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black text-white hover:bg-white/10 transition">
-                          <LocateFixed size={14} /> GPS LOCATE
-                       </button>
-                    </div>
-                    <div className="h-[400px]">
-                      <MapContainer center={position} zoom={13} style={{ height: '100%', width: '100%' }}>
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                        <MapViewportController position={selectedPosition || position} />
-                        <MapClickHandler onSelect={(pos) => { setSelectedPosition(pos); setPosition(pos); }} />
-                        {selectedPosition && <Marker position={selectedPosition} />}
-                      </MapContainer>
-                    </div>
-                 </div>
-
-                 {/* Stats Section */}
-                 <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-3xl bg-blue-400 p-8 text-stone-950 shadow-xl">
-                       <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Mapped Nodes</p>
-                       <p className="text-5xl font-black italic tracking-tighter mt-2">{recentAddresses.length}</p>
-                       <p className="text-xs font-bold mt-4 border-t border-black/10 pt-4 flex items-center gap-2">
-                          <ShieldCheck size={14} /> Confidence Score: 98%
-                       </p>
-                    </div>
-                    <div className="rounded-3xl bg-emerald-400 p-8 text-stone-950 shadow-xl">
-                       <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Earnings (In-Hand)</p>
-                       <p className="text-5xl font-black italic tracking-tighter mt-2">₦{(activeAgent?.earnings_balance || 0).toLocaleString()}</p>
-                       <p className="text-xs font-bold mt-4 border-t border-black/10 pt-4">Agents collect cash directly in Phase 1</p>
-                    </div>
-                 </div>
-              </div>
-
-              {/* Mapping Form */}
-              <div className="rounded-[2.5rem] border border-white/10 bg-stone-950/40 p-8 backdrop-blur-2xl">
-                 <div className="flex items-center gap-3 mb-8">
-                    <div className="h-10 w-10 rounded-xl bg-amber-400 flex items-center justify-center text-stone-950">
-                       <MapPinned size={22} />
-                    </div>
-                    <h3 className="text-2xl font-black text-white italic tracking-tighter">NEW PIN DATA</h3>
-                 </div>
-
-                 <form onSubmit={createMappedAddress} className="space-y-4">
-                    <div className="relative">
-                       <select 
-                         value={mappingForm.placeType} 
-                         onChange={(e) => setMappingForm({ ...mappingForm, placeType: e.target.value })} 
-                         className={`${inputClassName} appearance-none bg-stone-900`}
-                       >
-                          <option value="" className="bg-stone-900">Select place type...</option>
-                          {PLACE_TYPES.map(type => <option key={type} value={type} className="bg-stone-900 text-white font-bold">{type}</option>)}
-                       </select>
-                       <Layers size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" />
-                    </div>
-
-                    {mappingForm.placeType === 'Other' && <input value={mappingForm.customPlaceType} onChange={(e) => setMappingForm({ ...mappingForm, customPlaceType: e.target.value })} className={inputClassName} placeholder="Custom Category (e.g. Cinema)" />}
-                    <input value={mappingForm.buildingName} onChange={(e) => setMappingForm({ ...mappingForm, buildingName: e.target.value })} className={inputClassName} placeholder="Building Name" />
-                    <input value={mappingForm.landmark} onChange={(e) => setMappingForm({ ...mappingForm, landmark: e.target.value })} className={inputClassName} placeholder="Nearest Landmark" />
-                    
-                    <button type="button" onClick={() => setShowMoreDetails(!showMoreDetails)} className="text-[10px] font-black text-stone-500 uppercase tracking-widest hover:text-white transition">
-                       {showMoreDetails ? '[-] Hide Fields' : '[+] Show Advanced Fields'}
-                    </button>
-
-                    {showMoreDetails && (
-                       <div className="space-y-4 pt-2 animate-in slide-in-from-top-2">
-                          <input value={mappingForm.houseNumber} onChange={(e) => setMappingForm({ ...mappingForm, houseNumber: e.target.value })} className={inputClassName} placeholder="House Number" />
-                          <input value={mappingForm.district} onChange={(e) => setMappingForm({ ...mappingForm, district: e.target.value })} className={inputClassName} placeholder="District" />
-                          <textarea value={mappingForm.streetDescription} onChange={(e) => setMappingForm({ ...mappingForm, streetDescription: e.target.value })} className={`${inputClassName} min-h-[100px]`} placeholder="Street Hint (e.g. Beside the big transformer)" />
-                       </div>
-                    )}
-
-                    <button disabled={loading} className="w-full rounded-[1.5rem] bg-amber-400 py-5 font-black text-stone-950 uppercase tracking-widest shadow-xl shadow-amber-400/20 active:scale-95 transition flex items-center justify-center gap-2">
-                       {loading ? <Zap size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
-                       {loading ? 'SECURING NODE...' : 'ACTIVATE PPOINNT'}
-                    </button>
-                 </form>
-
-                 {/* Recent Activity */}
-                 <div className="mt-12">
-                    <h4 className="text-[10px] font-black text-stone-500 uppercase tracking-widest mb-4">Latest Mappings</h4>
-                    <div className="space-y-3">
-                       {recentAddresses.slice(0, 3).map(addr => (
-                          <div key={addr.id} className="flex items-center justify-between rounded-2xl bg-white/5 p-4 border border-white/5">
-                             <div>
-                                <p className="font-black text-white text-sm italic">{addr.code}</p>
-                                <p className="text-[10px] text-stone-500 font-bold uppercase">{addr.building_name || 'Generic Node'}</p>
-                             </div>
-                             <div className="text-stone-400"><TrendingUp size={14} /></div>
-                          </div>
-                       ))}
-                    </div>
-                 </div>
-              </div>
-           </div>
-        )}
-      </section>
     </div>
   );
 }

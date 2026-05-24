@@ -26,35 +26,34 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_PREVIEW_URL,
   'https://ppoint.online',
   'https://www.ppoint.online',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  'http://127.0.0.1:5175',
-  'http://127.0.0.1:5183',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'http://localhost:5183'
+  ...(!isProd ? [
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:5175',
+    'http://127.0.0.1:5183',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5183',
+  ] : []),
 ].filter(Boolean);
 
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
-    if (
-      !origin
-      || allowedOrigins.includes(origin)
-      || origin.endsWith('.vercel.app')
-    ) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
       return;
     }
-
     callback(new Error('Not allowed by CORS'));
-  }
+  },
 }));
 app.use(express.json());
 
