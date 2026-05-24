@@ -643,4 +643,238 @@ router.get('/agents/:id/stats', async (req, res) => {
   }
 });
 
+// ──── GOVERNMENT INTEGRATION INFRASTRUCTURE ────
+router.post('/government/bulk-lookup', async (req, res) => {
+  try {
+    const { codes, confidence_threshold = 70 } = req.body;
+
+    if (!Array.isArray(codes) || codes.length === 0) {
+      return res.status(400).json(failure('Codes array is required'));
+    }
+
+    if (codes.length > 1000) {
+      return res.status(400).json(failure('Maximum 1000 codes per request'));
+    }
+
+    const results = await Promise.all(codes.map(async (code) => {
+      try {
+        const address = await AddressService.getAddressInfo(code);
+        const confidence = calculateAddressConfidence({
+          gpsAccuracy: address.gps_accuracy || 10,
+          buildingDetected: !!address.building_polygon_id,
+          roadProximity: address.road_proximity_distance || 15,
+          entranceDetected: !!(address.entrance_latitude && address.entrance_longitude),
+          geocodingProviders: [],
+          communityName: address.community_name || '',
+          streetName: address.street_name || '',
+          landmarkProvided: !!address.landmark,
+          manualPin: true,
+        });
+
+        const meetsThreshold = confidence.score >= confidence_threshold;
+
+        return {
+          code: address.code,
+          verified: meetsThreshold,
+          confidence_score: confidence.score,
+          confidence_level: confidence.level,
+          latitude: address.latitude,
+          longitude: address.longitude,
+          city: address.city,
+          state: address.state,
+          landmark: address.landmark || null,
+          verification_count: address.verification_count || 0,
+          community_rating: address.community_rating || 0,
+          place_type: address.place_type,
+        };
+      } catch (error) {
+        return {
+          code,
+          verified: false,
+          error: 'Address not found',
+        };
+      }
+    }));
+
+    res.json(success('Bulk lookup completed', {
+      requested: codes.length,
+      verified: results.filter(r => r.verified).length,
+      threshold: confidence_threshold,
+      results,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.get('/government/coverage/:state', async (req, res) => {
+  try {
+    const state = String(req.params.state).trim();
+
+    if (inMemoryStore.isEnabled()) {
+      return res.json(success('Coverage stats loaded', {
+        state,
+        total_addresses: 0,
+        high_confidence: 0,
+        medium_confidence: 0,
+        low_confidence: 0,
+        verified_agents: 0,
+        coverage_percentage: 0,
+      }));
+    }
+
+    const query = `
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN confidence_score >= 85 THEN 1 ELSE 0 END) as high,
+        SUM(CASE WHEN confidence_score >= 60 AND confidence_score < 85 THEN 1 ELSE 0 END) as medium,
+        SUM(CASE WHEN confidence_score < 60 THEN 1 ELSE 0 END) as low
+      FROM addresses
+      WHERE state = $1 AND moderation_status = 'active'
+    `;
+
+    const result = await pool.query(query, [state]);
+    const stats = result.rows[0] || { total: 0, high: 0, medium: 0, low: 0 };
+
+    res.json(success('Coverage stats loaded', {
+      state,
+      total_addresses: Number(stats.total),
+      high_confidence: Number(stats.high) || 0,
+      medium_confidence: Number(stats.medium) || 0,
+      low_confidence: Number(stats.low) || 0,
+      verified_agents: await FieldAgent.leaderboard(state, 999).then(a => a.length),
+      coverage_percentage: stats.total > 0 ? Math.round((Number(stats.high) / Number(stats.total)) * 100) : 0,
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.get('/government/coverage/lga/:state/:lga', async (req, res) => {
+  try {
+    const state = String(req.params.state).trim();
+    const lga = String(req.params.lga).trim();
+
+    if (inMemoryStore.isEnabled()) {
+      return res.json(success('LGA coverage stats loaded', {
+        state,
+        lga,
+        total_addresses: 0,
+        verified_count: 0,
+        agent_count: 0,
+      }));
+    }
+
+    const query = `
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN verification_count >= 5 THEN 1 ELSE 0 END) as verified
+      FROM addresses
+      WHERE state = $1 AND community_name ILIKE $2 AND moderation_status = 'active'
+    `;
+
+    const result = await pool.query(query, [state, `%${lga}%`]);
+    const stats = result.rows[0] || { total: 0, verified: 0 };
+
+    res.json(success('LGA coverage stats loaded', {
+      state,
+      lga,
+      total_addresses: Number(stats.total),
+      verified_count: Number(stats.verified) || 0,
+      agent_count: 0, // TODO: count agents working in this LGA
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.post('/government/export/csv', async (req, res) => {
+  try {
+    const { state, confidence_threshold = 85, limit = 10000 } = req.body;
+
+    if (!state) {
+      return res.status(400).json(failure('State is required'));
+    }
+
+    const query = `
+      SELECT code, latitude, longitude, landmark, city, community_name, confidence_score, verification_count
+      FROM addresses
+      WHERE state = $1 AND confidence_score >= $2 AND moderation_status = 'active'
+      ORDER BY confidence_score DESC
+      LIMIT $3
+    `;
+
+    if (inMemoryStore.isEnabled()) {
+      return res.json(success('CSV export prepared', {
+        state,
+        format: 'csv',
+        count: 0,
+        download_url: '/api/platform/government/download-csv',
+      }));
+    }
+
+    const result = await pool.query(query, [state, confidence_threshold, limit]);
+    const addresses = result.rows;
+
+    let csv = 'PPOINNT Code,Latitude,Longitude,Landmark,City,Community,Confidence Score,Verification Count\n';
+    addresses.forEach(a => {
+      csv += `"${a.code}",${a.latitude},${a.longitude},"${a.landmark || ''}","${a.city}","${a.community_name}",${a.confidence_score},${a.verification_count}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="ppoinnt_${state}_${Date.now()}.csv"`);
+    res.send(csv);
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
+router.get('/government/stats/:state', async (req, res) => {
+  try {
+    const state = String(req.params.state).trim();
+
+    if (inMemoryStore.isEnabled()) {
+      return res.json(success('Government dashboard stats loaded', {
+        state,
+        total_addresses: 0,
+        agents_active: 0,
+        average_confidence: 0,
+        addresses_this_month: 0,
+        verification_events: 0,
+      }));
+    }
+
+    const query = `
+      SELECT
+        COUNT(*) as total,
+        AVG(confidence_score) as avg_confidence,
+        SUM(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 ELSE 0 END) as this_month,
+        SUM(verification_count) as total_verifications
+      FROM addresses
+      WHERE state = $1 AND moderation_status = 'active'
+    `;
+
+    const result = await pool.query(query, [state]);
+    const stats = result.rows[0] || {};
+    const agents = await FieldAgent.leaderboard(state, 999);
+
+    res.json(success('Government dashboard stats loaded', {
+      state,
+      total_addresses: Number(stats.total) || 0,
+      agents_active: agents.length,
+      average_confidence: Math.round(Number(stats.avg_confidence) || 0),
+      addresses_this_month: Number(stats.this_month) || 0,
+      verification_events: Number(stats.total_verifications) || 0,
+      top_agents: agents.slice(0, 5).map((a, idx) => ({
+        rank: idx + 1,
+        name: a.full_name,
+        verifications: a.verification_count,
+        accuracy: a.accuracy_score,
+      })),
+    }));
+  } catch (error) {
+    res.status(error.status || 400).json(failure(error.message));
+  }
+});
+
 export default router;
