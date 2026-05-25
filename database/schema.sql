@@ -755,3 +755,32 @@ CREATE TABLE IF NOT EXISTS scheduled_reports (
 CREATE INDEX IF NOT EXISTS idx_scheduled_reports_user_id ON scheduled_reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_reports_active ON scheduled_reports(active);
 CREATE INDEX IF NOT EXISTS idx_scheduled_reports_recurrence ON scheduled_reports(recurrence);
+
+-- Webhooks Table
+CREATE TABLE IF NOT EXISTS webhooks (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES user_profiles(id),
+    url VARCHAR(500) NOT NULL,
+    events JSONB DEFAULT '[]',
+    secret VARCHAR(255) NOT NULL,
+    active BOOLEAN DEFAULT true,
+    last_triggered_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Webhook Logs Table
+CREATE TABLE IF NOT EXISTS webhook_logs (
+    id SERIAL PRIMARY KEY,
+    webhook_id INTEGER REFERENCES webhooks(id) ON DELETE CASCADE,
+    event_type VARCHAR(100),
+    payload JSONB,
+    status_code INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for webhooks
+CREATE INDEX IF NOT EXISTS idx_webhooks_user_id ON webhooks(user_id);
+CREATE INDEX IF NOT EXISTS idx_webhooks_active ON webhooks(active);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_id ON webhook_logs(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at DESC);
