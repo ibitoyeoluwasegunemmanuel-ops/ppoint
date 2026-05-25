@@ -39,6 +39,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
 import exportRoutes from './routes/exportRoutes.js';
 import webhookRoutes from './routes/webhookRoutes.js';
+import twoFactorRoutes from './routes/twoFactorRoutes.js';
 
 dotenv.config();
 
@@ -109,6 +110,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/2fa', twoFactorRoutes);
 app.use('/api/business', businessAnalyticsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);

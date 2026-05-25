@@ -784,3 +784,11 @@ CREATE INDEX IF NOT EXISTS idx_webhooks_user_id ON webhooks(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhooks_active ON webhooks(active);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_id ON webhook_logs(webhook_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at DESC);
+
+-- Add Two-Factor Authentication columns to user_profiles
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT false;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(255);
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS two_factor_enabled_at TIMESTAMP;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS backup_codes JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS tier VARCHAR(50) DEFAULT 'free';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
