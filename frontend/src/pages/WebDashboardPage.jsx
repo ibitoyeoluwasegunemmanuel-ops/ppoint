@@ -594,12 +594,154 @@ function AgentsView() {
   );
 }
 
+// ── Incident Modal ──────────────────────────────────────────────────────────
+function IncidentModal({ incident, onClose, onAssign, onStatusChange }) {
+  const [assignDispatcher, setAssignDispatcher] = useState('');
+  const [dispatcherName, setDispatcherName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const getSeverityColor = (sev) => {
+    const colors = { critical: '#F87171', high: '#FB923C', medium: '#FCD34D', low: '#A1E804' };
+    return colors[sev] || '#FFC72C';
+  };
+
+  const handleAssign = async () => {
+    if (!assignDispatcher || !dispatcherName) return;
+    setLoading(true);
+    try {
+      await onAssign(incident.id, assignDispatcher, dispatcherName);
+      setAssignDispatcher('');
+      setDispatcherName('');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#0A0B0D', borderRadius: 14, padding: 20, maxWidth: 500, width: '90%', maxHeight: '80vh', overflow: 'auto', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Incident Details
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#FFFFFF', fontSize: 20, cursor: 'pointer' }}>×</button>
+        </div>
+
+        <div style={{ background: '#13141A', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginBottom: 4 }}>ID: {incident.id}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>{incident.incident_type}</div>
+            </div>
+            <div style={{ background: getSeverityColor(incident.severity), color: '#000', padding: '4px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>
+              {incident.severity.toUpperCase()}
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: '#A1A1A6', marginBottom: 8 }}>{incident.location}</div>
+          <div style={{ fontSize: 13, color: '#FFFFFF' }}>{incident.description}</div>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6, fontWeight: 700 }}>REPORTER</div>
+          <div style={{ fontSize: 13, color: '#FFFFFF' }}>{incident.reporter_name} • {incident.reporter_phone}</div>
+        </div>
+
+        {!incident.dispatcher_id ? (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, fontWeight: 700 }}>ASSIGN DISPATCHER</div>
+            <input type="text" placeholder="Dispatcher ID" value={assignDispatcher} onChange={(e) => setAssignDispatcher(e.target.value)} style={{ width: '100%', padding: '8px 12px', background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', marginBottom: 8, fontSize: 12 }} />
+            <input type="text" placeholder="Dispatcher Name" value={dispatcherName} onChange={(e) => setDispatcherName(e.target.value)} style={{ width: '100%', padding: '8px 12px', background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', marginBottom: 8, fontSize: 12 }} />
+            <button onClick={handleAssign} disabled={loading || !assignDispatcher || !dispatcherName} style={{ width: '100%', padding: '10px', background: '#FFC72C', color: '#0A0B0D', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: loading || !assignDispatcher || !dispatcherName ? 0.5 : 1 }}>
+              {loading ? 'Assigning...' : 'Assign'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 14, background: '#13141A', padding: 12, borderRadius: 8 }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 4, fontWeight: 700 }}>ASSIGNED TO</div>
+            <div style={{ fontSize: 13, color: '#34D399' }}>{incident.dispatcher_name}</div>
+          </div>
+        )}
+
+        <button onClick={onClose} style={{ width: '100%', padding: '10px', background: '#13141A', color: '#FFFFFF', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Emergency View ───────────────────────────────────────────────────────────
 function EmergencyView() {
+  const [incidents, setIncidents] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('reported');
+
+  useEffect(() => {
+    fetchIncidents();
+    fetchStats();
+    const interval = setInterval(fetchIncidents, 5000);
+    return () => clearInterval(interval);
+  }, [filterStatus]);
+
+  const fetchIncidents = async () => {
+    try {
+      const res = await fetch(`/api/emergency-dispatch/incidents?status=${filterStatus}`);
+      const data = await res.json();
+      if (data.success) {
+        setIncidents(data.data);
+        setError(null);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (e) {
+      setError(e.message);
+      setIncidents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('/api/emergency-dispatch/stats');
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAssign = async (incidentId, dispatcherId, dispatcherName) => {
+    try {
+      const res = await fetch(`/api/emergency-dispatch/incidents/${incidentId}/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dispatcherId, dispatcherName })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedIncident(null);
+        fetchIncidents();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-        {[{ label: 'Active Incidents', value: '2', color: '#F87171' }, { label: 'Dispatched', value: '12', color: '#FFC72C' }, { label: 'Resolved Today', value: '8', color: '#34D399' }].map((s, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total', value: stats?.total || 0, color: '#A1A1A6' },
+          { label: 'Active', value: stats?.reported || 0, color: '#F87171' },
+          { label: 'Dispatched', value: stats?.assigned || 0, color: '#FFC72C' },
+          { label: 'Resolved', value: stats?.closed || 0, color: '#34D399' }
+        ].map((s, i) => (
           <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{s.label}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -607,26 +749,43 @@ function EmergencyView() {
         ))}
       </div>
 
-      <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>Active Incidents</div>
-        {mockIncidents.map((inc, i) => (
-          <div key={i} style={{ padding: '12px 0', borderBottom: i < mockIncidents.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 12, height: 12, borderRadius: '50%', background: inc.status === 'ACTIVE' ? '#F87171' : '#FFC72C', boxShadow: inc.status === 'ACTIVE' ? '0 0 8px #F87171' : 'none' }} />
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>{inc.type}</div>
-              <div style={{ fontSize: 11, color: '#A1A1A6' }}>{inc.location} • {inc.time}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-        {['Ambulance', 'Fire', 'Police'].map((s, i) => (
-          <button key={i} style={{ height: 60, borderRadius: 12, border: 'none', background: '#13141A', color: '#FFFFFF', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-            {i === 0 ? '🚑' : i === 1 ? '🚒' : '🚔'} {s}
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+        {['reported', 'assigned', 'in_progress', 'closed'].map(status => (
+          <button key={status} onClick={() => setFilterStatus(status)} style={{ padding: '8px 14px', borderRadius: 8, border: filterStatus === status ? '2px solid #FFC72C' : '1px solid rgba(255,255,255,0.07)', background: filterStatus === status ? '#FFC72C' : '#13141A', color: filterStatus === status ? '#0A0B0D' : '#FFFFFF', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            {status.replace('_', ' ').toUpperCase()}
           </button>
         ))}
       </div>
+
+      {error && (
+        <div style={{ background: '#F87171', color: '#000', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12, fontWeight: 700 }}>
+          {error}
+          <button onClick={fetchIncidents} style={{ marginLeft: 'auto', background: '#000', color: '#F87171', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>Retry</button>
+        </div>
+      )}
+
+      <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 20, textAlign: 'center', color: '#A1A1A6' }}>Loading incidents...</div>
+        ) : incidents.length === 0 ? (
+          <div style={{ padding: 20, textAlign: 'center', color: '#A1A1A6' }}>No incidents</div>
+        ) : (
+          incidents.map((inc, i) => (
+            <div key={i} onClick={() => setSelectedIncident(inc)} style={{ padding: '14px 16px', borderBottom: i < incidents.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.background = '#16171D'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: inc.severity === 'critical' ? '#F87171' : inc.severity === 'high' ? '#FB923C' : '#FCD34D' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>{inc.incident_type}</div>
+                <div style={{ fontSize: 11, color: '#A1A1A6' }}>{inc.location}</div>
+              </div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{new Date(inc.created_at).toLocaleTimeString()}</div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {selectedIncident && (
+        <IncidentModal incident={selectedIncident} onClose={() => setSelectedIncident(null)} onAssign={handleAssign} />
+      )}
     </div>
   );
 }
