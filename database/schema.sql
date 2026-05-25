@@ -464,3 +464,32 @@ CREATE INDEX IF NOT EXISTS idx_agent_applications_status ON agent_applications(s
 CREATE INDEX IF NOT EXISTS idx_agent_applications_user_id ON agent_applications(user_id);
 CREATE INDEX IF NOT EXISTS idx_agent_applications_country ON agent_applications(country);
 CREATE INDEX IF NOT EXISTS idx_agent_applications_applied_date ON agent_applications(applied_date DESC);
+
+-- Emergency Incidents Table
+CREATE TABLE IF NOT EXISTS emergency_incidents (
+    id SERIAL PRIMARY KEY,
+    reporter_name VARCHAR(255) NOT NULL,
+    reporter_phone VARCHAR(20) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    incident_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    status VARCHAR(50) DEFAULT 'reported' CHECK (status IN ('reported', 'assigned', 'in_progress', 'closed')),
+    dispatcher_id INTEGER,
+    dispatcher_name VARCHAR(255),
+    address VARCHAR(500),
+    resolution_notes TEXT,
+    assigned_at TIMESTAMP,
+    closed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for emergency incidents
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_status ON emergency_incidents(status);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_severity ON emergency_incidents(severity);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_created_at ON emergency_incidents(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_dispatcher_id ON emergency_incidents(dispatcher_id);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_location ON emergency_incidents USING GIST(ll_to_earth(latitude, longitude));
