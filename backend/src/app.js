@@ -33,6 +33,7 @@ import emergencyDispatchRoutes from './routes/emergencyDispatchRoutes.js';
 import businessAnalyticsRoutes from './routes/businessAnalyticsRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import governmentPortalRoutes from './routes/governmentPortalRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 dotenv.config();
 
@@ -101,6 +102,7 @@ app.use('/api/government-portal', governmentPortalRoutes);
 app.use('/api/developers/enhanced', developerEnhancedRoutes);
 app.use('/api/business', businessAnalyticsRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', agentApplicationRoutes);
 app.use('/', seoRoutes); // Mount SEO routes at root or as needed
 

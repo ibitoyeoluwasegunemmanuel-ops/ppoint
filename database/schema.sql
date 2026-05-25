@@ -665,3 +665,42 @@ CREATE INDEX IF NOT EXISTS idx_gov_agents_email ON government_agents(email);
 CREATE INDEX IF NOT EXISTS idx_gov_metrics_region_id ON government_metrics(region_id);
 CREATE INDEX IF NOT EXISTS idx_gov_metrics_metric_type ON government_metrics(metric_type);
 CREATE INDEX IF NOT EXISTS idx_gov_metrics_created_at ON government_metrics(created_at DESC);
+
+-- Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES user_profiles(id),
+    type VARCHAR(100) NOT NULL,
+    channel VARCHAR(50) NOT NULL CHECK (channel IN ('email', 'sms', 'push', 'inapp')),
+    subject VARCHAR(255),
+    message TEXT,
+    metadata JSONB,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'read', 'failed')),
+    sent_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notification Templates Table
+CREATE TABLE IF NOT EXISTS notification_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(100) NOT NULL,
+    channel VARCHAR(50) NOT NULL,
+    subject VARCHAR(255),
+    body TEXT,
+    variables JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
+CREATE INDEX IF NOT EXISTS idx_notifications_channel ON notifications(channel);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+
+-- Create indexes for templates
+CREATE INDEX IF NOT EXISTS idx_templates_type ON notification_templates(type);
+CREATE INDEX IF NOT EXISTS idx_templates_channel ON notification_templates(channel);
