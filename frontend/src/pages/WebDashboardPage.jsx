@@ -21,6 +21,7 @@ const NAV_SECTIONS = {
   ],
   platform: [
     { icon: '</>', label: 'Developers', id: 'developers' },
+    { icon: '💳', label: 'Billing', id: 'billing' },
     { icon: '⚙️', label: 'Settings', id: 'settings' },
   ],
 };
@@ -1098,6 +1099,128 @@ function DevelopersView() {
   );
 }
 
+// ── Billing View ─────────────────────────────────────────────────────────────
+function BillingView() {
+  const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [tab, setTab] = useState('Overview');
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
+
+  const fetchMetrics = async () => {
+    try {
+      const res = await fetch('/api/payments/metrics');
+      const data = await res.json();
+      if (data.success) {
+        setMetrics(data.data);
+        setError(null);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total Revenue', value: `₦${(metrics?.payments?.totalRevenue || 0).toLocaleString()}`, color: '#34D399' },
+          { label: 'MRR', value: `₦${(metrics?.subscriptions?.mrr || 0).toLocaleString()}`, color: '#FFC72C' },
+          { label: 'Active Subs', value: metrics?.subscriptions?.totalActive || 0, color: '#60A5FA' },
+          { label: 'Pending', value: `₦${(metrics?.invoices?.pendingAmount || 0).toLocaleString()}`, color: '#F87171' }
+        ].map((s, i) => (
+          <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{s.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, background: '#13141A', borderRadius: 10, padding: 4, marginBottom: 20 }}>
+        {['Overview', 'Payments', 'Invoices', 'Subscriptions'].map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            flex: 1, padding: '8px 12px', borderRadius: 7, border: 'none',
+            background: tab === t ? '#FFFFFF0F' : 'transparent',
+            color: tab === t ? '#FFFFFF' : '#A1A1A6',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{ background: '#F87171', color: '#000', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12, fontWeight: 700 }}>
+          {error}
+          <button onClick={fetchMetrics} style={{ marginLeft: 'auto', background: '#000', color: '#F87171', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>Retry</button>
+        </div>
+      )}
+
+      {tab === 'Overview' && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Transactions</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Total</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FFC72C' }}>{metrics?.payments?.totalTransactions || 0}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Failed</div><div style={{ fontSize: 18, fontWeight: 800, color: '#F87171' }}>{metrics?.payments?.failedCount || 0}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Avg Amount</div><div style={{ fontSize: 18, fontWeight: 800, color: '#34D399' }}>₦{(metrics?.payments?.avgTransaction || 0).toLocaleString()}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Pending</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FCD34D' }}>{metrics?.payments?.pendingCount || 0}</div></div>
+            </div>
+          </div>
+
+          <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Invoice Summary</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Total</div><div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>{metrics?.invoices?.total || 0}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Paid</div><div style={{ fontSize: 16, fontWeight: 800, color: '#34D399' }}>₦{(metrics?.invoices?.paidAmount || 0).toLocaleString()}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Overdue</div><div style={{ fontSize: 16, fontWeight: 800, color: '#F87171' }}>₦{(metrics?.invoices?.overdueAmount || 0).toLocaleString()}</div></div>
+            </div>
+          </div>
+
+          <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Revenue Trend</div>
+            {!loading && metrics?.monthlyTrend && metrics.monthlyTrend.length > 0 ? (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {metrics.monthlyTrend.slice(0, 6).map((m, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span style={{ color: '#A1A1A6' }}>{new Date(m.month).toLocaleDateString('en-US', { year: '2-digit', month: 'short' })}</span>
+                    <span style={{ color: '#34D399', fontWeight: 700 }}>₦{(m.revenue || 0).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: '#A1A1A6', fontSize: 12 }}>No revenue data yet</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'Payments' && (
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', color: '#A1A1A6', textAlign: 'center' }}>
+          Payment management coming soon. View and reconcile payments here.
+        </div>
+      )}
+
+      {tab === 'Invoices' && (
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', color: '#A1A1A6', textAlign: 'center' }}>
+          Invoice management coming soon. Create and send invoices here.
+        </div>
+      )}
+
+      {tab === 'Subscriptions' && (
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', color: '#A1A1A6', textAlign: 'center' }}>
+          Subscription management coming soon. Manage subscriptions and tiers here.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Settings View ────────────────────────────────────────────────────────────
 function SettingsView() {
   return (
@@ -1140,6 +1263,7 @@ export default function WebDashboardPage() {
       case 'business': return <BusinessView />;
       case 'corporate': return <CorporateView />;
       case 'developers': return <DevelopersView />;
+      case 'billing': return <BillingView />;
       case 'settings': return <SettingsView />;
       default: return <OverviewView {...props} />;
     }

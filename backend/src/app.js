@@ -31,6 +31,7 @@ import developerEnhancedRoutes from './routes/developerEnhancedRoutes.js';
 import agentApplicationRoutes from './routes/agentApplicationRoutes.js';
 import emergencyDispatchRoutes from './routes/emergencyDispatchRoutes.js';
 import businessAnalyticsRoutes from './routes/businessAnalyticsRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 
 dotenv.config();
 
@@ -97,6 +98,7 @@ app.use('/api/admin/moderation', moderationRoutes);
 app.use('/api/government', governmentRoutes);
 app.use('/api/developers/enhanced', developerEnhancedRoutes);
 app.use('/api/business', businessAnalyticsRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api', agentApplicationRoutes);
 app.use('/', seoRoutes); // Mount SEO routes at root or as needed
 

@@ -538,3 +538,69 @@ CREATE INDEX IF NOT EXISTS idx_api_usage_logs_api_key_id ON api_usage_logs(api_k
 CREATE INDEX IF NOT EXISTS idx_api_usage_logs_endpoint ON api_usage_logs(endpoint);
 CREATE INDEX IF NOT EXISTS idx_api_usage_logs_created_at ON api_usage_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_api_usage_logs_tier ON api_usage_logs(tier);
+
+-- Payments Table
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES user_profiles(id),
+    developer_id INTEGER REFERENCES developer_accounts(id),
+    amount BIGINT NOT NULL,
+    currency VARCHAR(3) DEFAULT 'NGN',
+    method VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+    reference VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    metadata JSONB,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Invoices Table
+CREATE TABLE IF NOT EXISTS invoices (
+    id SERIAL PRIMARY KEY,
+    developer_id INTEGER REFERENCES developer_accounts(id),
+    invoice_number VARCHAR(50) UNIQUE NOT NULL,
+    amount BIGINT NOT NULL,
+    currency VARCHAR(3) DEFAULT 'NGN',
+    status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid', 'overdue', 'cancelled')),
+    due_date TIMESTAMP,
+    description TEXT,
+    items JSONB,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Subscriptions Table
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id SERIAL PRIMARY KEY,
+    developer_id INTEGER REFERENCES developer_accounts(id) UNIQUE,
+    tier VARCHAR(50) NOT NULL CHECK (tier IN ('free', 'pro', 'enterprise')),
+    billing_cycle VARCHAR(20) DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'annual')),
+    amount BIGINT NOT NULL,
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'suspended')),
+    start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    next_billing_date TIMESTAMP,
+    cancelled_date TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for payments
+CREATE INDEX IF NOT EXISTS idx_payments_developer_id ON payments(developer_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_reference ON payments(reference);
+CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC);
+
+-- Create indexes for invoices
+CREATE INDEX IF NOT EXISTS idx_invoices_developer_id ON invoices(developer_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC);
+
+-- Create indexes for subscriptions
+CREATE INDEX IF NOT EXISTS idx_subscriptions_developer_id ON subscriptions(developer_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_tier ON subscriptions(tier);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing ON subscriptions(next_billing_date);
