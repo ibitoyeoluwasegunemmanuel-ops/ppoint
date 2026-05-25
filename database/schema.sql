@@ -437,3 +437,30 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 INSERT INTO user_profiles (full_name, phone_number, email)
 VALUES ('Ibitoye Oluwasegun Emmanuel', '+2349076530908', 'emmanuel@ppoint.africa')
 ON CONFLICT (phone_number) DO NOTHING;
+
+-- Agent Applications Table
+CREATE TABLE IF NOT EXISTS agent_applications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES user_profiles(id),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    country VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    experience INTEGER NOT NULL,
+    references TEXT,
+    documents JSONB DEFAULT '[]'::jsonb,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    score INTEGER,
+    applied_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_by VARCHAR(255),
+    review_date TIMESTAMP,
+    notes TEXT
+);
+
+-- Create indexes for agent applications
+CREATE INDEX IF NOT EXISTS idx_agent_applications_status ON agent_applications(status);
+CREATE INDEX IF NOT EXISTS idx_agent_applications_user_id ON agent_applications(user_id);
+CREATE INDEX IF NOT EXISTS idx_agent_applications_country ON agent_applications(country);
+CREATE INDEX IF NOT EXISTS idx_agent_applications_applied_date ON agent_applications(applied_date DESC);
