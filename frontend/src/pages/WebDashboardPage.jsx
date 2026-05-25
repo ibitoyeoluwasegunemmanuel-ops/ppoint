@@ -835,20 +835,55 @@ function GovernmentView() {
 // ── Business View ────────────────────────────────────────────────────────────
 function BusinessView() {
   const [tab, setTab] = useState('Overview');
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('/api/business/stats');
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+        setError(null);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const devCount = stats?.developers?.total || 0;
+  const freeCount = stats?.developers?.free || 0;
+  const proCount = stats?.developers?.pro || 0;
+  const enterpriseCount = stats?.developers?.enterprise || 0;
+  const totalRequests = (stats?.apiUsage?.free?.requests || 0) + (stats?.apiUsage?.pro?.requests || 0) + (stats?.apiUsage?.enterprise?.requests || 0);
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        {[{ label: 'API Calls', value: '24,651' }, { label: 'Deliveries', value: '1,432' }, { label: 'Verified', value: '892' }, { label: 'Revenue', value: '₦142k' }].map((s, i) => (
+        {[
+          { label: 'Total Developers', value: devCount, color: '#FFC72C' },
+          { label: 'API Requests', value: totalRequests.toLocaleString(), color: '#34D399' },
+          { label: 'Pro Tier', value: proCount, color: '#FB923C' },
+          { label: 'Enterprise', value: enterpriseCount, color: '#A78BFA' }
+        ].map((s, i) => (
           <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{s.label}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF' }}>{s.value}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: 'flex', gap: 4, background: '#13141A', borderRadius: 10, padding: 4, marginBottom: 20 }}>
-        {['Overview', 'API', 'Verify', 'Deliveries'].map(t => (
+        {['Overview', 'By Tier', 'Top Developers', 'Performance'].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             flex: 1, padding: '8px 12px', borderRadius: 7, border: 'none',
             background: tab === t ? '#FFFFFF0F' : 'transparent',
@@ -858,15 +893,51 @@ function BusinessView() {
         ))}
       </div>
 
-      {tab === 'Overview' && (
-        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A1A1A6' }}>
-          Weekly API Usage Chart Placeholder
+      {error && (
+        <div style={{ background: '#F87171', color: '#000', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12, fontWeight: 700 }}>
+          {error}
+          <button onClick={fetchStats} style={{ marginLeft: 'auto', background: '#000', color: '#F87171', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>Retry</button>
         </div>
       )}
-      {tab === 'API' && (
+
+      {tab === 'Overview' && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Free Tier</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Users</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FFC72C' }}>{freeCount}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Requests</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FFC72C' }}>{(stats?.apiUsage?.free?.requests || 0).toLocaleString()}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Avg Response</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FFC72C' }}>{stats?.apiUsage?.free?.avgResponseTime || 0}ms</div></div>
+            </div>
+          </div>
+          <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '20px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>Pro Tier</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Users</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FB923C' }}>{proCount}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Requests</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FB923C' }}>{(stats?.apiUsage?.pro?.requests || 0).toLocaleString()}</div></div>
+              <div><div style={{ fontSize: 11, color: '#A1A1A6' }}>Avg Response</div><div style={{ fontSize: 18, fontWeight: 800, color: '#FB923C' }}>{stats?.apiUsage?.pro?.avgResponseTime || 0}ms</div></div>
+            </div>
+          </div>
+        </div>
+      )}
+      {tab === 'By Tier' && (
         <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#A1A1A6', marginBottom: 8 }}>pk_live_abc123... (Live)</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#A1A1A6' }}>pk_test_def456... (Test)</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>Tier Distribution</div>
+          {['Free', 'Pro', 'Enterprise'].map((tier, i) => {
+            const count = tier === 'Free' ? freeCount : tier === 'Pro' ? proCount : enterpriseCount;
+            const percent = devCount > 0 ? (count / devCount * 100) : 0;
+            return (
+              <div key={i} style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: '#FFFFFF' }}>{tier}</span>
+                  <span style={{ fontSize: 12, color: '#A1A1A6' }}>{count} ({percent.toFixed(0)}%)</span>
+                </div>
+                <div style={{ height: 4, background: '#1A1B21', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: tier === 'Free' ? '#FFC72C' : tier === 'Pro' ? '#FB923C' : '#A78BFA', width: `${percent}%` }} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -896,12 +967,59 @@ function CorporateView() {
 
 // ── Developers View ──────────────────────────────────────────────────────────
 function DevelopersView() {
-  const [tab, setTab] = useState('API Keys');
+  const [tab, setTab] = useState('Developers');
+  const [developers, setDevelopers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedDev, setSelectedDev] = useState(null);
+
+  useEffect(() => {
+    fetchDevelopers();
+  }, []);
+
+  const fetchDevelopers = async () => {
+    try {
+      const res = await fetch('/api/business/developers');
+      const data = await res.json();
+      if (data.success) {
+        setDevelopers(data.data.developers || []);
+        setError(null);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (e) {
+      setError(e.message);
+      setDevelopers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const getTierColor = (tier) => {
+    const colors = { free: '#FFC72C', pro: '#FB923C', enterprise: '#A78BFA' };
+    return colors[tier] || '#FFC72C';
+  };
 
   return (
     <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+        {[{ label: 'Total Developers', value: developers.length, icon: '👥' }, { label: 'API Keys Active', value: developers.filter(d => d.status === 'active').length, icon: '🔑' }, { label: 'Avg Response', value: '45ms', icon: '⚡' }].map((s, i) => (
+          <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{s.label}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#FFC72C' }}>{s.value}</div>
+              <span style={{ fontSize: 16 }}>{s.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ display: 'flex', gap: 4, background: '#13141A', borderRadius: 10, padding: 4, marginBottom: 20 }}>
-        {['API Keys', 'Webhooks', 'SDK Docs', 'Logs'].map(t => (
+        {['Developers', 'API Docs', 'Webhooks', 'Logs'].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             flex: 1, padding: '8px 12px', borderRadius: 7, border: 'none',
             background: tab === t ? '#FFFFFF0F' : 'transparent',
@@ -911,24 +1029,69 @@ function DevelopersView() {
         ))}
       </div>
 
-      {tab === 'API Keys' && (
-        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
-          {['pk_live_abc123...', 'pk_test_def456...'].map((k, i) => (
-            <div key={i} style={{ padding: '12px 0', borderBottom: i === 0 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontFamily: PP.mono, fontSize: 12, color: '#FFC72C' }}>{k}</div>
-              <button style={{ width: 34, height: 34, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.06)', color: '#A1A1A6', cursor: 'pointer' }}>Copy</button>
-            </div>
-          ))}
+      {error && (
+        <div style={{ background: '#F87171', color: '#000', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12, fontWeight: 700 }}>
+          {error}
+          <button onClick={fetchDevelopers} style={{ marginLeft: 'auto', background: '#000', color: '#F87171', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>Retry</button>
+        </div>
+      )}
+
+      {tab === 'Developers' && (
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
+          {loading ? (
+            <div style={{ padding: 20, textAlign: 'center', color: '#A1A1A6' }}>Loading developers...</div>
+          ) : developers.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', color: '#A1A1A6' }}>No developers yet</div>
+          ) : (
+            developers.map((dev, i) => (
+              <div key={i} onClick={() => setSelectedDev(dev)} style={{ padding: '14px 16px', borderBottom: i < developers.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.background = '#16171D'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>{dev.business_name}</div>
+                  <div style={{ fontSize: 11, color: '#A1A1A6' }}>{dev.email}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ background: getTierColor(dev.tier), color: '#000', padding: '4px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700 }}>
+                    {dev.tier.toUpperCase()}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+      {tab === 'API Docs' && (
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', fontFamily: PP.mono, fontSize: 12, color: '#34D399' }}>
+          <div>// ppoint API SDK</div>
+          <div>import ppoint from "@ppoint/sdk"</div>
+          <div><br /></div>
+          <div>const client = ppoint.Client({`{`}</div>
+          <div style={{ paddingLeft: 20 }}>apiKey: "ppt_live_xxxxx"</div>
+          <div>{`}`})</div>
+          <div><br /></div>
+          <div>// Reverse geocoding example</div>
+          <div>const address = await client.address.reverse({`{`}</div>
+          <div style={{ paddingLeft: 20 }}>lat: 6.5244, lng: 3.3792</div>
+          <div>{`}`})</div>
         </div>
       )}
       {tab === 'Webhooks' && (
         <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', color: '#A1A1A6' }}>
-          1 active webhook • 1245 deliveries • 3 failures
+          Configure webhooks to receive real-time updates on address verifications, agent applications, and emergency incidents.
         </div>
       )}
-      {tab === 'SDK Docs' && (
-        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', fontFamily: PP.mono, fontSize: 12, color: '#A1A1A6' }}>
-          import ppoint from "@ppoint/sdk"
+
+      {selectedDev && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#0A0B0D', borderRadius: 14, padding: 20, maxWidth: 500, width: '90%', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+              {selectedDev.business_name}
+              <button onClick={() => setSelectedDev(null)} style={{ background: 'none', border: 'none', color: '#FFFFFF', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: '#A1A1A6', marginBottom: 4 }}>EMAIL</div><div style={{ fontSize: 12, color: '#FFFFFF' }}>{selectedDev.email}</div></div>
+            <div style={{ marginBottom: 12 }}><div style={{ fontSize: 11, color: '#A1A1A6', marginBottom: 4 }}>TIER</div><div style={{ background: getTierColor(selectedDev.tier), color: '#000', padding: '4px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, display: 'inline-block' }}>{selectedDev.tier.toUpperCase()}</div></div>
+            <div style={{ marginBottom: 16 }}><div style={{ fontSize: 11, color: '#A1A1A6', marginBottom: 4 }}>API KEY</div><div style={{ background: '#1A1B21', padding: 10, borderRadius: 8, fontFamily: PP.mono, fontSize: 11, color: '#FFC72C', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>{selectedDev.api_key}<button onClick={() => copyToClipboard(selectedDev.api_key)} style={{ background: 'none', border: 'none', color: '#FFC72C', cursor: 'pointer', fontSize: 12 }}>📋</button></div></div>
+            <button onClick={() => setSelectedDev(null)} style={{ width: '100%', padding: '10px', background: '#FFC72C', color: '#0A0B0D', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Close</button>
+          </div>
         </div>
       )}
     </div>
