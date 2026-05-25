@@ -25,6 +25,9 @@ import SettingsPage from './pages/SettingsPage';
 import LibraryPage from './pages/LibraryPage';
 import GovernmentPortalPage from './pages/GovernmentPortalPage';
 import WebDashboardPage from './pages/WebDashboardPage';
+import AnalyticsDashboardPage from './pages/AnalyticsDashboardPage';
+import NotificationCenterPage from './pages/NotificationCenterPage';
+import AdminSuperDashboardPage from './pages/AdminSuperDashboardPage';
 
 function App() {
   useEffect(() => {
@@ -62,6 +65,11 @@ function App() {
         <Route path="/p/:code" element={<WebAppShell><AddressPage /></WebAppShell>} />
         <Route path="/:code" element={<WebAppShell><AddressPage /></WebAppShell>} />
         <Route path="/ussd" element={<WebAppShell><USSDAccessPage /></WebAppShell>} />
+
+        {/* Analytics, Notifications, Admin Super Dashboard */}
+        <Route path="/analytics" element={<AnalyticsDashboardPage />} />
+        <Route path="/notifications" element={<NotificationCenterPage />} />
+        <Route path="/admin/super" element={<AdminSuperDashboardPage />} />
 
         {/* Admin & developer (separate UX) */}
         <Route path="/admin" element={<AdminDashboard />} />
