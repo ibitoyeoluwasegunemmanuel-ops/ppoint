@@ -704,3 +704,36 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created
 -- Create indexes for templates
 CREATE INDEX IF NOT EXISTS idx_templates_type ON notification_templates(type);
 CREATE INDEX IF NOT EXISTS idx_templates_channel ON notification_templates(channel);
+
+-- Address Verification Table
+CREATE TABLE IF NOT EXISTS address_verification (
+    id SERIAL PRIMARY KEY,
+    address_code VARCHAR(255) NOT NULL UNIQUE,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'rejected')),
+    confidence DECIMAL(3, 2) DEFAULT 0,
+    verification_method VARCHAR(100),
+    verified_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Analytics Events Table
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id SERIAL PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    user_id INTEGER REFERENCES user_profiles(id),
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for address verification
+CREATE INDEX IF NOT EXISTS idx_address_verification_code ON address_verification(address_code);
+CREATE INDEX IF NOT EXISTS idx_address_verification_status ON address_verification(status);
+CREATE INDEX IF NOT EXISTS idx_address_verification_created_at ON address_verification(created_at DESC);
+
+-- Create indexes for analytics events
+CREATE INDEX IF NOT EXISTS idx_analytics_events_event_type ON analytics_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user_id ON analytics_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at DESC);
