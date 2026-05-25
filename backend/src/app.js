@@ -29,6 +29,8 @@ import moderationRoutes from './routes/moderationRoutes.js';
 import governmentRoutes from './routes/governmentRoutes.js';
 import developerEnhancedRoutes from './routes/developerEnhancedRoutes.js';
 import agentApplicationRoutes from './routes/agentApplicationRoutes.js';
+import emergencyDispatchRoutes from './routes/emergencyDispatchRoutes.js';
+import businessAnalyticsRoutes from './routes/businessAnalyticsRoutes.js';
 
 dotenv.config();
 
@@ -90,9 +92,11 @@ app.use('/api/property', propertyRoutes);
 app.use('/api/delivery', deliveryProofRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/emergency-dispatch', emergencyDispatchRoutes);
 app.use('/api/admin/moderation', moderationRoutes);
 app.use('/api/government', governmentRoutes);
 app.use('/api/developers/enhanced', developerEnhancedRoutes);
+app.use('/api/business', businessAnalyticsRoutes);
 app.use('/api', agentApplicationRoutes);
 app.use('/', seoRoutes); // Mount SEO routes at root or as needed
 

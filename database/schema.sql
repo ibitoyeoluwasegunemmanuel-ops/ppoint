@@ -464,3 +464,77 @@ CREATE INDEX IF NOT EXISTS idx_agent_applications_status ON agent_applications(s
 CREATE INDEX IF NOT EXISTS idx_agent_applications_user_id ON agent_applications(user_id);
 CREATE INDEX IF NOT EXISTS idx_agent_applications_country ON agent_applications(country);
 CREATE INDEX IF NOT EXISTS idx_agent_applications_applied_date ON agent_applications(applied_date DESC);
+
+-- Emergency Incidents Table
+CREATE TABLE IF NOT EXISTS emergency_incidents (
+    id SERIAL PRIMARY KEY,
+    reporter_name VARCHAR(255) NOT NULL,
+    reporter_phone VARCHAR(20) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    incident_type VARCHAR(100) NOT NULL,
+    description TEXT,
+    severity VARCHAR(20) NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    status VARCHAR(50) DEFAULT 'reported' CHECK (status IN ('reported', 'assigned', 'in_progress', 'closed')),
+    dispatcher_id INTEGER,
+    dispatcher_name VARCHAR(255),
+    address VARCHAR(500),
+    resolution_notes TEXT,
+    assigned_at TIMESTAMP,
+    closed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for emergency incidents
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_status ON emergency_incidents(status);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_severity ON emergency_incidents(severity);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_created_at ON emergency_incidents(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_dispatcher_id ON emergency_incidents(dispatcher_id);
+CREATE INDEX IF NOT EXISTS idx_emergency_incidents_location ON emergency_incidents USING GIST(ll_to_earth(latitude, longitude));
+
+-- Developer Accounts Table
+CREATE TABLE IF NOT EXISTS developer_accounts (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES user_profiles(id),
+    business_name VARCHAR(255) NOT NULL,
+    website VARCHAR(255),
+    tier VARCHAR(50) DEFAULT 'free' CHECK (tier IN ('free', 'pro', 'enterprise')),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    contact_phone VARCHAR(20),
+    api_key VARCHAR(255) UNIQUE NOT NULL,
+    api_secret VARCHAR(255) NOT NULL,
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP
+);
+
+-- API Usage Logs Table
+CREATE TABLE IF NOT EXISTS api_usage_logs (
+    id SERIAL PRIMARY KEY,
+    api_key_id VARCHAR(255) NOT NULL,
+    endpoint VARCHAR(255) NOT NULL,
+    method VARCHAR(20),
+    status_code INTEGER,
+    response_time_ms INTEGER,
+    request_size INTEGER,
+    response_size INTEGER,
+    ip_address VARCHAR(45),
+    user_id INTEGER,
+    tier VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for developer accounts
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_api_key ON developer_accounts(api_key);
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_tier ON developer_accounts(tier);
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_created_at ON developer_accounts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_developer_accounts_status ON developer_accounts(status);
+
+-- Create indexes for API usage logs
+CREATE INDEX IF NOT EXISTS idx_api_usage_logs_api_key_id ON api_usage_logs(api_key_id);
+CREATE INDEX IF NOT EXISTS idx_api_usage_logs_endpoint ON api_usage_logs(endpoint);
+CREATE INDEX IF NOT EXISTS idx_api_usage_logs_created_at ON api_usage_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_api_usage_logs_tier ON api_usage_logs(tier);
