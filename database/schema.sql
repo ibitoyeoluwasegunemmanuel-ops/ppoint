@@ -604,3 +604,64 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_developer_id ON subscriptions(devel
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_tier ON subscriptions(tier);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_next_billing ON subscriptions(next_billing_date);
+
+-- Government Hierarchy Table
+CREATE TABLE IF NOT EXISTS government_hierarchy (
+    id SERIAL PRIMARY KEY,
+    level VARCHAR(50) NOT NULL CHECK (level IN ('continent', 'country', 'state', 'city', 'area')),
+    parent_id INTEGER REFERENCES government_hierarchy(id),
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    country VARCHAR(100),
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    type VARCHAR(100),
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Government Agents Table
+CREATE TABLE IF NOT EXISTS government_agents (
+    id SERIAL PRIMARY KEY,
+    region_id INTEGER REFERENCES government_hierarchy(id),
+    agent_id VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    role VARCHAR(100) NOT NULL,
+    department VARCHAR(255),
+    level VARCHAR(50),
+    jurisdiction VARCHAR(100),
+    status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Government Metrics Table
+CREATE TABLE IF NOT EXISTS government_metrics (
+    id SERIAL PRIMARY KEY,
+    region_id INTEGER REFERENCES government_hierarchy(id),
+    metric_type VARCHAR(100) NOT NULL,
+    value BIGINT,
+    category VARCHAR(100),
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for government hierarchy
+CREATE INDEX IF NOT EXISTS idx_gov_hierarchy_level ON government_hierarchy(level);
+CREATE INDEX IF NOT EXISTS idx_gov_hierarchy_parent_id ON government_hierarchy(parent_id);
+CREATE INDEX IF NOT EXISTS idx_gov_hierarchy_country ON government_hierarchy(country);
+CREATE INDEX IF NOT EXISTS idx_gov_hierarchy_code ON government_hierarchy(code);
+
+-- Create indexes for government agents
+CREATE INDEX IF NOT EXISTS idx_gov_agents_region_id ON government_agents(region_id);
+CREATE INDEX IF NOT EXISTS idx_gov_agents_role ON government_agents(role);
+CREATE INDEX IF NOT EXISTS idx_gov_agents_status ON government_agents(status);
+CREATE INDEX IF NOT EXISTS idx_gov_agents_email ON government_agents(email);
+
+-- Create indexes for government metrics
+CREATE INDEX IF NOT EXISTS idx_gov_metrics_region_id ON government_metrics(region_id);
+CREATE INDEX IF NOT EXISTS idx_gov_metrics_metric_type ON government_metrics(metric_type);
+CREATE INDEX IF NOT EXISTS idx_gov_metrics_created_at ON government_metrics(created_at DESC);

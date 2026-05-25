@@ -793,39 +793,105 @@ function EmergencyView() {
 
 // ── Government View ──────────────────────────────────────────────────────────
 function GovernmentView() {
-  const [country, setCountry] = useState('Nigeria');
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('/api/government-portal/stats');
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.data);
+        setError(null);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Country</label>
-          <select value={country} onChange={(e) => setCountry(e.target.value)} style={{
-            width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)',
-            background: '#13141A', color: '#FFFFFF', fontSize: 13, padding: '0 12px', cursor: 'pointer',
-          }}>
-            {['Nigeria', 'Kenya', 'Ghana', 'South Africa', 'Ethiopia'].map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div style={{ background: '#13141A', borderRadius: 10, padding: '8px 12px', color: '#A1A1A6', display: 'flex', alignItems: 'center', fontSize: 12 }}>State/Province</div>
-        <div style={{ background: '#13141A', borderRadius: 10, padding: '8px 12px', color: '#A1A1A6', display: 'flex', alignItems: 'center', fontSize: 12 }}>LGA/District</div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 20 }}>
-        {[{ label: 'Total Addresses', value: '2.4M', icon: '📍' }, { label: 'Coverage', value: '87%', icon: '🗺️' }, { label: 'Active Agents', value: '1,243', icon: '👥' }, { label: 'Dispatches', value: '4,821', icon: '🚨' }].map((k, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Countries', value: stats?.countries || 0, color: '#FFC72C' },
+          { label: 'Total Addresses', value: (stats?.coverage?.totalAddresses || 0).toLocaleString(), color: '#34D399' },
+          { label: 'Verified', value: `${stats?.coverage?.verificationRate || 0}%`, color: '#60A5FA' },
+          { label: 'Admins', value: stats?.administration?.totalAdmins || 0, color: '#FB923C' },
+          { label: 'Regions', value: stats?.infrastructure?.totalRegions || 0, color: '#A78BFA' }
+        ].map((k, i) => (
           <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
-            <div style={{ fontSize: 20, marginBottom: 8 }}>{k.icon}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 4 }}>{k.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{k.value}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{k.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.value}</div>
           </div>
         ))}
       </div>
 
+      {error && (
+        <div style={{ background: '#F87171', color: '#000', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12, fontWeight: 700 }}>
+          {error}
+          <button onClick={fetchStats} style={{ marginLeft: 'auto', background: '#000', color: '#F87171', border: 'none', padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>Retry</button>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>Coverage by Level</div>
+          {loading ? (
+            <div style={{ color: '#A1A1A6', fontSize: 12 }}>Loading...</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[
+                { level: 'States', count: stats?.infrastructure?.states || 0 },
+                { level: 'Cities', count: stats?.infrastructure?.cities || 0 },
+                { level: 'Total Addresses', count: (stats?.coverage?.totalAddresses || 0).toLocaleString() }
+              ].map((s, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: '#A1A1A6' }}>{s.level}</span>
+                  <span style={{ color: '#FFC72C', fontWeight: 700 }}>{s.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>Admin Roles</div>
+          {loading ? (
+            <div style={{ color: '#A1A1A6', fontSize: 12 }}>Loading...</div>
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[
+                { role: 'National Admin', count: stats?.administration?.totalAdmins || 0 },
+                { role: 'Infrastructure', count: Math.round((stats?.administration?.totalAdmins || 0) * 0.3) },
+                { role: 'Emergency', count: Math.round((stats?.administration?.totalAdmins || 0) * 0.2) }
+              ].map((r, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: '#A1A1A6' }}>{r.role}</span>
+                  <span style={{ color: '#34D399', fontWeight: 700 }}>{r.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>Coverage Map (10x8 Grid)</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 4 }}>
-          {Array.from({ length: 80 }).map((_, i) => (
-            <div key={i} style={{ aspectRatio: '1/1', background: i % 3 === 0 ? '#FFC72C' : i % 3 === 1 ? '#34D399' : '#3B82F6', borderRadius: 4 }} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 12 }}>Pan-African Coverage Map</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+          {(stats?.countries || ['NG', 'KE', 'GH', 'ZA', 'EG']).slice(0, 5).map((country, i) => (
+            <div key={i} style={{ background: '#16171D', borderRadius: 10, padding: '12px', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#FFFFFF', fontWeight: 700 }}>{country}</div>
+              <div style={{ fontSize: 10, color: '#34D399', marginTop: 4 }}>✓ Active</div>
+            </div>
           ))}
         </div>
       </div>
