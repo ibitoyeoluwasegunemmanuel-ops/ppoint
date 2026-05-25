@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PP } from '../styles/tokens';
 
@@ -52,6 +52,236 @@ const Icons = {
   copy: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.8"/></svg>,
   arrow: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 };
+
+// ── Application Modal ──────────────────────────────────────────────────────
+function ApplicationModal({ onClose, onSuccess }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    country: 'Nigeria',
+    state: '',
+    experience: '0',
+    references: '',
+    documents: []
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/agent-applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          experience: parseInt(formData.experience, 10)
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit application');
+      }
+
+      setSuccess(true);
+      setTimeout(() => {
+        onSuccess();
+      }, 1500);
+    } catch (err) {
+      setError(err.message || 'Failed to submit application');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+        <div style={{ background: '#13141A', borderRadius: 16, padding: '40px', textAlign: 'center', maxWidth: 400, animation: 'fadeIn 0.3s ease' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#FFFFFF', marginBottom: 8 }}>Application Submitted!</div>
+          <div style={{ fontSize: 13, color: '#A1A1A6', marginBottom: 20 }}>Your application has been received. We'll review it and get back to you soon.</div>
+          <div style={{ fontSize: 12, color: '#34D399', fontWeight: 700 }}>Redirecting...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.2s ease' }}>
+      <div style={{ background: '#13141A', borderRadius: 16, border: '1px solid rgba(255,255,255,0.07)', maxWidth: 500, width: '90%', maxHeight: '90vh', overflowY: 'auto', animation: 'slideUp 0.3s ease' }}>
+        {/* Header */}
+        <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#FFFFFF' }}>Apply as Agent</div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.06)', color: '#A1A1A6', cursor: 'pointer', fontSize: 18 }}>
+            ✕
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Name */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>Full Name *</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '0 12px', fontFamily: PP.font }}
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>Email *</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '0 12px', fontFamily: PP.font }}
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>Phone *</label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              required
+              style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '0 12px', fontFamily: PP.font }}
+            />
+          </div>
+
+          {/* Country & State */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>Country *</label>
+              <select
+                name="country"
+                value={formData.country}
+                onChange={handleChange}
+                style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '0 12px', fontFamily: PP.font, cursor: 'pointer' }}
+              >
+                <option value="Nigeria">Nigeria</option>
+                <option value="Kenya">Kenya</option>
+                <option value="Ghana">Ghana</option>
+                <option value="South Africa">South Africa</option>
+                <option value="Ethiopia">Ethiopia</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>State/Province *</label>
+              <input
+                type="text"
+                name="state"
+                value={formData.state}
+                onChange={handleChange}
+                required
+                placeholder="e.g., Lagos"
+                style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '0 12px', fontFamily: PP.font }}
+              />
+            </div>
+          </div>
+
+          {/* Experience */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>Years of Experience *</label>
+            <select
+              name="experience"
+              value={formData.experience}
+              onChange={handleChange}
+              style={{ width: '100%', height: 40, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '0 12px', fontFamily: PP.font, cursor: 'pointer' }}
+            >
+              {[0, 1, 2, 3, 4, 5, 10, 15, 20].map(y => (
+                <option key={y} value={y}>{y === 0 ? 'Less than 1 year' : y === 20 ? '20+ years' : y + ' years'}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* References */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>References (one per line)</label>
+            <textarea
+              name="references"
+              value={formData.references}
+              onChange={handleChange}
+              placeholder="Company name, individual, or organization&#10;One per line"
+              style={{ width: '100%', height: 80, borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)', background: '#0F1015', color: '#FFFFFF', fontSize: 13, padding: '10px 12px', fontFamily: PP.mono, resize: 'none' }}
+            />
+          </div>
+
+          {/* Documents */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.60)', display: 'block', marginBottom: 6 }}>Documents (optional)</label>
+            <div style={{ borderRadius: 10, border: '2px dashed rgba(255,255,255,0.07)', padding: '20px', textAlign: 'center', background: '#0F1015', cursor: 'pointer', transition: 'all 0.2s' }}>
+              <div style={{ fontSize: 14 }}>📄</div>
+              <div style={{ fontSize: 12, color: '#A1A1A6', marginTop: 8 }}>Click to upload files (mock)</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', marginTop: 4 }}>License, certifications, ID documents</div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{ background: '#F871711A', border: '1px solid #F87171', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#F87171', fontWeight: 700 }}>
+              ⚠ {error}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%', height: 44, borderRadius: 10, border: 'none', background: '#FFC72C', color: '#0A0B0D',
+              fontSize: 13, fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
+              transition: 'all 0.2s'
+            }}
+          >
+            {loading ? '⏳ Submitting...' : '✓ Submit Application'}
+          </button>
+        </form>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideIn {
+          from { transform: translateX(100px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 // ── Overview View ──────────────────────────────────────────────────────────
 function OverviewView({ selectedAddress, setSelectedAddress }) {
@@ -202,32 +432,164 @@ function AddressesView() {
 
 // ── Agents View ──────────────────────────────────────────────────────────────
 function AgentsView() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [approvedAgents, setApprovedAgents] = useState([]);
+  const [pendingApplications, setPendingApplications] = useState([]);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch stats
+      const statsRes = await fetch('/api/agent-applications/stats');
+      if (!statsRes.ok) throw new Error('Failed to fetch stats');
+      const statsData = await statsRes.json();
+      setStats(statsData.data || { pending: 0, approved: 0, rejected: 0, total: 0 });
+
+      // Fetch approved agents
+      const agentsRes = await fetch('/api/agent-applications?status=approved');
+      if (!agentsRes.ok) throw new Error('Failed to fetch approved agents');
+      const agentsData = await agentsRes.json();
+      const agents = (agentsData.data || [])
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 3)
+        .map((agent, index) => ({
+          ...agent,
+          rank: index + 1
+        }));
+      setApprovedAgents(agents);
+
+      // Fetch pending applications
+      const pendingRes = await fetch('/api/agent-applications?status=pending');
+      if (!pendingRes.ok) throw new Error('Failed to fetch pending applications');
+      const pendingData = await pendingRes.json();
+      setPendingApplications((pendingData.data || []).slice(0, 5));
+    } catch (err) {
+      setError(err.message || 'Failed to load data');
+      console.error('Error fetching agent data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const SkeletonCard = () => (
+    <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px', animation: 'pulse 2s ease-in-out infinite' }}>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8, height: 12, background: '#1F2027', borderRadius: 4, width: '60%' }} />
+      <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF', height: 28, background: '#1F2027', borderRadius: 4 }} />
+    </div>
+  );
+
   return (
     <div>
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        {[{ label: 'Total Agents', value: '1,243' }, { label: 'Active Today', value: '89' }, { label: 'Applications', value: '24' }, { label: 'Total Earnings', value: '₦2.4M' }].map((s, i) => (
-          <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{s.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{s.value}</div>
-          </div>
-        ))}
+        {loading ? (
+          Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          [
+            { label: 'Total Agents', value: stats.total.toString() },
+            { label: 'Approved', value: stats.approved.toString() },
+            { label: 'Pending', value: stats.pending.toString() },
+            { label: 'Total Earnings', value: '₦2.4M' }
+          ].map((s, i) => (
+            <div key={i} style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '16px' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', fontWeight: 700, marginBottom: 8 }}>{s.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{s.value}</div>
+            </div>
+          ))
+        )}
       </div>
 
-      <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>Top Agents</div>
-        {mockAgents.map((a, i) => (
-          <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{a.rank}. {a.name}</div>
-              <div style={{ fontSize: 11, color: '#A1A1A6' }}>{a.country} • {a.created} created</div>
+      {/* Error Message */}
+      {error && (
+        <div style={{ background: '#F871711A', border: '1px solid #F87171', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 12, color: '#F87171', fontWeight: 700 }}>⚠ {error}</div>
+          <button onClick={fetchData} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#F87171', color: '#FFFFFF', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Top Agents */}
+      <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+        <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>🏆 Top Approved Agents</div>
+          <button onClick={() => setShowApplicationModal(true)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#FFC72C', color: '#0A0B0D', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            + Apply as Agent
+          </button>
+        </div>
+        {loading ? (
+          Array(3).fill(0).map((_, i) => (
+            <div key={i} style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', height: 60, background: '#0F1015' }} />
+          ))
+        ) : approvedAgents.length === 0 ? (
+          <div style={{ padding: '16px', color: '#A1A1A6', fontSize: 12, textAlign: 'center' }}>No approved agents yet</div>
+        ) : (
+          approvedAgents.map((a, i) => (
+            <div key={i} style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.2s', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.background = '#13141A'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{a.rank}. {a.name}</div>
+                <div style={{ fontSize: 11, color: '#A1A1A6' }}>{a.country} • {a.experience} years experience</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#34D399' }}>⭐ Score: {a.score || 0}</div>
+                <div style={{ fontSize: 11, color: '#A1A1A6' }}>Applied {new Date(a.appliedDate).toLocaleDateString()}</div>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#34D399' }}>{a.accuracy}% accuracy</div>
-              <div style={{ fontSize: 11, color: '#A1A1A6' }}>₦{a.earnings.toLocaleString()}</div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
+
+      {/* Pending Applications */}
+      <div style={{ background: '#13141A', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.07)', fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>📋 Pending Applications ({stats.pending})</div>
+        {loading ? (
+          Array(2).fill(0).map((_, i) => (
+            <div key={i} style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', height: 60, background: '#0F1015' }} />
+          ))
+        ) : pendingApplications.length === 0 ? (
+          <div style={{ padding: '16px', color: '#A1A1A6', fontSize: 12, textAlign: 'center' }}>No pending applications</div>
+        ) : (
+          pendingApplications.map((app, i) => (
+            <div key={i} style={{ padding: '16px', borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF' }}>{app.name}</div>
+                <div style={{ fontSize: 11, color: '#A1A1A6' }}>{app.country} • {app.experience} years • Score: {app.score || 0}</div>
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 700, background: '#FFC72C18', color: '#FFC72C', padding: '4px 8px', borderRadius: 6 }}>PENDING</div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#34D399', color: '#0A0B0D', padding: '12px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, animation: 'slideIn 0.3s ease' }}>
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Application Modal */}
+      {showApplicationModal && (
+        <ApplicationModal
+          onClose={() => setShowApplicationModal(false)}
+          onSuccess={() => {
+            setShowApplicationModal(false);
+            setToastMessage('Application submitted successfully!');
+            setTimeout(() => setToastMessage(''), 3000);
+            fetchData();
+          }}
+        />
+      )}
     </div>
   );
 }
