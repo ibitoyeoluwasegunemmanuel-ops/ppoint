@@ -36,6 +36,8 @@ import businessAnalyticsRoutes from './routes/businessAnalyticsRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import governmentPortalRoutes from './routes/governmentPortalRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import searchRoutes from './routes/searchRoutes.js';
+import exportRoutes from './routes/exportRoutes.js';
 
 dotenv.config();
 
@@ -103,6 +105,8 @@ app.use('/api/government', governmentRoutes);
 app.use('/api/government-portal', governmentPortalRoutes);
 app.use('/api/developers/enhanced', developerEnhancedRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/export', exportRoutes);
 app.use('/api/business', businessAnalyticsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);

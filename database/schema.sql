@@ -737,3 +737,21 @@ CREATE INDEX IF NOT EXISTS idx_address_verification_created_at ON address_verifi
 CREATE INDEX IF NOT EXISTS idx_analytics_events_event_type ON analytics_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user_id ON analytics_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at DESC);
+
+-- Scheduled Reports Table
+CREATE TABLE IF NOT EXISTS scheduled_reports (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES user_profiles(id),
+    report_type VARCHAR(50) NOT NULL,
+    filters JSONB,
+    recurrence VARCHAR(50) DEFAULT 'once',
+    active BOOLEAN DEFAULT true,
+    last_sent_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for scheduled reports
+CREATE INDEX IF NOT EXISTS idx_scheduled_reports_user_id ON scheduled_reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_reports_active ON scheduled_reports(active);
+CREATE INDEX IF NOT EXISTS idx_scheduled_reports_recurrence ON scheduled_reports(recurrence);
