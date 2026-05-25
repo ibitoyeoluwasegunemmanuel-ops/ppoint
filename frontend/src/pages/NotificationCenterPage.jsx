@@ -128,7 +128,7 @@ function NotificationCenterPage() {
     },
     statLabel: {
       fontSize: '12px',
-      color: PP.colors.textSecondary',
+      color: PP.colors.textSecondary,
       textTransform: 'uppercase',
       letterSpacing: '0.5px'
     },

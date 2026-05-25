@@ -212,7 +212,7 @@ function AdminSuperDashboardPage() {
     emptyState: {
       textAlign: 'center',
       padding: '48px 24px',
-      color: PP.colors.textSecondary'
+      color: PP.colors.textSecondary
     }
   };
 
